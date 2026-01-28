@@ -22,8 +22,13 @@ load_dotenv()
 # La configuración de GROQ está en las líneas 302-309
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", default="")  # Opcional, legacy
 
+# Directorio de logs (solo para desarrollo local)
 LOGS_DIR = os.path.join("logs")
-os.makedirs(LOGS_DIR, exist_ok=True)  # crea la carpeta automáticamente si no existe
+try:
+    os.makedirs(LOGS_DIR, exist_ok=True)
+except Exception:
+    LOGS_DIR = "/tmp/logs"
+    os.makedirs(LOGS_DIR, exist_ok=True)
 
 
 # Base del proyecto
@@ -277,61 +282,110 @@ if RAILWAY_PUBLIC_DOMAIN:
 
 
 # Logging
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "verbose": {
-            "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
-            "style": "{",
+# Configuración de logging condicional
+if DEBUG:
+    # En desarrollo: usar archivos de log
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "verbose": {
+                "format": "{levelname} {asctime} {module} {process:d} {thread:d} {message}",
+                "style": "{",
+            },
+            "json": {
+                "format": '{"level": "%(levelname)s", "time": "%(asctime)s", "module": "%(module)s", "message": "%(message)s"}',
+            },
         },
-        "json": {
-            "format": '{"level": "%(levelname)s", "time": "%(asctime)s", "module": "%(module)s", "message": "%(message)s"}',
+        "handlers": {
+            "file": {
+                "level": "INFO",
+                "class": "logging.FileHandler",
+                "filename": os.path.join(LOGS_DIR, "audit.log"),
+                "formatter": "verbose",
+            },
+            "security_file": {
+                "level": "WARNING",
+                "class": "logging.FileHandler",
+                "filename": os.path.join(LOGS_DIR, "security.log"),
+                "formatter": "json",
+            },
+            "audit_file": {
+                "level": "INFO",
+                "class": "logging.FileHandler",
+                "filename": os.path.join(LOGS_DIR, "audit.log"),
+                "formatter": "json",
+            },
+            "console": {
+                "level": "INFO",
+                "class": "logging.StreamHandler",
+                "formatter": "verbose",
+            },
         },
-    },
-    "handlers": {
-        "file": {
-            "level": "INFO",
-            "class": "logging.FileHandler",
-            "filename": os.path.join(LOGS_DIR, "audit.log"),
-            "formatter": "verbose",
+        "loggers": {
+            "django": {
+                "handlers": ["file", "console"],
+                "level": "INFO",
+                "propagate": True,
+            },
+            "security": {
+                "handlers": ["security_file"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            "audit": {
+                "handlers": ["audit_file"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "actas.email_service": {
+                "handlers": ["file"],
+                "level": "INFO",
+                "propagate": False,
+            },
         },
-        "security_file": {
-            "level": "WARNING",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs/security.log",
-            "formatter": "json",
+    }
+else:
+    # En producción (Railway): usar solo consola
+    LOGGING = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "verbose": {
+                "format": "{levelname} {asctime} {module} {message}",
+                "style": "{",
+            },
         },
-        "audit_file": {
-            "level": "INFO",
-            "class": "logging.FileHandler",
-            "filename": BASE_DIR / "logs/audit.log",
-            "formatter": "json",
+        "handlers": {
+            "console": {
+                "level": "INFO",
+                "class": "logging.StreamHandler",
+                "formatter": "verbose",
+            },
         },
-    },
-    "loggers": {
-        "django": {
-            "handlers": ["file"],
-            "level": "INFO",
-            "propagate": True,
+        "loggers": {
+            "django": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": True,
+            },
+            "security": {
+                "handlers": ["console"],
+                "level": "WARNING",
+                "propagate": False,
+            },
+            "audit": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
+            "actas.email_service": {
+                "handlers": ["console"],
+                "level": "INFO",
+                "propagate": False,
+            },
         },
-        "security": {
-            "handlers": ["security_file"],
-            "level": "WARNING",
-            "propagate": False,
-        },
-        "audit": {
-            "handlers": ["audit_file"],
-            "level": "INFO",
-            "propagate": False,
-        },
-        "actas.email_service": {
-            "handlers": ["file"],
-            "level": "INFO",
-            "propagate": False,
-        },
-    },
-}
+    }
 
 
 # URLs de login/logout
