@@ -63,6 +63,12 @@ ALLOWED_HOSTS += [
     '.up.railway.app',
 ]
 
+# AWS Elastic Beanstalk
+ALLOWED_HOSTS += [
+    '.elasticbeanstalk.com',
+    '.us-east-2.elasticbeanstalk.com',
+]
+
 # Si hay RAILWAY_STATIC_URL, estamos en Railway
 if os.environ.get('RAILWAY_STATIC_URL'):
     ALLOWED_HOSTS.append(os.environ.get('RAILWAY_STATIC_URL', '').replace('https://', '').replace('http://', '').split('/')[0])
@@ -256,16 +262,20 @@ BACKUP_KEEP_DAYS = 30
 # Sesiones
 SESSION_COOKIE_AGE = 86400  # 24 horas
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 
 # CSRF Protection
-CSRF_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = False  # Necesario para que JavaScript pueda leer el token
 CSRF_COOKIE_SAMESITE = "Lax"
+
+# En producción con HTTPS, activar cookies seguras
+# Por ahora, desactivado para EB sin SSL
+SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = False
 CSRF_TRUSTED_ORIGINS = [
     "https://localhost:8000",
+    "http://localhost:8000",
     "http://127.0.0.1:8000",
     "https://*.ngrok.io",           # URLs antiguas de ngrok
     "https://*.ngrok-free.app",     # URLs nuevas de ngrok (desde 2023)
@@ -273,6 +283,8 @@ CSRF_TRUSTED_ORIGINS = [
     "https://*.ngrok-free.dev",     # Variante adicional
     "https://*.railway.app",        # Railway
     "https://*.up.railway.app",     # Railway (variante)
+    "http://*.elasticbeanstalk.com",   # AWS Elastic Beanstalk (HTTP)
+    "https://*.elasticbeanstalk.com",  # AWS Elastic Beanstalk (HTTPS)
 ]
 
 # Agregar dominio personalizado de Railway si existe
