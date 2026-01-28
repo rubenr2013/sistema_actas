@@ -1,9 +1,8 @@
 [build]
-builder = "nixpacks"
-buildCommand = "cd sistema_actas && pip install -r requirements.txt && python manage.py collectstatic --noinput"
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
 
 [deploy]
-startCommand = "cd sistema_actas && python manage.py migrate --noinput && gunicorn sistema_actas.wsgi"
 healthcheckPath = "/"
 healthcheckTimeout = 300
 restartPolicyType = "ON_FAILURE"
