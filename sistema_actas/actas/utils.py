@@ -9,6 +9,7 @@ import re
 import html
 import threading
 import logging
+import os
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
@@ -22,6 +23,13 @@ try:
     BLEACH_AVAILABLE = True
 except ImportError:
     BLEACH_AVAILABLE = False
+
+# Intentar importar resend para envío de emails en cloud
+try:
+    import resend
+    RESEND_AVAILABLE = True
+except ImportError:
+    RESEND_AVAILABLE = False
 
 
 # =============================================================================
@@ -167,9 +175,39 @@ def generar_codigo_verificacion():
     return ''.join(random.choices(string.digits, k=6))
 
 
-def _enviar_email_en_hilo(asunto, mensaje, destinatario):
+def _enviar_con_resend(asunto, mensaje, destinatario, html_content=None):
     """
-    Función interna que envía el email (ejecutada en un hilo separado).
+    Envía email usando Resend API (para Railway y otros cloud).
+    """
+    try:
+        resend_api_key = os.environ.get('RESEND_API_KEY')
+        if not resend_api_key:
+            logger.error("RESEND_API_KEY no está configurada")
+            return False
+
+        resend.api_key = resend_api_key
+
+        params = {
+            "from": "Sistema Actas SENA <onboarding@resend.dev>",
+            "to": [destinatario],
+            "subject": asunto,
+            "text": mensaje,
+        }
+
+        if html_content:
+            params["html"] = html_content
+
+        response = resend.Emails.send(params)
+        logger.info(f"Email enviado con Resend a {destinatario}: {response}")
+        return True
+    except Exception as e:
+        logger.error(f"Error al enviar email con Resend a {destinatario}: {str(e)}")
+        return False
+
+
+def _enviar_con_smtp(asunto, mensaje, destinatario):
+    """
+    Envía email usando SMTP tradicional (Gmail).
     """
     try:
         send_mail(
@@ -179,9 +217,28 @@ def _enviar_email_en_hilo(asunto, mensaje, destinatario):
             recipient_list=[destinatario],
             fail_silently=False,
         )
-        logger.info(f"Email enviado exitosamente a {destinatario}")
+        logger.info(f"Email enviado con SMTP a {destinatario}")
+        return True
     except Exception as e:
-        logger.error(f"Error al enviar email a {destinatario}: {str(e)}")
+        logger.error(f"Error al enviar email con SMTP a {destinatario}: {str(e)}")
+        return False
+
+
+def _enviar_email_en_hilo(asunto, mensaje, destinatario, html_content=None):
+    """
+    Función interna que envía el email (ejecutada en un hilo separado).
+    Detecta automáticamente si usar Resend o SMTP.
+    """
+    resend_api_key = os.environ.get('RESEND_API_KEY')
+
+    if RESEND_AVAILABLE and resend_api_key:
+        # Usar Resend (Railway, cloud)
+        logger.info(f"Usando Resend para enviar a {destinatario}")
+        _enviar_con_resend(asunto, mensaje, destinatario, html_content)
+    else:
+        # Usar SMTP tradicional (localhost, AWS)
+        logger.info(f"Usando SMTP para enviar a {destinatario}")
+        _enviar_con_smtp(asunto, mensaje, destinatario)
 
 
 def enviar_email_verificacion(user, codigo):
@@ -189,49 +246,68 @@ def enviar_email_verificacion(user, codigo):
     Envía un email con el código de verificación al usuario.
     El envío se realiza en un hilo separado para no bloquear la petición.
 
+    Detecta automáticamente el método de envío:
+    - Si RESEND_API_KEY existe: usa Resend (cloud/Railway)
+    - Si no: usa Gmail SMTP tradicional (localhost/AWS)
+
     Args:
         user: Instancia del modelo User
         codigo (str): Código de verificación de 6 dígitos
 
     Returns:
         bool: True siempre (el email se envía en background)
-
-    Ejemplo:
-        >>> from accounts.models import User
-        >>> user = User.objects.get(email='test@example.com')
-        >>> enviar_email_verificacion(user, '123456')
-        True
     """
     asunto = 'Código de Verificación - Sistema de Actas SENA'
 
     mensaje = f"""
-    Hola {user.first_name} {user.last_name},
+Hola {user.first_name} {user.last_name},
 
-    Gracias por registrarte en el Sistema de Gestión de Actas del SENA.
+Gracias por registrarte en el Sistema de Gestión de Actas del SENA.
 
-    Tu código de verificación es: {codigo}
+Tu código de verificación es: {codigo}
 
-    Este código es válido por 15 minutos.
+Este código es válido por 15 minutos.
 
-    Por favor, ingresa este código en la aplicación para verificar tu cuenta.
+Por favor, ingresa este código en la aplicación para verificar tu cuenta.
 
-    Si no solicitaste este código, ignora este mensaje.
+Si no solicitaste este código, ignora este mensaje.
 
-    ---
-    Sistema de Gestión de Actas SENA
-    Centro Minero
+---
+Sistema de Gestión de Actas SENA
+Centro Minero
+    """
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #39A900; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">Sistema de Actas SENA</h1>
+        </div>
+        <div style="padding: 30px; background-color: #f9f9f9;">
+            <h2 style="color: #333;">Hola {user.first_name} {user.last_name},</h2>
+            <p>Gracias por registrarte en el Sistema de Gestión de Actas del SENA.</p>
+            <div style="background-color: #39A900; color: white; padding: 20px; text-align: center; border-radius: 10px; margin: 20px 0;">
+                <p style="margin: 0; font-size: 14px;">Tu código de verificación es:</p>
+                <h1 style="margin: 10px 0; font-size: 36px; letter-spacing: 5px;">{codigo}</h1>
+            </div>
+            <p style="color: #666;">Este código es válido por <strong>15 minutos</strong>.</p>
+            <p style="color: #666;">Si no solicitaste este código, ignora este mensaje.</p>
+        </div>
+        <div style="background-color: #333; color: #999; padding: 15px; text-align: center; font-size: 12px;">
+            Sistema de Gestión de Actas - Centro Minero SENA
+        </div>
+    </div>
     """
 
     # Enviar email en un hilo separado para no bloquear la petición
     thread = threading.Thread(
         target=_enviar_email_en_hilo,
-        args=(asunto, mensaje, user.email)
+        args=(asunto, mensaje, user.email, html_content)
     )
-    thread.daemon = True  # El hilo se cierra cuando la app se cierra
+    thread.daemon = True
     thread.start()
 
     logger.info(f"Email de verificación programado para {user.email}")
-    return True  # Retornamos inmediatamente
+    return True
 
 
 def crear_codigo_verificacion(user, tipo='registro'):
