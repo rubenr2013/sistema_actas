@@ -1,4 +1,4 @@
-# Dockerfile para Railway
+# Dockerfile para Railway y AWS Elastic Beanstalk
 FROM python:3.11-slim
 
 # Variables de entorno
@@ -28,9 +28,9 @@ RUN mkdir -p staticfiles logs media
 # Recolectar archivos estáticos (con SECRET_KEY temporal para este paso)
 RUN SECRET_KEY=temp-key-for-collectstatic python manage.py collectstatic --noinput
 
-# Exponer puerto (Railway usa la variable PORT)
-EXPOSE $PORT
+# Exponer puerto 8000 (Railway usa PORT, EB usa EXPOSE)
+EXPOSE 8000
 
 # Comando para iniciar la aplicación
-# Railway provee PORT, usamos ese valor
-CMD sh -c "python manage.py migrate --noinput && gunicorn sistema_actas.wsgi:application --bind 0.0.0.0:\$PORT --workers 2 --timeout 120 --log-level info"
+# Railway provee PORT, EB usa el valor por defecto 8000
+CMD sh -c "python manage.py migrate --noinput && gunicorn sistema_actas.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --log-level info"
