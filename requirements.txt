@@ -1,0 +1,3 @@
+# Archivo de dependencias principal - Railway detecta Python con esto
+# Las dependencias reales están en sistema_actas/requirements.txt
+-r sistema_actas/requirements.txt
