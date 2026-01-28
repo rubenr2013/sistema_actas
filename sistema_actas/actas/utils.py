@@ -7,10 +7,14 @@ import random
 import string
 import re
 import html
+import threading
+import logging
 from django.core.mail import send_mail
 from django.conf import settings
 from django.utils import timezone
 from datetime import timedelta
+
+logger = logging.getLogger(__name__)
 
 # Intentar importar bleach, si no está disponible usar sanitización básica
 try:
@@ -163,16 +167,34 @@ def generar_codigo_verificacion():
     return ''.join(random.choices(string.digits, k=6))
 
 
+def _enviar_email_en_hilo(asunto, mensaje, destinatario):
+    """
+    Función interna que envía el email (ejecutada en un hilo separado).
+    """
+    try:
+        send_mail(
+            subject=asunto,
+            message=mensaje,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[destinatario],
+            fail_silently=False,
+        )
+        logger.info(f"Email enviado exitosamente a {destinatario}")
+    except Exception as e:
+        logger.error(f"Error al enviar email a {destinatario}: {str(e)}")
+
+
 def enviar_email_verificacion(user, codigo):
     """
     Envía un email con el código de verificación al usuario.
+    El envío se realiza en un hilo separado para no bloquear la petición.
 
     Args:
         user: Instancia del modelo User
-        codigo (str): Código de verificación de 8 dígitos
+        codigo (str): Código de verificación de 6 dígitos
 
     Returns:
-        bool: True si el email se envió exitosamente, False en caso contrario
+        bool: True siempre (el email se envía en background)
 
     Ejemplo:
         >>> from accounts.models import User
@@ -200,18 +222,16 @@ def enviar_email_verificacion(user, codigo):
     Centro Minero
     """
 
-    try:
-        send_mail(
-            subject=asunto,
-            message=mensaje,
-            from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
-            fail_silently=False,
-        )
-        return True
-    except Exception as e:
-        print(f"Error al enviar email: {str(e)}")
-        return False
+    # Enviar email en un hilo separado para no bloquear la petición
+    thread = threading.Thread(
+        target=_enviar_email_en_hilo,
+        args=(asunto, mensaje, user.email)
+    )
+    thread.daemon = True  # El hilo se cierra cuando la app se cierra
+    thread.start()
+
+    logger.info(f"Email de verificación programado para {user.email}")
+    return True  # Retornamos inmediatamente
 
 
 def crear_codigo_verificacion(user, tipo='registro'):
