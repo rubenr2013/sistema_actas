@@ -70,6 +70,11 @@ ALLOWED_HOSTS += [
     'sistema-actas-env.eba-yjpjmjq2.us-east-2.elasticbeanstalk.com',  # Dominio explícito
 ]
 
+# AWS CloudFront
+ALLOWED_HOSTS += [
+    '.cloudfront.net',
+]
+
 # Si hay RAILWAY_STATIC_URL, estamos en Railway
 if os.environ.get('RAILWAY_STATIC_URL'):
     ALLOWED_HOSTS.append(os.environ.get('RAILWAY_STATIC_URL', '').replace('https://', '').replace('http://', '').split('/')[0])
@@ -271,9 +276,14 @@ CSRF_COOKIE_HTTPONLY = False  # Necesario para que JavaScript pueda leer el toke
 CSRF_COOKIE_SAMESITE = "Lax"
 
 # En producción con HTTPS, activar cookies seguras
-# Por ahora, desactivado para EB sin SSL
-SESSION_COOKIE_SECURE = False
-CSRF_COOKIE_SECURE = False
+# Detectar si estamos en producción (EB con HTTPS)
+USE_HTTPS = os.environ.get('USE_HTTPS', 'False').lower() == 'true'
+SESSION_COOKIE_SECURE = USE_HTTPS
+CSRF_COOKIE_SECURE = USE_HTTPS
+
+# Redirigir HTTP a HTTPS en producción
+SECURE_SSL_REDIRECT = USE_HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 CSRF_TRUSTED_ORIGINS = [
     "https://localhost:8000",
     "http://localhost:8000",
@@ -286,6 +296,7 @@ CSRF_TRUSTED_ORIGINS = [
     "https://*.up.railway.app",     # Railway (variante)
     "http://*.elasticbeanstalk.com",   # AWS Elastic Beanstalk (HTTP)
     "https://*.elasticbeanstalk.com",  # AWS Elastic Beanstalk (HTTPS)
+    "https://*.cloudfront.net",        # AWS CloudFront
 ]
 
 # Agregar dominio personalizado de Railway si existe
