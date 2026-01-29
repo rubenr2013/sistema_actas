@@ -30,11 +30,6 @@ from accounts.models import User
 # Create your views here.
 @login_required
 def detalle_acta(request, acta_id):
-    # Bloquear acceso a invitados
-    if request.user.rol == 'invitado':
-        messages.error(request, "Tu cuenta de invitado no tiene acceso a esta sección.")
-        return redirect("core:dashboard")
-
     acta = get_object_or_404(Acta, id=acta_id)
 
     # Verificar permisos
@@ -723,18 +718,13 @@ def generar_pdf(request, acta_id):
 
 @login_required
 def actas_list(request):
-    # Bloquear acceso a invitados
-    if request.user.rol == 'invitado':
-        messages.error(request, "Tu cuenta de invitado no tiene acceso a esta sección. Registra una cuenta con correo institucional para acceder.")
-        return redirect("core:dashboard")
-
     # Filtros
     estado = request.GET.get('estado')
     tipo = request.GET.get('tipo')
     search = request.GET.get('search')
 
-    if request.user.rol == 'aprendiz':
-        # Aprendices solo ven actas donde son participantes Y que NO estén en borrador
+    if request.user.rol in ['aprendiz', 'invitado']:
+        # Aprendices e invitados solo ven actas donde son participantes Y que NO estén en borrador
         actas = Acta.objects.filter(
             participantes__usuario=request.user
         ).exclude(estado='borrador').distinct()
@@ -1006,11 +996,6 @@ def archivar_acta(request, acta_id):
 # ✍️ Firmas pendientes (solo las del usuario autenticado)
 @login_required
 def firmas_pendientes(request):
-    # Bloquear acceso a invitados
-    if request.user.rol == 'invitado':
-        messages.error(request, "Tu cuenta de invitado no tiene acceso a esta sección.")
-        return redirect("core:dashboard")
-
     firmas = Firma.objects.filter(usuario=request.user, firmado=False, acta__estado="en_revision")
 
     return render(request, "actas/firmas_pendientes.html", {
@@ -1083,11 +1068,6 @@ def eliminar_compromiso(request, compromiso_id):
 
 @login_required
 def mis_compromisos(request):
-    # Bloquear acceso a invitados
-    if request.user.rol == 'invitado':
-        messages.error(request, "Tu cuenta de invitado no tiene acceso a esta sección.")
-        return redirect("core:dashboard")
-
     compromisos = Compromiso.objects.filter(responsable=request.user).order_by('-fecha_limite')
     return render(request, "actas/mis_compromisos.html", {"compromisos": compromisos})
 

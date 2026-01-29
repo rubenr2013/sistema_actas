@@ -85,11 +85,11 @@ def register_view(request):
             email_enviado = enviar_email_verificacion(user, codigo_obj.codigo)
 
             if email_enviado:
-                messages.success(request, f"Cuenta creada correctamente. Se ha enviado un código de verificación a {user.email}. Revisa tu correo.")
+                messages.success(request, f"Se ha enviado un código de verificación a {user.email}. Revisa tu correo.")
                 # Redirigir a página de verificación con el email
                 return redirect("accounts:verificar_email", email=user.email)
             else:
-                messages.warning(request, "Cuenta creada, pero hubo un problema al enviar el email de verificación. Contacta al administrador.")
+                messages.warning(request, "Hubo un problema al enviar el email de verificación. Contacta al administrador.")
                 return redirect("accounts:verificar_email", email=user.email)
         else:
             messages.error(request, "Por favor corrige los errores en el formulario.")
