@@ -67,6 +67,7 @@ ALLOWED_HOSTS += [
 ALLOWED_HOSTS += [
     '.elasticbeanstalk.com',
     '.us-east-2.elasticbeanstalk.com',
+    'sistema-actas-env.eba-yjpjmjq2.us-east-2.elasticbeanstalk.com',  # Dominio explícito
 ]
 
 # Si hay RAILWAY_STATIC_URL, estamos en Railway
