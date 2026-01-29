@@ -101,6 +101,7 @@ INSTALLED_APPS = [
     "rest_framework.authtoken",  # Sistema de tokens para autenticación API
     "corsheaders",  # Manejo de CORS
     "import_export",  # Importación/exportación de datos en admin
+    "storages",  # Django Storages para S3
     # Apps Propias
     "accounts",  # Gestión de usuarios
     "actas",  # Módulo principal de actas
@@ -212,6 +213,23 @@ STATICFILES_DIRS = [
 
 MEDIA_URL = "/media/"  # Archivos subidos por usuarios
 MEDIA_ROOT = BASE_DIR / "media"
+
+# ==============================================
+# Amazon S3 Storage (para archivos en producción)
+# ==============================================
+AWS_ACCESS_KEY_ID = config('AWS_ACCESS_KEY_ID', default=None)
+AWS_SECRET_ACCESS_KEY = config('AWS_SECRET_ACCESS_KEY', default=None)
+AWS_STORAGE_BUCKET_NAME = config('AWS_STORAGE_BUCKET_NAME', default=None)
+AWS_S3_REGION_NAME = config('AWS_S3_REGION_NAME', default='us-east-2')
+AWS_S3_CUSTOM_DOMAIN = f'{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com' if AWS_STORAGE_BUCKET_NAME else None
+AWS_DEFAULT_ACL = None
+AWS_S3_OBJECT_PARAMETERS = {'CacheControl': 'max-age=86400'}
+AWS_QUERYSTRING_AUTH = False
+
+# Usar S3 solo si las credenciales están configuradas
+if AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY and AWS_STORAGE_BUCKET_NAME:
+    DEFAULT_FILE_STORAGE = 'storages.backends.s3boto3.S3Boto3Storage'
+    MEDIA_URL = f'https://{AWS_S3_CUSTOM_DOMAIN}/media/'
 
 # File upload Security
 FILE_UPLOAD_MAX_MEMORY_SIZE = 5242880
