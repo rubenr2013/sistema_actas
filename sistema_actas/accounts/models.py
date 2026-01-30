@@ -85,10 +85,12 @@ class User (AbstractUser) :
             super().save(*args, **kwargs)
 
         if self.firma_digital:
-            img = Image.open(self.firma_digital.path)
-            if img.height > 200 or img.width > 400:
-                img.thumbnail ((400, 200))
-                img.save (self.firma_digital.path)
+            import os
+            if os.path.exists(self.firma_digital.path):
+                img = Image.open(self.firma_digital.path)
+                if img.height > 200 or img.width > 400:
+                    img.thumbnail((400, 200))
+                    img.save(self.firma_digital.path)
     
     #Retorna nombre completo del usuario
     def get_full_name(self):
