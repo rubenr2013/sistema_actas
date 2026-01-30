@@ -272,11 +272,22 @@
         /* Versión responsive */
         @media (max-width: 768px) {
             .footer {
-                font-size: 0.8rem;
-                padding: 6px 0;
+                position: relative !important;
+                font-size: 0.75rem;
+                padding: 8px 10px;
+            }
+            .footer-content {
+                height: auto !important;
             }
             .footer-social {
-                margin-top: 2px;
+                margin-top: 4px;
+                gap: 15px;
+            }
+            .footer-links {
+                font-size: 0.7rem;
+            }
+            body {
+                padding-bottom: 0 !important;
             }
         }
 
@@ -342,93 +353,127 @@
            FIXES MÓVILES RESPONSIVE
            ======================================== */
 
-        /* ===== NAVBAR - ICONOS A LA DERECHA ===== */
+        /* ===== NAVBAR RESPONSIVE MÓVIL ===== */
         @media (max-width: 992px) {
-            /* Navbar más alto para acomodar 2 filas */
+            /* Navbar compacto en una sola fila */
             .navbar-sena {
-                min-height: 110px !important;
+                min-height: auto !important;
+                padding: 8px 0 !important;
             }
 
             .navbar .container-fluid {
                 display: flex !important;
-                flex-wrap: wrap !important;
-                align-items: flex-start !important;
-                padding: 8px 12px !important;
-                gap: 0 !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                padding: 5px 10px !important;
+                gap: 8px !important;
             }
 
-            /* FILA 1: Logo y título - centrado, todo el ancho */
-            .navbar-brand {
+            /* Hamburguesa a la izquierda */
+            .navbar-toggler {
                 order: 1 !important;
-                width: 100% !important;
+                flex-shrink: 0 !important;
+                padding: 6px !important;
                 margin: 0 !important;
-                text-align: center !important;
-                padding: 8px 0 !important;
+            }
+
+            /* Logo y título en el centro */
+            .navbar-brand {
+                order: 2 !important;
+                flex: 1 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                min-width: 0 !important;
             }
 
             .navbar-brand img {
-                height: 35px !important;
-                margin-right: 8px !important;
+                height: 30px !important;
+                margin-right: 6px !important;
             }
 
             .navbar-brand .d-flex.flex-column {
-                display: inline-flex !important;
+                display: flex !important;
+                min-width: 0 !important;
             }
 
             .navbar-brand span {
-                font-size: 16px !important;
+                font-size: 13px !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
             }
 
             .navbar-brand small {
-                font-size: 12px !important;
+                display: none !important;
             }
 
-            /* FILA 2: Hamburguesa izquierda */
-            .navbar-toggler {
-                order: 2 !important;
-                margin: 8px 0 0 0 !important;
-                padding: 8px !important;
-            }
-
-            /* FILA 2: Iconos derecha */
+            /* Iconos a la derecha */
             .d-flex.d-lg-none {
                 order: 3 !important;
-                margin: 8px 0 0 auto !important;
-                padding-right: 0 !important;
+                flex-shrink: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
             }
 
             .d-flex.d-lg-none .navbar-nav {
                 flex-direction: row !important;
-                gap: 4px !important;
+                gap: 2px !important;
             }
 
             .d-flex.d-lg-none .nav-item {
                 margin: 0 !important;
             }
 
-            /* Iconos táctiles */
+            /* Iconos táctiles más pequeños */
             .navbar-sena .nav-link {
-                min-width: 44px !important;
-                min-height: 44px !important;
+                min-width: 40px !important;
+                min-height: 40px !important;
                 display: flex !important;
                 align-items: center !important;
                 justify-content: center !important;
-                padding: 10px !important;
+                padding: 8px !important;
             }
 
             .navbar-sena .nav-link i {
-                font-size: 20px !important;
+                font-size: 18px !important;
             }
 
             /* Ajustar posición del sidebar */
             .sidebar {
-                top: 110px !important;
-                height: calc(100vh - 110px) !important;
+                top: 56px !important;
+                height: calc(100vh - 56px) !important;
+            }
+
+            /* Ajustar overlay */
+            .sidebar-overlay {
+                top: 56px !important;
+                height: calc(100vh - 56px) !important;
             }
 
             /* Ajustar main content */
             .main-content {
-                padding-top: 125px !important;
+                padding-top: 70px !important;
+            }
+        }
+
+        /* Pantallas muy pequeñas */
+        @media (max-width: 400px) {
+            .navbar-brand span {
+                font-size: 11px !important;
+            }
+
+            .navbar-brand img {
+                height: 25px !important;
+            }
+
+            .navbar-sena .nav-link {
+                min-width: 36px !important;
+                min-height: 36px !important;
+                padding: 6px !important;
+            }
+
+            .navbar-sena .nav-link i {
+                font-size: 16px !important;
             }
         }
 
@@ -522,15 +567,40 @@
             }
         }
 
-        /* ===== TABLAS A CARDS (COMPROMISOS) ===== */
+        /* ===== TABLAS RESPONSIVE ===== */
         @media (max-width: 768px) {
-            /* Ocultar tabla, mostrar cards */
+            /* Hacer tablas scrolleables horizontalmente */
+            .table-responsive {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+
             .table-responsive table {
+                min-width: 600px !important;
+                font-size: 13px !important;
+            }
+
+            .table-responsive th,
+            .table-responsive td {
+                padding: 8px 6px !important;
+                white-space: nowrap !important;
+            }
+
+            /* Tablas que se convierten a cards (usar clase .table-cards-mobile) */
+            .table-cards-mobile {
+                display: block !important;
+                min-width: unset !important;
+            }
+
+            .table-cards-mobile thead {
                 display: none !important;
             }
 
-            /* Convertir filas a cards */
-            table tbody tr {
+            .table-cards-mobile tbody {
+                display: block !important;
+            }
+
+            .table-cards-mobile tbody tr {
                 display: block !important;
                 background: #fff !important;
                 border: 1px solid #ddd !important;
@@ -540,31 +610,27 @@
                 box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
             }
 
-            table tbody td {
-                display: block !important;
+            .table-cards-mobile tbody td {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
                 text-align: left !important;
                 padding: 8px 0 !important;
                 border: none !important;
+                border-bottom: 1px solid #eee !important;
             }
 
-            table tbody td::before {
+            .table-cards-mobile tbody td:last-child {
+                border-bottom: none !important;
+            }
+
+            .table-cards-mobile tbody td::before {
                 content: attr(data-label);
-                font-weight: bold !important;
-                display: inline-block !important;
-                width: 120px !important;
+                font-weight: 600 !important;
                 color: #666 !important;
+                flex-shrink: 0 !important;
+                margin-right: 10px !important;
             }
-
-            table thead {
-                display: none !important;
-            }
-
-            /* Alternativa si no hay data-label */
-            table tbody td:nth-child(1)::before { content: "Descripción: " !important; }
-            table tbody td:nth-child(2)::before { content: "Responsable: " !important; }
-            table tbody td:nth-child(3)::before { content: "Fecha: " !important; }
-            table tbody td:nth-child(4)::before { content: "Estado: " !important; }
-            table tbody td:nth-child(5)::before { content: "Acciones: " !important; }
         }
 
         /* ===== FORMULARIOS RESPONSIVE ===== */
@@ -796,8 +862,206 @@
         /* ===== ALERTS RESPONSIVE ===== */
         @media (max-width: 768px) {
             .alert {
-                font-size: 14px !important;
+                font-size: 13px !important;
+                padding: 10px 12px !important;
+                margin-bottom: 10px !important;
+            }
+
+            .alert .btn-close {
                 padding: 12px !important;
+            }
+        }
+
+        /* ===== WIZARD/STEPPER RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            /* Pasos horizontales compactos */
+            .step-indicator,
+            .wizard-steps,
+            .nav-pills.nav-justified {
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                padding-bottom: 10px !important;
+            }
+
+            .step-indicator .step,
+            .wizard-steps .step,
+            .nav-pills .nav-item {
+                flex: 0 0 auto !important;
+                min-width: 80px !important;
+                font-size: 11px !important;
+            }
+
+            .step-indicator .step-number,
+            .wizard-steps .step-number {
+                width: 28px !important;
+                height: 28px !important;
+                font-size: 12px !important;
+            }
+        }
+
+        /* ===== CARDS ACTA RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .acta-card,
+            .card-acta {
+                padding: 12px !important;
+            }
+
+            .acta-card .card-title,
+            .card-acta h5 {
+                font-size: 15px !important;
+            }
+
+            .acta-card .badge {
+                font-size: 10px !important;
+                padding: 4px 6px !important;
+            }
+
+            /* Info de acta en columnas */
+            .acta-info {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 5px !important;
+            }
+
+            .acta-info span {
+                font-size: 12px !important;
+            }
+        }
+
+        /* ===== PARTICIPANTES/COMPROMISOS DINÁMICOS ===== */
+        @media (max-width: 768px) {
+            .participante-item,
+            .compromiso-item,
+            .dynamic-item {
+                padding: 12px !important;
+                margin-bottom: 10px !important;
+                border-radius: 8px !important;
+            }
+
+            .participante-item .row,
+            .compromiso-item .row {
+                flex-direction: column !important;
+            }
+
+            .participante-item .col,
+            .compromiso-item .col,
+            .participante-item [class*="col-"],
+            .compromiso-item [class*="col-"] {
+                width: 100% !important;
+                margin-bottom: 10px !important;
+            }
+
+            .btn-remove-item,
+            .btn-eliminar {
+                width: 100% !important;
+                margin-top: 8px !important;
+            }
+        }
+
+        /* ===== INPUTS GRUPO RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column !important;
+            }
+
+            .input-group .form-control,
+            .input-group .form-select,
+            .input-group .btn {
+                width: 100% !important;
+                border-radius: 6px !important;
+                margin-bottom: 5px !important;
+            }
+
+            .input-group .btn {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        /* ===== ACCIONES FIJAS EN MÓVIL ===== */
+        @media (max-width: 768px) {
+            .sticky-actions,
+            .form-actions-fixed {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                background: #fff !important;
+                padding: 12px !important;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
+                z-index: 1000 !important;
+                display: flex !important;
+                gap: 10px !important;
+            }
+
+            .sticky-actions .btn,
+            .form-actions-fixed .btn {
+                flex: 1 !important;
+            }
+        }
+
+        /* ===== SCROLL SUAVE Y MEJORAS GENERALES ===== */
+        @media (max-width: 768px) {
+            html {
+                scroll-behavior: smooth !important;
+            }
+
+            /* Mejorar tap targets */
+            .nav-link,
+            .dropdown-item,
+            .list-group-item-action {
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+            }
+
+            /* Esconder scrollbars pero permitir scroll */
+            .hide-scrollbar {
+                -ms-overflow-style: none !important;
+                scrollbar-width: none !important;
+            }
+
+            .hide-scrollbar::-webkit-scrollbar {
+                display: none !important;
+            }
+
+            /* Row gaps en móvil */
+            .row {
+                --bs-gutter-x: 0.75rem !important;
+            }
+
+            /* Contenedor principal con padding */
+            .container,
+            .container-fluid {
+                padding-left: 10px !important;
+                padding-right: 10px !important;
+            }
+        }
+
+        /* ===== BOTONES FLOTANTES MÓVIL ===== */
+        @media (max-width: 768px) {
+            .help-fixed-btn,
+            #btnAccesibilidad {
+                width: 45px !important;
+                height: 45px !important;
+                font-size: 1.2rem !important;
+            }
+
+            .help-fixed-btn {
+                bottom: 80px !important;
+                right: 15px !important;
+            }
+
+            #btnAccesibilidad {
+                bottom: 15px !important;
+                left: 15px !important;
+            }
+
+            #accesibilidadPanel {
+                width: calc(100vw - 30px) !important;
+                max-width: 280px !important;
+                left: 15px !important;
+                bottom: 70px !important;
             }
         }
     </style>
