@@ -807,9 +807,9 @@ def actas_list(request):
         'estados': Acta.ESTADOS,
         'tipos_reunion': Acta.TIPOS_REUNION,
         'filtros': {
-            'estado': estado,
-            'tipo': tipo,
-            'search': search,
+            'estado': estado or '',
+            'tipo': tipo or '',
+            'search': search or '',
         },
         'es_aprendiz': request.user.rol == "aprendiz",
     }
