@@ -2108,12 +2108,17 @@ def generar_pdf_api(request, acta_id):
                 [Paragraph("<b>NOMBRE DEL COMITÉ O DE LA REUNIÓN:</b>", styles['Normal'])],
                 [Paragraph(acta.titulo, styles['Normal'])]
             ],
-            colWidths=[7*inch]
+            colWidths=[7*inch],
+            rowHeights=[0.3*inch, None]
         )
         comite_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
         story.append(comite_table)
         
@@ -2133,12 +2138,16 @@ def generar_pdf_api(request, acta_id):
                     Paragraph(hora_fin, styles['Normal']),
                 ]
             ],
-            colWidths=[1.3*inch, 1.7*inch, 1*inch, 0.7*inch, 0.8*inch, 0.7*inch]
+            colWidths=[1.2*inch, 2*inch, 1*inch, 0.8*inch, 1*inch, 1*inch]  # Total = 7 pulgadas
         )
         info_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]))
         story.append(info_table)
         
@@ -2156,8 +2165,12 @@ def generar_pdf_api(request, acta_id):
         )
         lugar_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]))
         story.append(lugar_table)
 
@@ -2198,10 +2211,10 @@ def generar_pdf_api(request, acta_id):
 
         agenda_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING', (0, 0), (-1, -1), 3),      # Padding superior mínimo
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),   # Padding inferior mínimo
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ('LEFTPADDING', (0, 0), (-1, -1), 6),
             ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
@@ -2222,11 +2235,15 @@ def generar_pdf_api(request, acta_id):
         )
         objetivo_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
         story.append(objetivo_table)
-        
+
         # DESARROLLO
         desarrollo_content = acta.desarrollo if acta.desarrollo else "No especificado"
         desarrollo_table = Table(
@@ -2239,11 +2256,15 @@ def generar_pdf_api(request, acta_id):
         )
         desarrollo_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
         story.append(desarrollo_table)
-        
+
         # CONCLUSIONES
         conclusiones = acta.observaciones if acta.observaciones else "Sin observaciones adicionales"
         conclusiones_table = Table(
@@ -2255,11 +2276,15 @@ def generar_pdf_api(request, acta_id):
         )
         conclusiones_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 6),
         ]))
         story.append(conclusiones_table)
-        
+
         # COMPROMISOS
         compromisos_data = [
             [
@@ -2287,9 +2312,13 @@ def generar_pdf_api(request, acta_id):
         compromisos_table = Table(compromisos_data, colWidths=[2.5*inch, 1.2*inch, 1.8*inch, 1.5*inch])
         compromisos_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'TOP'),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]))
         story.append(compromisos_table)
 
@@ -2351,9 +2380,13 @@ def generar_pdf_api(request, acta_id):
         asistentes_table = Table(asistentes_data, colWidths=[1.8*inch, 1.8*inch, 1.2*inch, 2.2*inch])
         asistentes_table.setStyle(TableStyle([
             ('BOX', (0, 0), (-1, -1), 1, colors.black),
-            ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
             ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 4),
         ]))
         story.append(asistentes_table)
         

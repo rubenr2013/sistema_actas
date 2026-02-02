@@ -198,7 +198,7 @@ class Acta(models.Model):
 
                 count = 1
                 if ultimo_numero:
-                    # Obtener el último número de acta del año
+                    # Obtener el último número de acta del añoj
                     ultima_acta = Acta.objects.filter(fecha_creacion__year=year).order_by('-numero_acta').first()
                     if ultima_acta and ultima_acta.numero_acta:
                         try:
