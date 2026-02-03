@@ -102,10 +102,18 @@ def login_api(request):
     """
     if request.method == 'POST':
         try:
-            # Leer datos del request
-            data = json.loads(request.body)
-            username = data.get('username')
-            password = data.get('password')
+            # Leer datos del request (con validación de JSON)
+            try:
+                data = json.loads(request.body)
+            except json.JSONDecodeError:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Formato de datos inválido'
+                }, status=400)
+
+            # Validar que los campos sean strings
+            username = data.get('username') if isinstance(data.get('username'), str) else None
+            password = data.get('password') if isinstance(data.get('password'), str) else None
 
             if not username or not password:
                 return JsonResponse({

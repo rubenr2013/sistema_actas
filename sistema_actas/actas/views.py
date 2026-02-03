@@ -111,15 +111,15 @@ def editar_acta(request, acta_id):
         return redirect("actas:detalle", acta_id=acta_id)
 
     if request.method == "POST":
-        # Actualizar campos básicos
-        acta.titulo = request.POST.get("titulo")
+        # Actualizar campos básicos (con sanitización para prevenir XSS)
+        acta.titulo = sanitizar_texto_plano(request.POST.get("titulo", ""))
         acta.tipo_reunion = request.POST.get("tipo_reunion")
         acta.fecha_reunion = request.POST.get("fecha_reunion")
-        acta.lugar_reunion = request.POST.get("lugar_reunion")
+        acta.lugar_reunion = sanitizar_texto_plano(request.POST.get("lugar_reunion", ""))
         acta.modalidad = request.POST.get("modalidad")
-        acta.orden_dia = request.POST.get("orden_dia")
-        acta.desarrollo = request.POST.get("desarrollo")
-        acta.observaciones = request.POST.get("observaciones", "")
+        acta.orden_dia = sanitizar_html(request.POST.get("orden_dia", ""))
+        acta.desarrollo = sanitizar_html(request.POST.get("desarrollo", ""))
+        acta.observaciones = sanitizar_html(request.POST.get("observaciones", ""))
         acta.save()
 
         # Actualizar participantes
@@ -1126,7 +1126,10 @@ def agregar_comentario(request, acta_id):
     if not texto:
         return JsonResponse({"success": False, "message": "El comentario no puede estar vacío."})
 
-    ComentarioActa.objects.create(acta=acta, autor=request.user, texto=texto)
+    # Sanitizar el texto para prevenir XSS
+    texto_sanitizado = sanitizar_html(texto)
+
+    ComentarioActa.objects.create(acta=acta, autor=request.user, texto=texto_sanitizado)
     return JsonResponse({"success": True, "message": "Comentario agregado correctamente."})
 
 @login_required

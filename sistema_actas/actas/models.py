@@ -28,6 +28,30 @@ ALLOWED_FILE_EXTENSIONS = [
 # Tamaño máximo de archivo en bytes (10 MB)
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
+# Magic bytes (firmas de archivo) para validación de contenido real
+# Esto previene que un .exe renombrado a .pdf pase la validación
+MAGIC_BYTES = {
+    # PDFs
+    b'%PDF': ['pdf'],
+    # Imágenes
+    b'\xff\xd8\xff': ['jpg', 'jpeg'],  # JPEG
+    b'\x89PNG\r\n\x1a\n': ['png'],  # PNG
+    b'GIF87a': ['gif'],  # GIF87
+    b'GIF89a': ['gif'],  # GIF89
+    b'BM': ['bmp'],  # BMP
+    b'RIFF': ['webp'],  # WebP (parte de RIFF)
+    # Documentos Office (ZIP-based: docx, xlsx, pptx, odt, ods, odp)
+    b'PK\x03\x04': ['docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp', 'zip'],
+    # Documentos Office antiguos
+    b'\xd0\xcf\x11\xe0': ['doc', 'xls', 'ppt'],  # OLE Compound
+    # Comprimidos
+    b'Rar!\x1a\x07': ['rar'],  # RAR
+    b"7z\xbc\xaf'": ['7z'],  # 7z
+}
+
+# Extensiones que no tienen magic bytes consistentes (texto plano)
+TEXT_EXTENSIONS = ['txt', 'csv', 'rtf']
+
 
 def validar_extension_archivo(archivo):
     """
@@ -42,6 +66,68 @@ def validar_extension_archivo(archivo):
                 f'Tipo de archivo no permitido: .{extension}. '
                 f'Extensiones permitidas: {", ".join(ALLOWED_FILE_EXTENSIONS)}'
             )
+
+
+def validar_contenido_archivo(archivo):
+    """
+    Valida que el contenido real del archivo coincida con su extensión.
+    Previene que archivos maliciosos (ej: .exe) se disfracen de otros tipos.
+    """
+    if not archivo:
+        return
+
+    nombre = archivo.name.lower()
+    extension = nombre.rsplit('.', 1)[-1] if '.' in nombre else ''
+
+    # Los archivos de texto no tienen magic bytes consistentes, solo validar extensión
+    if extension in TEXT_EXTENSIONS:
+        return
+
+    # Leer los primeros bytes del archivo para verificar su tipo real
+    try:
+        # Guardar posición actual
+        pos = archivo.tell()
+        archivo.seek(0)
+        header = archivo.read(16)  # Leer primeros 16 bytes
+        archivo.seek(pos)  # Restaurar posición
+    except Exception:
+        # Si no podemos leer el archivo, permitirlo (validación básica ya pasó)
+        return
+
+    # Verificar si el contenido coincide con la extensión declarada
+    extension_valida = False
+
+    for magic, extensiones_permitidas in MAGIC_BYTES.items():
+        if header.startswith(magic):
+            if extension in extensiones_permitidas:
+                extension_valida = True
+                break
+            else:
+                # El contenido real no coincide con la extensión
+                tipo_real = extensiones_permitidas[0].upper()
+                raise ValidationError(
+                    f'El contenido del archivo no coincide con su extensión. '
+                    f'El archivo parece ser un {tipo_real}, no un {extension.upper()}. '
+                    f'Por seguridad, este archivo ha sido rechazado.'
+                )
+
+    # Si no encontramos magic bytes conocidos pero la extensión está permitida,
+    # es posible que sea un formato válido que no tenemos en nuestra lista
+    # En ese caso, solo alertamos si detectamos ejecutables
+    if not extension_valida:
+        # Verificar que NO sea un ejecutable disfrazado
+        dangerous_signatures = [
+            b'MZ',  # Windows EXE/DLL
+            b'\x7fELF',  # Linux ELF executable
+            b'#!',  # Shell script
+            b'<?php',  # PHP script
+        ]
+        for sig in dangerous_signatures:
+            if header.startswith(sig):
+                raise ValidationError(
+                    'Archivo potencialmente peligroso detectado. '
+                    'No se permiten ejecutables ni scripts.'
+                )
 
 
 def validar_tamaño_archivo(archivo):
@@ -111,7 +197,7 @@ class Acta(models.Model):
         upload_to='actas/adjuntos/',
         blank=True,
         null=True,
-        validators=[validar_extension_archivo, validar_tamaño_archivo]
+        validators=[validar_extension_archivo, validar_contenido_archivo, validar_tamaño_archivo]
     )
     
     # ========================================
@@ -445,7 +531,7 @@ class ArchivoAdjunto(models.Model):
     archivo = models.FileField(
         upload_to='actas/adjuntos/%Y/%m/',
         help_text='Archivo adjunto',
-        validators=[validar_extension_archivo, validar_tamaño_archivo]
+        validators=[validar_extension_archivo, validar_contenido_archivo, validar_tamaño_archivo]
     )
 
     nombre_original = models.CharField(

@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, ProfileUpdateForm
 from .models import User
 from django.contrib.auth import update_session_auth_hash
@@ -10,16 +11,95 @@ from django.core.paginator import Paginator
 from django.db.models import Q
 
 
+# ============================================
+# RATE LIMITING PARA LOGIN
+# ============================================
+MAX_LOGIN_ATTEMPTS = 5  # Máximo de intentos permitidos
+LOCKOUT_TIME = 900  # Tiempo de bloqueo en segundos (15 minutos)
+
+
+def get_client_ip(request):
+    """Obtiene la IP real del cliente"""
+    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(',')[0].strip()
+    else:
+        ip = request.META.get('REMOTE_ADDR')
+    return ip
+
+
+def is_login_blocked(ip):
+    """Verifica si la IP está bloqueada"""
+    blocked_key = f'login_blocked_{ip}'
+    return cache.get(blocked_key, False)
+
+
+def get_login_attempts(ip):
+    """Obtiene el número de intentos de login para una IP"""
+    attempts_key = f'login_attempts_{ip}'
+    return cache.get(attempts_key, 0)
+
+
+def increment_login_attempts(ip):
+    """Incrementa los intentos de login y bloquea si excede el límite"""
+    attempts_key = f'login_attempts_{ip}'
+    blocked_key = f'login_blocked_{ip}'
+
+    attempts = cache.get(attempts_key, 0) + 1
+    cache.set(attempts_key, attempts, LOCKOUT_TIME)
+
+    if attempts >= MAX_LOGIN_ATTEMPTS:
+        cache.set(blocked_key, True, LOCKOUT_TIME)
+        return True  # Bloqueado
+    return False
+
+
+def reset_login_attempts(ip):
+    """Resetea los intentos de login después de un login exitoso"""
+    attempts_key = f'login_attempts_{ip}'
+    blocked_key = f'login_blocked_{ip}'
+    cache.delete(attempts_key)
+    cache.delete(blocked_key)
+
+
 def login_view(request):
+    # Rate limiting: verificar si la IP está bloqueada
+    client_ip = get_client_ip(request)
+
+    if is_login_blocked(client_ip):
+        remaining_time = LOCKOUT_TIME // 60  # Convertir a minutos
+        messages.error(
+            request,
+            f"Demasiados intentos fallidos. Tu acceso está bloqueado por {remaining_time} minutos."
+        )
+        return render(request, "accounts/login.html", {"form": CustomAuthenticationForm(), "blocked": True})
+
     if request.method == "POST":
         form = CustomAuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
+            # Login exitoso: resetear intentos
+            reset_login_attempts(client_ip)
             login(request, user)
             messages.success(request, f"Bienvenido {user.get_full_name()}")
-            return redirect("core:dashboard")  # Redirige a tu panel principal
+            return redirect("core:dashboard")
         else:
-            messages.error(request, "Correo o contraseña incorrectos")
+            # Login fallido: incrementar intentos
+            is_blocked = increment_login_attempts(client_ip)
+            attempts_left = MAX_LOGIN_ATTEMPTS - get_login_attempts(client_ip)
+
+            if is_blocked:
+                messages.error(
+                    request,
+                    f"Demasiados intentos fallidos. Tu acceso está bloqueado por {LOCKOUT_TIME // 60} minutos."
+                )
+            elif attempts_left > 0:
+                messages.error(
+                    request,
+                    f"Correo o contraseña incorrectos. Te quedan {attempts_left} intentos."
+                )
+            else:
+                messages.error(request, "Correo o contraseña incorrectos")
     else:
         form = CustomAuthenticationForm()
     return render(request, "accounts/login.html", {"form": form})
