@@ -1,0 +1,79 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3 class="text-center mb-4">🗄 Copias de Seguridad del Sistema</h3>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if user.rol == 'admin' %}
+    <div class="alert alert-info">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Permisos de Administrador:</strong> Puedes crear y eliminar copias de seguridad del sistema completo.
+    </div>
+    <div class="text-end mb-3">
+        <a href="{% url 'core:crear_copia_seguridad' %}" class="btn btn-success">
+            <i class="fas fa-plus-circle me-1"></i> Crear nueva copia de seguridad
+        </a>
+    </div>
+    {% else %}
+    <div class="alert alert-warning">
+        <i class="fas fa-lock me-2"></i>
+        <strong>Vista de solo lectura:</strong> Solo los administradores pueden crear y eliminar copias de seguridad del sistema.
+        Puedes descargar los backups disponibles.
+    </div>
+    {% endif %}
+
+    {% if archivos %}
+        <table class="table table-hover shadow-sm rounded">
+            <thead class="table-success">
+                <tr>
+                    <th>Nombre del Archivo</th>
+                    <th>Tamaño</th>
+                    <th>Fecha de Creación</th>
+                    <th class="text-center">Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for archivo in archivos %}
+                    <tr>
+                        <td>{{ archivo.nombre }}</td>
+                        <td>{{ archivo.tamaño }}</td>
+                        <td>{{ archivo.fecha }}</td>
+                        <td class="text-center">
+                            {% if user.rol == 'admin' %}
+                                <a href="{% url 'core:restaurar_backup' archivo.nombre %}"
+                                    class="btn btn-warning btn-sm"
+                                    onclick="return confirm('¿Seguro que deseas restaurar este backup? Se sobrescribirán los datos actuales.')">
+                                    <i class="fas fa-redo me-1"></i> Restaurar
+                                </a>
+                                <a href="{% url 'core:eliminar_copia_seguridad' archivo.nombre %}"
+                                    class="btn btn-danger btn-sm ms-2"
+                                    onclick="return confirm('¿Estás seguro de que quieres eliminar este archivo de forma permanente? Esta acción no se puede deshacer.')">
+                                    <i class="fas fa-trash me-1"></i> Eliminar
+                                </a>
+                            {% else %}
+                                <button class="btn btn-secondary btn-sm" disabled title="Solo administradores">
+                                    <i class="fas fa-lock me-1"></i> Sin permisos
+                                </button>
+                            {% endif %}
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <div class="alert alert-info text-center">
+            No hay copias de seguridad disponibles.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="container py-5 text-center">
+    <h2>🔄 Restaurar copia de seguridad</h2>
+    <p>Selecciona un archivo <strong>.zip</strong> previamente generado para restaurar los datos del sistema.</p>
+
+    <form method="post" enctype="multipart/form-data">
+        {% csrf_token %}
+        <div class="mb-3">
+        <input type="file" name="archivo_backup" accept=".zip" class="form-control" required>
+        </div>
+        <button type="submit" class="btn btn-warning btn-lg">Restaurar Backup</button>
+    </form>
+
+    {% if messages %}
+        <div class="mt-4">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

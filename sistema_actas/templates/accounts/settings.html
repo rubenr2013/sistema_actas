@@ -1,0 +1,131 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Configuración de la Cuenta{% endblock %}
+
+{% block content %}
+<style>
+    /* === Estilos personalizados === */
+    body {
+        background-color: #f5f7fa;
+    }
+
+    .config-container {
+        max-width: 800px;
+        margin: 50px auto;
+        background-color: #ffffff;
+        border-radius: 12px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    .config-container:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+    }
+
+    .config-header {
+        background-color: #39A900;
+        color: white;
+        padding: 20px 30px;
+        text-align: center;
+    }
+
+    .config-header h4 {
+        margin: 0;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+
+    .config-body {
+        padding: 35px 45px;
+    }
+
+    form p {
+        margin-bottom: 20px;
+    }
+
+    label {
+        font-weight: 600;
+        color: #2d8000;
+        margin-bottom: 6px;
+        display: block;
+    }
+
+    input[type="text"],
+    input[type="email"],
+    input[type="file"],
+    input[type="password"],
+    select {
+        border: 1px solid #c8e6c9;
+        border-radius: 8px;
+        padding: 10px 12px;
+        width: 100%;
+        background-color: #f9fdf9;
+        transition: all 0.3s ease;
+    }
+
+    input:focus,
+    select:focus {
+        border-color: #39A900;
+        box-shadow: 0 0 0 0.2rem rgba(57, 169, 0, 0.2);
+        outline: none;
+    }
+
+    .img-thumbnail {
+        border-radius: 10px;
+        border: 2px solid #39A900;
+        background-color: #f8fff8;
+    }
+
+    .btn-guardar {
+        background-color: #39A900;
+        border: none;
+        color: #fff;
+        font-weight: 600;
+        border-radius: 8px;
+        padding: 10px 20px;
+        transition: all 0.3s ease;
+    }
+
+    .btn-guardar:hover {
+        background-color: #2d8000;
+        transform: scale(1.05);
+    }
+
+    .firma-section {
+        text-align: center;
+        margin-top: 25px;
+    }
+
+    .firma-section label {
+        color: #2d8000;
+    }
+</style>
+
+<div class="config-container">
+    <div class="config-header">
+        <h4>Configuración de tu cuenta</h4>
+    </div>
+    <div class="config-body">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            {{ form.as_p }}
+
+            {% if user.firma_digital %}
+            <div class="firma-section">
+                <label><strong>Firma digital actual:</strong></label><br>
+                <img src="{{ user.firma_digital.url }}" alt="Firma digital" 
+                        class="img-thumbnail" style="max-height: 120px;">
+            </div>
+            {% endif %}
+
+            <div class="mt-4 text-end">
+                <button type="submit" class="btn btn-guardar">
+                    💾 Guardar Cambios
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

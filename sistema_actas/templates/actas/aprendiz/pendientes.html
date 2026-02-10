@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Actas Pendientes por Firmar{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <h2 class="mb-4 text-success">
+        <i class="fas fa-file-signature me-2"></i> Actas Pendientes por Firmar
+    </h2>
+
+    {% if firmas %}
+        <div class="row">
+            {% for firma in firmas %}
+                <div class="col-md-6 col-lg-4 mb-4">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-body">
+                            <h5 class="card-title text-success">
+                                Acta {{ firma.acta.numero_acta }}
+                            </h5>
+                            <p class="card-text">
+                                <strong>Título:</strong> {{ firma.acta.titulo }}<br>
+                                <strong>Fecha:</strong> {{ firma.acta.fecha_reunion|date:"d/m/Y H:i" }}<br>
+                                <strong>Estado:</strong>
+                                <span class="badge bg-warning text-dark">{{ firma.acta.get_estado_display }}</span>
+                            </p>
+
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'actas:detalle' firma.acta.id %}" 
+                                    class="btn btn-outline-success btn-sm">
+                                    <i class="fas fa-eye me-1"></i> Ver Detalle
+                                </a>
+                                <a href="{% url 'actas:firmar' firma.acta.id %}" 
+                                    class="btn btn-success btn-sm">
+                                    <i class="fas fa-pen-nib me-1"></i> Firmar
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="alert alert-info">
+            <i class="fas fa-info-circle me-1"></i> No tienes actas pendientes por firmar.
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

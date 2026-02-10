@@ -1,0 +1,448 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+{% block title %}Editar Acta - {{ acta.numero_acta }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --sena-green: #39A900;
+        --sena-dark-green: #2d8000;
+    }
+
+    .card {
+        border: none;
+        border-radius: 15px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.08);
+    }
+
+    .card-header {
+        background-color: var(--sena-green);
+        color: white;
+        border-top-left-radius: 15px;
+        border-top-right-radius: 15px;
+    }
+
+    .card-header h5 {
+        margin: 0;
+        font-weight: 600;
+    }
+
+    .form-floating > label {
+        color: #555;
+    }
+
+    .form-control, .form-select {
+        border-radius: 10px;
+        border: 1px solid #ccc;
+        transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--sena-green);
+        box-shadow: 0 0 0 0.2rem rgba(57,169,0,0.25);
+    }
+
+    textarea.form-control {
+        resize: vertical;
+        min-height: 120px;
+    }
+
+    .btn-success, .btn-primary {
+        background-color: var(--sena-green);
+        border: none;
+        border-radius: 10px;
+        transition: background-color 0.2s, transform 0.2s;
+    }
+
+    .btn-success:hover, .btn-primary:hover {
+        background-color: var(--sena-dark-green);
+        transform: scale(1.03);
+    }
+
+    .btn-outline-secondary {
+        border-radius: 10px;
+    }
+
+    h1.h2 {
+        color: var(--sena-dark-green);
+        font-weight: 600;
+    }
+
+    .hover-lift {
+        animation: fadeInUp 0.4s ease-in-out;
+    }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Estilos para participantes y compromisos */
+    .participante-item, .compromiso-item {
+        background-color: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 10px;
+    }
+
+    .btn-remove {
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 5px;
+        padding: 5px 10px;
+        cursor: pointer;
+    }
+
+    .btn-remove:hover {
+        background-color: #c82333;
+    }
+
+    .btn-add {
+        background-color: var(--sena-green);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 20px;
+        cursor: pointer;
+    }
+
+    .btn-add:hover {
+        background-color: var(--sena-dark-green);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-1">
+                <i class="fas fa-pen-to-square me-2 text-success"></i>Editar Acta
+            </h1>
+            <p class="text-muted mb-0">Modifica los datos del acta <strong>#{{ acta.numero_acta }}</strong></p>
+        </div>
+        <a href="{% url 'actas:detalle' acta.id %}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left me-1"></i> Volver
+        </a>
+    </div>
+
+    <!-- Formulario -->
+    <form method="post" enctype="multipart/form-data" class="animate__animated animate__fadeIn">
+        {% csrf_token %}
+        <div class="row">
+            <div class="col-lg-10 mx-auto">
+
+                <!-- Información General -->
+                <div class="card hover-lift mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-info-circle me-2"></i>Información General</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="titulo" name="titulo"
+                                            placeholder="Título del acta" value="{{ acta.titulo }}" required>
+                                    <label for="titulo">Título del Acta</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6">
+                                <div class="form-floating">
+                                    <select class="form-select" id="tipo_reunion" name="tipo_reunion" required>
+                                        <option value="">Seleccione el tipo</option>
+                                        {% for value, display in tipos_reunion %}
+                                            <option value="{{ value }}" {% if acta.tipo_reunion == value %}selected{% endif %}>{{ display }}</option>
+                                        {% endfor %}
+                                    </select>
+                                    <label for="tipo_reunion">Tipo de Reunión</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <input type="datetime-local" class="form-control" id="fecha_reunion"
+                                            name="fecha_reunion" value="{{ acta.fecha_reunion|date:'Y-m-d\\TH:i' }}" required>
+                                    <label for="fecha_reunion">Fecha y Hora</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="lugar_reunion"
+                                           name="lugar_reunion" placeholder="Lugar" value="{{ acta.lugar_reunion }}" required>
+                                    <label for="lugar_reunion">Lugar</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <select class="form-select" id="modalidad" name="modalidad" required>
+                                        <option value="presencial" {% if acta.modalidad == 'presencial' %}selected{% endif %}>Presencial</option>
+                                        <option value="virtual" {% if acta.modalidad == 'virtual' %}selected{% endif %}>Virtual</option>
+                                        <option value="hibrida" {% if acta.modalidad == 'hibrida' %}selected{% endif %}>Híbrida</option>
+                                    </select>
+                                    <label for="modalidad">Modalidad</label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- NUEVA SECCIÓN: PARTICIPANTES -->
+                <div class="card hover-lift mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-users me-2"></i>Participantes</h5>
+                        <button type="button" class="btn btn-sm btn-light" onclick="agregarParticipante()">
+                            <i class="fas fa-plus me-1"></i>Agregar Participante
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="participantes-container">
+                            {% for participante in participantes %}
+                            <div class="participante-item mb-3">
+                                <div class="row g-2 align-items-center">
+                                    <div class="col-md-6">
+                                        <select class="form-select" name="participantes" required>
+                                            <option value="">Seleccione un usuario</option>
+                                            {% for usuario in usuarios %}
+                                                <option value="{{ usuario.email }}" 
+                                                    {% if participante.usuario.email == usuario.email %}selected{% endif %}>
+                                                    {{ usuario.get_full_name }} ({{ usuario.email }})
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-5">
+                                        <input type="text" class="form-control" 
+                                                name="rol_{{ participante.usuario.email }}" 
+                                                placeholder="Rol en la reunión"
+                                                value="{{ participante.rol_en_reunion }}">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-remove btn-sm" onclick="this.parentElement.parentElement.parentElement.remove()">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Los participantes recibirán una notificación cuando envíes el acta a revisión
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Orden del Día -->
+                <div class="card hover-lift mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-list-ol me-2"></i>Orden del Día</h5>
+                    </div>
+                    <div class="card-body">
+                        <textarea class="form-control" id="orden_dia" name="orden_dia" rows="4"
+                                    placeholder="Ejemplo:&#10;1. Verificación del quórum&#10;2. Lectura del acta anterior&#10;3. Presentación de informes...">{{ acta.orden_dia }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Desarrollo -->
+                <div class="card hover-lift mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-comments me-2"></i>Desarrollo de la Reunión</h5>
+                    </div>
+                    <div class="card-body">
+                        <textarea class="form-control" id="desarrollo" name="desarrollo" rows="8"
+                                    placeholder="Describe el desarrollo completo de la reunión...">{{ acta.desarrollo }}</textarea>
+                    </div>
+                </div>
+
+                <!-- NUEVA SECCIÓN: COMPROMISOS -->
+                <div class="card hover-lift mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5><i class="fas fa-tasks me-2"></i>Compromisos</h5>
+                        <button type="button" class="btn btn-sm btn-light" onclick="agregarCompromiso()">
+                            <i class="fas fa-plus me-1"></i>Agregar Compromiso
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div id="compromisos-container">
+                            {% for compromiso in compromisos %}
+                            <div class="compromiso-item mb-3">
+                                <div class="row g-2">
+                                    <div class="col-md-5">
+                                        <textarea class="form-control" 
+                                                    name="compromiso_desc_{{ forloop.counter }}" 
+                                                    placeholder="Descripción del compromiso" 
+                                                    rows="2" required>{{ compromiso.descripcion }}</textarea>
+                                    </div>
+                                    <div class="col-md-4">
+                                        <select class="form-select" name="compromiso_resp_{{ forloop.counter }}" required>
+                                            <option value="">Responsable</option>
+                                            {% for usuario in usuarios %}
+                                                <option value="{{ usuario.email }}"
+                                                    {% if compromiso.responsable.email == usuario.email %}selected{% endif %}>
+                                                    {{ usuario.get_full_name }}
+                                                </option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="date" class="form-control" 
+                                                name="compromiso_fecha_{{ forloop.counter }}"
+                                                value="{{ compromiso.fecha_limite|date:'Y-m-d' }}" required>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button type="button" class="btn btn-remove btn-sm" onclick="this.parentElement.parentElement.parentElement.remove()">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Observaciones -->
+                <div class="card hover-lift mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-note-sticky me-2"></i>Observaciones</h5>
+                    </div>
+                    <div class="card-body">
+                        <textarea class="form-control" id="observaciones" name="observaciones" rows="3"
+                                    placeholder="Observaciones o notas adicionales">{{ acta.observaciones }}</textarea>
+                    </div>
+                </div>
+
+                <!-- Archivo Adjunto -->
+                <div class="card hover-lift mb-4">
+                    <div class="card-header">
+                        <h5><i class="fas fa-paperclip me-2"></i>Archivo Adjunto</h5>
+                    </div>
+                    <div class="card-body">
+                        {% if acta.archivo_adjunto %}
+                            <p>Archivo actual: <a href="{{ acta.archivo_adjunto.url }}" target="_blank" class="text-success">{{ acta.archivo_adjunto.name }}</a></p>
+                        {% endif %}
+                        <input type="file" class="form-control" id="archivo_adjunto" name="archivo_adjunto"
+                                accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
+                        <small class="text-muted">Formatos permitidos: PDF, Word, Excel, PowerPoint</small>
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="text-end">
+                    <a href="{% url 'actas:detalle' acta.id %}" class="btn btn-outline-secondary me-2">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="fas fa-save me-1"></i>Guardar Cambios
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let participanteCounter = {{ participantes.count|default:0 }};
+    let compromisoCounter = {{ compromisos.count|default:0 }};
+
+    // Función para agregar nuevo participante
+    function agregarParticipante() {
+        participanteCounter++;
+        const container = document.getElementById('participantes-container');
+        const html = `
+            <div class="participante-item mb-3">
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-6">
+                        <select class="form-select" name="participantes" required>
+                            <option value="">Seleccione un usuario</option>
+                            {% for usuario in usuarios %}
+                                <option value="{{ usuario.email }}">
+                                    {{ usuario.get_full_name }} ({{ usuario.email }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-5">
+                        <input type="text" class="form-control" name="rol_new_${participanteCounter}" 
+                                placeholder="Rol en la reunión">
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-remove btn-sm" onclick="this.parentElement.parentElement.parentElement.remove()">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    // Función para agregar nuevo compromiso
+    function agregarCompromiso() {
+        compromisoCounter++;
+        const container = document.getElementById('compromisos-container');
+        const html = `
+            <div class="compromiso-item mb-3">
+                <div class="row g-2">
+                    <div class="col-md-5">
+                        <textarea class="form-control" name="compromiso_desc_${compromisoCounter}" 
+                                    placeholder="Descripción del compromiso" rows="2" required></textarea>
+                    </div>
+                    <div class="col-md-4">
+                        <select class="form-select" name="compromiso_resp_${compromisoCounter}" required>
+                            <option value="">Responsable</option>
+                            {% for usuario in usuarios %}
+                                <option value="{{ usuario.email }}">{{ usuario.get_full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <input type="date" class="form-control" name="compromiso_fecha_${compromisoCounter}" required>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="button" class="btn btn-remove btn-sm" onclick="this.parentElement.parentElement.parentElement.remove()">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        `;
+        container.insertAdjacentHTML('beforeend', html);
+    }
+
+    // CKEditor
+    document.addEventListener("DOMContentLoaded", function () {
+        if (typeof CKEDITOR !== "undefined") {
+            CKEDITOR.replace('desarrollo', {
+                height: 300,
+                toolbar: [
+                    { name: 'basicstyles', items: ['Bold', 'Italic', 'Underline'] },
+                    { name: 'paragraph', items: ['NumberedList', 'BulletedList', '-', 'Outdent', 'Indent'] },
+                    { name: 'styles', items: ['Format'] },
+                    { name: 'colors', items: ['TextColor', 'BGColor'] }
+                ]
+            });
+        }
+    });
+</script>
+{% endblock %}

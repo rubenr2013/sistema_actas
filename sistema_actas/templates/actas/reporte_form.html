@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+{% block content %}
+
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-7">
+            <div class="compromisos-container">
+                <h2>Reportar Avance del Compromiso</h2>
+                <p class="lead">Acta N°: <strong>{{ compromiso.acta.numero_acta }}</strong> | Límite: <strong>{{ compromiso.fecha_limite }}</strong></p>
+                <hr>
+                
+                <div class="alert alert-secondary">
+                    <strong>Descripción del Compromiso:</strong> {{ compromiso.descripcion }}
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        <div class="col-12 col-md-6 mb-3">
+                            <label for="{{ form.estado.id_for_label }}" class="form-label">Estado Actual</label>
+                            {{ form.estado }}
+                        </div>
+                        
+                        <div class="col-12 col-md-6 mb-3">
+                            <label for="{{ form.porcentaje_avance.id_for_label }}" class="form-label">Porcentaje de Avance (%)</label>
+                            {{ form.porcentaje_avance }}
+                            <small class="form-text text-muted">Si ingresas 100%, el estado cambiará automáticamente a "Completado".</small>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.reporte_cumplimiento.id_for_label }}" class="form-label">Reporte / Justificación</label>
+                        {{ form.reporte_cumplimiento }}
+                        <small class="form-text text-muted">Añade detalles sobre el avance, los obstáculos o la confirmación de cumplimiento.</small>
+                    </div>
+
+                    <div class="d-flex justify-content-end mt-4">
+                        <a href="{% url 'actas:mis_compromisos' %}" class="btn btn-secondary me-2">Cancelar</a>
+                        <button type="submit" class="btn btn-success">Guardar Reporte</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

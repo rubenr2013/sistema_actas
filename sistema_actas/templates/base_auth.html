@@ -1,0 +1,40 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Autenticación{% endblock %} | Sistema SENA</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+    <style>
+        :root {
+            --sena-green: #39A900; 
+            --sena-dark-green: #2B7A00;
+            --sena-purple: #ffffffff;
+            --sena-blue: #ffffffff;
+        }
+        /* ESTILO GLOBAL DE FONDO Y CENTRADO */
+        body {
+            /* Su degradado de fondo */
+            background: linear-gradient(135deg, var(--sena-blue) 0%, var(--sena-purple) 100%) !important; 
+        }
+    </style>
+    
+    {% block extra_css %}{% endblock %}
+
+</head>
+<body class="d-flex flex-column min-vh-100">
+    
+    <div class="d-flex align-items-center justify-content-center flex-grow-1 w-100 py-5">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>

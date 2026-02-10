@@ -1,0 +1,265 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Dashboard - Sistema de Gestión de Actas{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header del Dashboard -->
+    <div class="row mb-4">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1 fade-in-up">¡Bienvenido, {{ user.get_full_name }}!</h1>
+                    <p class="text-muted fade-in-up stagger-1">Centro Minero SENA - {{ user.get_rol_display }}</p>
+                </div>
+                {% if user.rol != "aprendiz" and user.rol != "invitado" %}
+                <div class="fade-in-up stagger-2">
+                    <a href="{% url 'actas:crear' %}" class="btn btn-primary hover-lift">
+                        <i class="fas fa-plus me-2"></i>Nueva Acta
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Estadísticas Rápidas -->
+    <div class="row mb-4">
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card hover-lift fade-in-up">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stats-number">{{ stats.total_actas }}</div>
+                            <div class="text-muted fw-semibold">Total de Actas</div>
+                        </div>
+                        <div class="text-primary" style="font-size: 2.5rem; opacity: 0.3;">
+                            <i class="fas fa-file-alt"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card hover-lift fade-in-up stagger-1">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stats-number text-warning">{{ stats.actas_pendientes_firma }}</div>
+                            <div class="text-muted fw-semibold">Firmas Pendientes</div>
+                        </div>
+                        <div class="text-warning" style="font-size: 2.5rem; opacity: 0.3;">
+                            <i class="fas fa-signature"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card hover-lift fade-in-up stagger-2">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stats-number text-info">{{ stats.compromisos_pendientes }}</div>
+                            <div class="text-muted fw-semibold">Compromisos Activos</div>
+                        </div>
+                        <div class="text-info" style="font-size: 2.5rem; opacity: 0.3;">
+                            <i class="fas fa-tasks"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-xl-3 col-md-6 mb-3">
+            <div class="card stats-card hover-lift fade-in-up stagger-3">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <div class="stats-number text-danger">{{ stats.compromisos_vencidos }}</div>
+                            <div class="text-muted fw-semibold">Compromisos Vencidos</div>
+                        </div>
+                        <div class="text-danger" style="font-size: 2.5rem; opacity: 0.3;">
+                            <i class="fas fa-exclamation-triangle"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Actas Recientes -->
+        <div class="col-lg-8 mb-4">
+            <div class="card hover-lift fade-in-up">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2 text-primary"></i>Actas Recientes
+                    </h5>
+                    <a href="{% url 'actas:actas_list' %}" class="btn btn-outline-primary btn-sm">Ver todas</a>
+                </div>
+                <div class="card-body">
+                    {% if actas_recientes %}
+                        <div class="list-group list-group-flush">
+                            {% for acta in actas_recientes %}
+                                <div class="list-group-item border-0 px-0 py-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <h6 class="mb-1">
+                                                <a href="{% url 'actas:detalle' acta.id %}" class="text-decoration-none">
+                                                    {{ acta.numero_acta }} - {{ acta.titulo }}
+                                                </a>
+                                            </h6>
+                                            <p class="mb-1 text-muted">{{ acta.get_tipo_reunion_display }}</p>
+                                            <small class="text-muted">
+                                                <i class="fas fa-calendar me-1"></i>{{ acta.fecha_reunion|date:"d/m/Y H:i" }}
+                                                <i class="fas fa-map-marker-alt ms-3 me-1"></i>{{ acta.lugar_reunion }}
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <span class="badge badge-{{ acta.estado }} mb-2">
+                                                {{ acta.get_estado_display }}
+                                            </span>
+                                            <br>
+                                            <small class="text-muted">
+                                                <i class="fas fa-users me-1"></i>{{ acta.get_firmas_completadas }}/{{ acta.get_total_firmas }} firmas
+                                            </small>
+                                        </div>
+                                    </div>
+                                    {% if acta.get_total_firmas > 0 %}
+                                        <div class="progress progress-custom mt-2" style="height: 6px;">
+                                            <div class="progress-bar" style="width: {{ acta.get_porcentaje_firmas }}%"></div>
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="fas fa-file-alt text-muted" style="font-size: 3rem; opacity: 0.3;"></i>
+                            <p class="text-muted mt-3">No hay actas recientes</p>
+                            {% if user.rol != "aprendiz" and user.rol != "invitado" %}
+                            <a href="{% url 'actas:crear' %}" class="btn btn-primary">Crear primera acta</a>
+                            {% endif %}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar derecho -->
+        <div class="col-lg-4">
+            <!-- Firmas Pendientes -->
+            <div class="card hover-lift fade-in-up stagger-1 mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-pen-fancy me-2 text-warning"></i>Firmas Pendientes
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if firmas_pendientes %}
+                        {% for firma in firmas_pendientes %}
+                            <div class="d-flex justify-content-between align-items-center mb-3 pb-3 border-bottom">
+                                <div class="flex-grow-1">
+                                    <h6 class="mb-1">{{ firma.acta.numero_acta }}</h6>
+                                    <small class="text-muted">{{ firma.acta.titulo|truncatechars:30 }}</small>
+                                </div>
+                                <a href="{% url 'actas:firmar' firma.acta.id %}" 
+                                    class="btn btn-warning btn-sm">
+                                    <i class="fas fa-signature"></i>
+                                </a>
+                            </div>
+                        {% endfor %}
+                        <a href="{% url 'actas:firmas_pendientes' %}" class="btn btn-outline-warning btn-sm w-100">
+                            Ver todas las firmas pendientes
+                        </a>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-check-circle text-success" style="font-size: 2rem;"></i>
+                            <p class="text-muted mt-2 mb-0">No hay firmas pendientes</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Compromisos Próximos -->
+            <div class="card hover-lift fade-in-up stagger-2">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-clock me-2 text-info"></i>Compromisos Próximos
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if compromisos_proximos %}
+                        {% for compromiso in compromisos_proximos %}
+                            <div class="mb-3 pb-3 {% if not forloop.last %}border-bottom{% endif %}">
+                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                    <h6 class="mb-1 flex-grow-1">{{ compromiso.descripcion|truncatechars:40 }}</h6>
+                                    {% if compromiso.esta_vencido %}
+                                        <span class="badge bg-danger">Vencido</span>
+                                    {% elif compromiso.dias_restantes <= 3 %}
+                                        <span class="badge bg-warning">{{ compromiso.dias_restantes }} días</span>
+                                    {% else %}
+                                        <span class="badge bg-info">{{ compromiso.dias_restantes }} días</span>
+                                    {% endif %}
+                                </div>
+                                <small class="text-muted">
+                                    <i class="fas fa-calendar me-1"></i>{{ compromiso.fecha_limite|date:"d/m/Y" }}
+                                </small>
+                                <div class="progress progress-custom mt-2" style="height: 4px;">
+                                    <div class="progress-bar" style="width: {{ compromiso.porcentaje_avance }}%"></div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                        <a href="{% url 'actas:mis_compromisos' %}" class="btn btn-outline-info btn-sm w-100">
+                            Ver todos los compromisos
+                        </a>
+                    {% else %}
+                        <div class="text-center py-3">
+                            <i class="fas fa-calendar-check text-success" style="font-size: 2rem;"></i>
+                            <p class="text-muted mt-2 mb-0">No hay compromisos próximos</p>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Actualizar estadísticas en tiempo real cada 30 segundos
+    setInterval(function() {
+        $.get('{% url "api:dashboard_stats" %}', function(data) {
+            $('.stats-number').each(function(index) {
+                const newValue = Object.values(data)[index];
+                $(this).text(newValue);
+            });
+        });
+    }, 30000);
+
+    // Animación de números contadores
+    $('.stats-number').each(function() {
+        const $this = $(this);
+        const countTo = parseInt($this.text());
+        
+        $({ countNum: 0 }).animate({
+            countNum: countTo
+        }, {
+            duration: 1000,
+            easing: 'swing',
+            step: function() {
+                $this.text(Math.floor(this.countNum));
+            },
+            complete: function() {
+                $this.text(this.countNum);
+            }
+        });
+    });
+</script>
+{% endblock %}

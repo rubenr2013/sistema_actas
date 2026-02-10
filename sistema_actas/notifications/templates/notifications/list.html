@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block title %}Notificaciones{% endblock %}
+
+{% block extra_css %}
+<style>
+    .notification-card {
+        border-left: 4px solid var(--sena-green);
+        transition: all 0.3s ease;
+        margin-bottom: 1rem;
+    }
+    .notification-card:hover {
+        transform: translateY(-2px);
+        box-shadow: var(--shadow-md);
+    }
+    .notification-unread {
+        border-left-color: #ffc107;
+        background: #fff9e6;
+    }
+    .notification-badge {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background-color: #dc3545;
+        display: inline-block;
+        margin-right: 0.5rem;
+    }
+    .notification-read .notification-badge {
+        background-color: #28a745;
+    }
+    .filter-card {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-sm);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .pagination .page-item .page-link {
+        border-radius: var(--border-radius);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <!-- Filtros -->
+            <div class="filter-card">
+                <h4><i class="fas fa-filter me-2"></i>Filtrar Notificaciones</h4>
+                <form method="get" class="mt-3">
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label for="tipo" class="form-label">Tipo de Notificación</label>
+                            <select name="tipo" id="tipo" class="form-select">
+                                <option value="">Todos los tipos</option>
+                                {% for tipo in tipos_notificacion %}
+                                    <option value="{{ tipo.0 }}" {% if filtros.tipo == tipo.0 %}selected{% endif %}>{{ tipo.1 }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label for="leida" class="form-label">Estado</label>
+                            <select name="leida" id="leida" class="form-select">
+                                <option value="">Todas</option>
+                                <option value="true" {% if filtros.leida == 'true' %}selected{% endif %}>Leídas</option>
+                                <option value="false" {% if filtros.leida == 'false' %}selected{% endif %}>No leídas</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end">
+                            <button type="submit" class="btn btn-primary w-100">
+                                <i class="fas fa-search me-2"></i>Filtrar
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Lista de Notificaciones -->
+            <div class="card hover-lift">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bell text-primary me-2"></i>
+                        Notificaciones
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if page_obj %}
+                        {% for notification in page_obj %}
+                            <div class="notification-card card mb-3 {% if not notification.leida %}notification-unread{% else %}notification-read{% endif %}">
+                                <div class="card-body py-3">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div class="flex-grow-1">
+                                            <div class="d-flex align-items-center mb-2">
+                                                {% if not notification.leida %}
+                                                    <span class="notification-badge"></span>
+                                                {% endif %}
+                                                <h6 class="mb-0">{{ notification.titulo }}</h6>
+                                            </div>
+                                            <p class="mb-2 text-muted">{{ notification.mensaje }}</p>
+                                            <small class="text-muted">
+                                                <i class="fas fa-clock me-1"></i>
+                                                {{ notification.fecha_creacion|timesince }} atrás
+                                            </small>
+                                        </div>
+                                        <div class="text-end">
+                                            <a href="{{ notification.get_url }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="fas fa-eye me-1"></i>Ver
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        {% empty %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-info-circle me-2"></i>
+                                No hay notificaciones para mostrar.
+                            </div>
+                        {% endfor %}
+
+                        <!-- Paginación -->
+                        <nav aria-label="Page navigation" class="mt-4">
+                            <ul class="pagination justify-content-center">
+                                {% if page_obj.has_previous %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page=1{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.leida %}&leida={{ filtros.leida }}{% endif %}">
+                                            <i class="fas fa-angle-double-left"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.leida %}&leida={{ filtros.leida }}{% endif %}">
+                                            <i class="fas fa-angle-left"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+
+                                <li class="page-item disabled">
+                                    <span class="page-link">
+                                        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+                                    </span>
+                                </li>
+
+                                {% if page_obj.has_next %}
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.leida %}&leida={{ filtros.leida }}{% endif %}">
+                                            <i class="fas fa-angle-right"></i>
+                                        </a>
+                                    </li>
+                                    <li class="page-item">
+                                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filtros.tipo %}&tipo={{ filtros.tipo }}{% endif %}{% if filtros.leida %}&leida={{ filtros.leida }}{% endif %}">
+                                            <i class="fas fa-angle-double-right"></i>
+                                        </a>
+                                    </li>
+                                {% endif %}
+                            </ul>
+                        </nav>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>
+                            No hay notificaciones para mostrar.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

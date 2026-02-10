@@ -1,0 +1,351 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load crispy_forms_tags %}
+
+{% block title %}Iniciar Sesión - Sistema de Actas SENA{% endblock %}
+
+{% block extra_css %}
+<style>
+:root {
+    --sena-green: #39A900;
+    --sena-dark-green: #2d8000;
+}
+
+/* === Fondo general === */
+/* Aseguramos que el body ocupe todo el espacio y permite scroll vertical */
+html {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    min-height: 100%;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(to top, #e9ecef, #ffffff);
+    background-attachment: fixed;
+    font-family: "Poppins", sans-serif;
+    overflow-x: hidden !important; /* Elimina scroll horizontal */
+    overflow-y: auto !important; /* Permite scroll vertical cuando sea necesario */
+}
+
+/* Contenedor principal */
+.login-wrapper {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh; /* Usa min-height en lugar de height fijo */
+    padding: 2rem 1rem; /* Padding vertical para espacio arriba y abajo */
+    box-sizing: border-box;
+    width: 100%;
+}
+
+/* Estructura interna (Centrado Único) */
+.login-main {
+    display: flex;
+    justify-content: center;
+    align-items: center; 
+    
+    /* ANCHO AUMENTADO Y CENTRADO: Se verá bien en PC y centrado */
+    max-width: 550px; 
+    width: 100%;
+    margin: 0 auto;
+    padding:20px;
+}
+
+/* Tarjeta del formulario */
+.login-card {
+    width: 382px;
+    background: rgba(255, 255, 255, 0.98);
+    border-radius: 18px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+    overflow: hidden;
+    display: block;
+    margin: 0 auto; /* Eliminado margin negativo que ocultaba contenido */
+    flex-direction: column;
+}
+
+/* Encabezado */
+.login-header {
+    background: linear-gradient(135deg, var(--sena-green) 0%, var(--sena-dark-green) 100%);
+    color: white;
+    text-align: center;
+    padding: 0.7rem; 
+}
+
+.login-header h3 {
+    font-size: 1.5rem; 
+    margin-bottom: 0.5rem !important;
+}
+
+.login-header h5 {
+    font-size: 1rem; 
+}
+
+/* Logo */
+.sena-logo {
+    width: 48px; 
+    height: 48px; 
+    font-size: 1.2rem; 
+    margin: 0 auto 0.5rem;
+}
+
+/* Formulario */
+.login-form {
+    padding: 1rem; 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Campos y Botones */
+.form-floating {
+    margin-bottom: 0.6rem; 
+}
+
+.form-control {
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.88rem; 
+}
+
+.btn-login {
+    border-radius: 8px;
+    padding: 0.6rem;
+    font-weight: 600;
+    font-size: 0.88rem;
+}
+
+.form-check {
+    margin-bottom: 0.8rem !important; 
+}
+
+/* Links */
+.forgot-link, .register-btn {
+    font-size: 0.88rem;
+}
+
+.text-center.mt-3.mb-4 {
+    margin-top: 0.6rem !important;
+    margin-bottom: 0.6rem !important;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 992px) {
+    /* En tablets/móvil, el login-main se hace más pequeño */
+    .login-main {
+        max-width: 90%; 
+    }
+}
+
+@media (max-width: 576px) { /* Móviles más pequeños */
+    .login-main {
+        max-width: 95%;
+        padding: 0 0.5rem;
+    }
+
+    .login-wrapper {
+        padding: 1rem 0.5rem;
+        min-height: auto; /* Permite que el contenido determine la altura */
+    }
+
+    .login-card {
+        width: 100%;
+        max-width: 100%;
+    }
+}
+</style>
+{% endblock %}
+
+
+{% block content %}
+<div class="login-wrapper">
+    <div class="login-main">
+        <!-- PANEL DERECHO -->
+        <div class="login-card">
+            <div class="login-header">
+                <div class="sena-logo">
+                    <i class="fas fa-building"></i>
+                </div>
+                <h3 class="mb-1">Bienvenido</h3>
+                <h5 class="mb-0 opacity-75">Sistema de Gestión de Actas</h5>
+                <small>Centro Minero SENA</small>
+            </div>
+
+            <div class="login-form">
+                {% if messages %}
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                            <i class="fas fa-{% if message.tags == 'error' %}exclamation-triangle{% else %}info-circle{% endif %} me-2"></i>
+                            {{ message }}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                        </div>
+                    {% endfor %}
+                {% endif %}
+
+                <form method="post" id="loginForm">
+                    {% csrf_token %}
+                    
+                    <div class="form-floating mb-3">
+                        {{ form.username }}
+                        <label for="email">
+                            <i class="fas fa-envelope me-1"></i>
+                            Correo Institucional
+                        </label>
+                    </div>
+
+                    <div class="form-floating mb-3 position-relative">
+                        {{ form.password }}
+                        <label for="{{ form.password.id_for_label }}">
+                            <i class="fas fa-lock me-1"></i>
+                            Contraseña
+                        </label>
+                        <div class="password-toggle" 
+                            style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); cursor: pointer; color: #6c757d;">
+                            <i class="fas fa-eye" id="togglePassword"></i>
+                        </div>
+                    </div>
+
+                    <div class="form-check mb-4">
+                        <input class="form-check-input" type="checkbox" id="remember" name="remember">
+                        <label class="form-check-label" for="remember">
+                            Recordar sesión
+                        </label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-login w-100">
+                        <span class="login-text">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Iniciar Sesión
+                        </span>
+                        <span class="spinner-border spinner-border-sm d-none" role="status"></span>
+                    </button>
+                </form>
+                
+                <div class="text-center mt-3 mb-4">
+                    <a href="{% url 'accounts:password_reset' %}" class="forgot-link">
+                        ¿Olvidaste tu contraseña?
+                    </a>
+                </div>
+
+                <div class="divider text-center text-muted my-2">
+                    <span>¿Primera vez?</span>
+                </div>
+
+                <div class="register-link text-center mt-3">
+                    <a href="{% url 'accounts:register' %}" class="register-btn">
+                        <i class="fas fa-user-plus me-1"></i>
+                        Registrarse
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="infoModal" tabindex="-1" aria-labelledby="infoModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="infoModalLabel">
+                    <i class="fas fa-file-alt me-2"></i>
+                    Información del Sistema
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+            </div>
+            <div class="modal-body">
+                <p>Transformación digital para la gestión de actas institucionales del Centro Minero SENA.</p>
+                
+                <h6>Características:</h6>
+                <ul>
+                    <li>Procesamiento con Inteligencia Artificial</li>
+                    <li>Firmas Electronicas Simples</li>
+                    <li>Seguimiento de compromisos</li>
+                    <li>Notificaciones automáticas</li>
+                    <li>Generación de reportes PDF</li>
+                </ul>
+
+                <div class="mt-3 p-3 alert alert-warning">
+                    <h6><i class="fas fa-info-circle me-1"></i> Importante</h6>
+                    Solo funcionarios con email <strong>@sena.edu.co</strong> pueden acceder. Temporalmente se permite <strong>@gmail.com</strong>.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // 1. Asignar IDs correctos a los campos de Django/Crispy Forms
+    // Si su formulario usa crispy forms, los IDs serán 'id_username' y 'id_password'
+    // Los reasignamos para que coincidan con su JS: 'email' y 'password'
+    $('#id_username').attr('id', 'email').addClass('form-control');
+    $('#id_password').attr('id', 'password').addClass('form-control');
+
+    // 2. Toggle password visibility
+    $('#togglePassword').click(function() {
+        const passwordField = $('#password');
+        const type = passwordField.attr('type') === 'password' ? 'text' : 'password';
+        passwordField.attr('type', type);
+        $(this).toggleClass('fa-eye fa-eye-slash');
+    });
+
+    // Validación en tiempo real del email (SENA o Gmail)
+    // ✅ Validación en tiempo real del email (SENA institucional, aprendiz o Gmail)
+    // 3. Validación en tiempo real del email (SENA o Gmail)
+    $('#email').on('input', function() {
+        const email = $(this).val().toLowerCase().trim();
+        const isValid = (
+            email.endsWith('@sena.edu.co') ||
+            email.endsWith('@soy.sena.edu.co') ||
+            email.endsWith('@gmail.com')
+        );
+
+        if (email.length > 0) {
+            if (isValid) {
+                $(this).removeClass('is-invalid').addClass('is-valid');
+            } else {
+                $(this).removeClass('is-valid').addClass('is-invalid');
+            }
+        } else {
+            $(this).removeClass('is-valid is-invalid');
+        }
+    });
+
+
+    // 4. Manejo del formulario con loading state
+        $('#loginForm').on('submit', function(e) {
+        const $form = $(this);
+        const $button = $form.find('button[type="submit"]');
+        const $spinner = $button.find('.spinner-border');
+        const $text = $button.find('.login-text');
+
+        // Validar email antes de enviar
+        const email = $('#email').val().trim();
+        if (
+            !(
+                email.endsWith('@sena.edu.co') ||
+                email.endsWith('@soy.sena.edu.co') ||
+                email.endsWith('@gmail.com')
+            )
+        ) {
+            e.preventDefault();
+            $('#email').addClass('is-invalid');
+            alert('El correo debe ser institucional (@sena.edu.co o @soy.sena.edu.co) o de Gmail.');
+            return false;
+        }
+
+        $button.prop('disabled', true);
+        $text.addClass('d-none');
+        $spinner.removeClass('d-none');
+        return true; 
+    });
+});
+</script>
+{% endblock %}

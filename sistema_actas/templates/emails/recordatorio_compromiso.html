@@ -1,0 +1,24 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<h2>¡Hola {{ nombre_usuario }}!</h2>
+
+<div class="alert-warning">
+    <p><strong>⏰ Recordatorio Importante</strong></p>
+    <p>Tienes un compromiso que vence pronto.</p>
+</div>
+
+<div class="info-box">
+    <p><strong>📋 Título:</strong> {{ titulo_compromiso }}</p>
+    <p><strong>📝 Descripción:</strong> {{ descripcion }}</p>
+    <p><strong>📅 Fecha de Vencimiento:</strong> {{ fecha_vencimiento }}</p>
+    <p><strong>⏳ Tiempo Restante:</strong> {{ tiempo_restante }}</p>
+    <p><strong>📊 Estado Actual:</strong> {{ estado }}</p>
+</div>
+
+<p>Te recordamos que este compromiso está próximo a vencer. Por favor, complétalo lo antes posible para evitar retrasos.</p>
+
+<center>
+    <a href="{{ enlace_compromiso }}" class="button">Ver Compromiso</a>
+</center>
+{% endblock %}

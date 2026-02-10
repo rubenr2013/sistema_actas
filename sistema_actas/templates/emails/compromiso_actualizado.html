@@ -1,0 +1,21 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<h2>¡Hola {{ nombre_usuario }}!</h2>
+<p>Se ha actualizado un compromiso asignado a ti.</p>
+
+<div class="info-box">
+    <p><strong>📋 Título:</strong> {{ titulo_compromiso }}</p>
+    <p><strong>📝 Descripción:</strong> {{ descripcion }}</p>
+    <p><strong>📊 Estado Anterior:</strong> {{ estado_anterior }}</p>
+    <p><strong>📊 Estado Nuevo:</strong> {{ estado_nuevo }}</p>
+    <p><strong>📅 Fecha de Vencimiento:</strong> {{ fecha_vencimiento }}</p>
+    <p><strong>👤 Actualizado por:</strong> {{ actualizador }}</p>
+</div>
+
+{{ mensaje_adicional|safe }}
+
+<center>
+    <a href="{{ enlace_compromiso }}" class="button">Ver Compromiso</a>
+</center>
+{% endblock %}

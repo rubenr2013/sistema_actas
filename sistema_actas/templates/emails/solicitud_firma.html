@@ -1,0 +1,22 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<h2>¡Hola {{ nombre_usuario }}!</h2>
+<p>Se requiere tu firma en un acta de reunión.</p>
+
+<div class="info-box">
+    <p><strong>📄 Título del Acta:</strong> {{ titulo_acta }}</p>
+    <p><strong>📅 Fecha de Reunión:</strong> {{ fecha_reunion }}</p>
+    <p><strong>📍 Lugar:</strong> {{ lugar }}</p>
+    <p><strong>👤 Creado por:</strong> {{ creador }}</p>
+</div>
+
+<p><strong>Resumen:</strong></p>
+<p>{{ resumen }}</p>
+
+<p>Tu firma es importante para validar la información contenida en esta acta. Por favor, revisa el contenido y firma cuando estés de acuerdo.</p>
+
+<center>
+    <a href="{{ enlace_acta }}" class="button">✍️ Firmar Acta</a>
+</center>
+{% endblock %}

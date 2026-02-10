@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Editar Usuario{% endblock %}
+
+{% block extra_css %}
+<style>
+    .form-label {
+        font-weight: 600;
+        color: #2d8000;
+    }
+    .form-control {
+        border-radius: 10px;
+        border: 1px solid #cfcfcf;
+        padding: 10px 12px;
+    }
+    .form-control:focus {
+        border-color: #39A900;
+        box-shadow: 0 0 0 0.2rem rgba(57,169,0,0.25);
+    }
+    .btn-success {
+        background-color: #39A900;
+        border: none;
+        border-radius: 10px;
+        transition: 0.3s;
+    }
+    .btn-success:hover {
+        background-color: #2d8000;
+        transform: scale(1.03);
+    }
+    .card {
+        border: none;
+        border-radius: 15px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="card shadow-lg border-0">
+        <div class="card-header bg-success text-white">
+            <h4 class="mb-0"><i class="fas fa-user-edit me-2"></i>Editar Usuario: {{ usuario.username }}</h4>
+        </div>
+        <div class="card-body">
+            <form method="POST" enctype="multipart/form-data">
+                {% csrf_token %}
+                
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label class="form-label">Nombre:</label>
+                        <input type="text" name="first_name" value="{{ usuario.first_name }}" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Apellido:</label>
+                        <input type="text" name="last_name" value="{{ usuario.last_name }}" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Email:</label>
+                        <input type="email" name="email" value="{{ usuario.email }}" class="form-control" required>
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Teléfono:</label>
+                        <input type="text" name="telefono" value="{{ usuario.telefono }}" class="form-control">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Rol:</label>
+                        <input type="text" name="rol" value="{{ usuario.rol }}" class="form-control">
+                    </div>
+
+                    <div class="col-md-6">
+                        <label class="form-label">Contraseña (solo si desea cambiarla):</label>
+                        <input type="password" name="password" class="form-control" placeholder="••••••••">
+                    </div>
+
+                    <div class="col-md-12">
+                        <label class="form-label">Firma digital:</label>
+                        <input type="file" name="firma_digital" class="form-control">
+                        {% if usuario.firma_digital %}
+                        <div class="mt-2">
+                            <p class="mb-1"><strong>Firma actual:</strong></p>
+                            <img src="{{ usuario.firma_digital.url }}" alt="Firma digital" class="img-thumbnail shadow-sm" style="max-height: 120px;">
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="text-end mt-4">
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="fas fa-save me-2"></i>Guardar Cambios
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+

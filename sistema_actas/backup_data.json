@@ -1,0 +1,992 @@
+[
+{
+  "model": "auth.permission",
+  "pk": 1,
+  "fields": {
+    "name": "Can add log entry",
+    "content_type": 1,
+    "codename": "add_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 2,
+  "fields": {
+    "name": "Can change log entry",
+    "content_type": 1,
+    "codename": "change_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 3,
+  "fields": {
+    "name": "Can delete log entry",
+    "content_type": 1,
+    "codename": "delete_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 4,
+  "fields": {
+    "name": "Can view log entry",
+    "content_type": 1,
+    "codename": "view_logentry"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 5,
+  "fields": {
+    "name": "Can add permission",
+    "content_type": 2,
+    "codename": "add_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 6,
+  "fields": {
+    "name": "Can change permission",
+    "content_type": 2,
+    "codename": "change_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 7,
+  "fields": {
+    "name": "Can delete permission",
+    "content_type": 2,
+    "codename": "delete_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 8,
+  "fields": {
+    "name": "Can view permission",
+    "content_type": 2,
+    "codename": "view_permission"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 9,
+  "fields": {
+    "name": "Can add group",
+    "content_type": 3,
+    "codename": "add_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 10,
+  "fields": {
+    "name": "Can change group",
+    "content_type": 3,
+    "codename": "change_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 11,
+  "fields": {
+    "name": "Can delete group",
+    "content_type": 3,
+    "codename": "delete_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 12,
+  "fields": {
+    "name": "Can view group",
+    "content_type": 3,
+    "codename": "view_group"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 13,
+  "fields": {
+    "name": "Can add content type",
+    "content_type": 4,
+    "codename": "add_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 14,
+  "fields": {
+    "name": "Can change content type",
+    "content_type": 4,
+    "codename": "change_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 15,
+  "fields": {
+    "name": "Can delete content type",
+    "content_type": 4,
+    "codename": "delete_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 16,
+  "fields": {
+    "name": "Can view content type",
+    "content_type": 4,
+    "codename": "view_contenttype"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 17,
+  "fields": {
+    "name": "Can add session",
+    "content_type": 5,
+    "codename": "add_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 18,
+  "fields": {
+    "name": "Can change session",
+    "content_type": 5,
+    "codename": "change_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 19,
+  "fields": {
+    "name": "Can delete session",
+    "content_type": 5,
+    "codename": "delete_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 20,
+  "fields": {
+    "name": "Can view session",
+    "content_type": 5,
+    "codename": "view_session"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 21,
+  "fields": {
+    "name": "Can add Usuario",
+    "content_type": 6,
+    "codename": "add_user"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 22,
+  "fields": {
+    "name": "Can change Usuario",
+    "content_type": 6,
+    "codename": "change_user"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 23,
+  "fields": {
+    "name": "Can delete Usuario",
+    "content_type": 6,
+    "codename": "delete_user"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 24,
+  "fields": {
+    "name": "Can view Usuario",
+    "content_type": 6,
+    "codename": "view_user"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 25,
+  "fields": {
+    "name": "Can add Acta",
+    "content_type": 7,
+    "codename": "add_acta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 26,
+  "fields": {
+    "name": "Can change Acta",
+    "content_type": 7,
+    "codename": "change_acta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 27,
+  "fields": {
+    "name": "Can delete Acta",
+    "content_type": 7,
+    "codename": "delete_acta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 28,
+  "fields": {
+    "name": "Can view Acta",
+    "content_type": 7,
+    "codename": "view_acta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 29,
+  "fields": {
+    "name": "Puede finalizar actas",
+    "content_type": 7,
+    "codename": "can_finalize_acta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 30,
+  "fields": {
+    "name": "Puede archivar actas",
+    "content_type": 7,
+    "codename": "can_archive_acta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 31,
+  "fields": {
+    "name": "Can add Compromiso",
+    "content_type": 8,
+    "codename": "add_compromiso"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 32,
+  "fields": {
+    "name": "Can change Compromiso",
+    "content_type": 8,
+    "codename": "change_compromiso"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 33,
+  "fields": {
+    "name": "Can delete Compromiso",
+    "content_type": 8,
+    "codename": "delete_compromiso"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 34,
+  "fields": {
+    "name": "Can view Compromiso",
+    "content_type": 8,
+    "codename": "view_compromiso"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 35,
+  "fields": {
+    "name": "Can add Participante",
+    "content_type": 9,
+    "codename": "add_participante"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 36,
+  "fields": {
+    "name": "Can change Participante",
+    "content_type": 9,
+    "codename": "change_participante"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 37,
+  "fields": {
+    "name": "Can delete Participante",
+    "content_type": 9,
+    "codename": "delete_participante"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 38,
+  "fields": {
+    "name": "Can view Participante",
+    "content_type": 9,
+    "codename": "view_participante"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 39,
+  "fields": {
+    "name": "Can add Firma",
+    "content_type": 10,
+    "codename": "add_firma"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 40,
+  "fields": {
+    "name": "Can change Firma",
+    "content_type": 10,
+    "codename": "change_firma"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 41,
+  "fields": {
+    "name": "Can delete Firma",
+    "content_type": 10,
+    "codename": "delete_firma"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 42,
+  "fields": {
+    "name": "Can view Firma",
+    "content_type": 10,
+    "codename": "view_firma"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 43,
+  "fields": {
+    "name": "Can add comentario acta",
+    "content_type": 11,
+    "codename": "add_comentarioacta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 44,
+  "fields": {
+    "name": "Can change comentario acta",
+    "content_type": 11,
+    "codename": "change_comentarioacta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 45,
+  "fields": {
+    "name": "Can delete comentario acta",
+    "content_type": 11,
+    "codename": "delete_comentarioacta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 46,
+  "fields": {
+    "name": "Can view comentario acta",
+    "content_type": 11,
+    "codename": "view_comentarioacta"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 47,
+  "fields": {
+    "name": "Can add configuracion de Notificaciones",
+    "content_type": 12,
+    "codename": "add_notificationsettings"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 48,
+  "fields": {
+    "name": "Can change configuracion de Notificaciones",
+    "content_type": 12,
+    "codename": "change_notificationsettings"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 49,
+  "fields": {
+    "name": "Can delete configuracion de Notificaciones",
+    "content_type": 12,
+    "codename": "delete_notificationsettings"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 50,
+  "fields": {
+    "name": "Can view configuracion de Notificaciones",
+    "content_type": 12,
+    "codename": "view_notificationsettings"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 51,
+  "fields": {
+    "name": "Can add Notificación",
+    "content_type": 13,
+    "codename": "add_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 52,
+  "fields": {
+    "name": "Can change Notificación",
+    "content_type": 13,
+    "codename": "change_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 53,
+  "fields": {
+    "name": "Can delete Notificación",
+    "content_type": 13,
+    "codename": "delete_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 54,
+  "fields": {
+    "name": "Can view Notificación",
+    "content_type": 13,
+    "codename": "view_notification"
+  }
+},
+{
+  "model": "auth.permission",
+  "pk": 55,
+  "fields": {
+    "name": "Puede generar actas con IA",
+    "content_type": 7,
+    "codename": "can_generate_with_ia"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 1,
+  "fields": {
+    "app_label": "admin",
+    "model": "logentry"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 2,
+  "fields": {
+    "app_label": "auth",
+    "model": "permission"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 3,
+  "fields": {
+    "app_label": "auth",
+    "model": "group"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 4,
+  "fields": {
+    "app_label": "contenttypes",
+    "model": "contenttype"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 5,
+  "fields": {
+    "app_label": "sessions",
+    "model": "session"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 6,
+  "fields": {
+    "app_label": "accounts",
+    "model": "user"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 7,
+  "fields": {
+    "app_label": "actas",
+    "model": "acta"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 8,
+  "fields": {
+    "app_label": "actas",
+    "model": "compromiso"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 9,
+  "fields": {
+    "app_label": "actas",
+    "model": "participante"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 10,
+  "fields": {
+    "app_label": "actas",
+    "model": "firma"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 11,
+  "fields": {
+    "app_label": "actas",
+    "model": "comentarioacta"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 12,
+  "fields": {
+    "app_label": "notifications",
+    "model": "notificationsettings"
+  }
+},
+{
+  "model": "contenttypes.contenttype",
+  "pk": 13,
+  "fields": {
+    "app_label": "notifications",
+    "model": "notification"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "1rz9jenug7yzbaw2b7t4sylnbkmj44sm",
+  "fields": {
+    "session_data": ".eJxVjMEOwiAQRP-FsyHAYqEevfsNhF0WqRpISnsy_rtt0oMeZ96beYsQ16WEtfMcpiQuAsTpt8NIT647SI9Y701Sq8s8odwVedAuby3x63q4fwcl9rKt0ZNBMzrgbCCbMzgXWbF1mPWgDLFO7DR4AmVGPbC3TuOWMUdCYCs-X96TN8g:1vGeGI:TLWbgF3tZAG7MIrHDsVKQSiFRm6--Z4qv42eYBVLtGg",
+    "expire_date": "2025-11-06T14:13:22.858Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "43ufgj99x9yqxxrpfu2n7mv8igaup6xk",
+  "fields": {
+    "session_data": ".eJxVjDsOwjAQBe_iGlk4_lPScwZr17smAWRLcVIh7o4spYD2zcx7iwT7Nqe985oWEhcxidPvhpCfXAegB9R7k7nVbV1QDkUetMtbI35dD_fvYIY-j9qcfcxsigYflbdonAPrgCMxKy5R8wSTNZiDQ0UQStFEHIDBY0EUny_91TmQ:1vGOmx:mOP_ghsN54jQGlPFcIGwn2OFYJGwjXLuoULZAVF6pOc",
+    "expire_date": "2025-11-05T21:42:03.814Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "a1teabe2973bngerjh0zll4xd53fxm31",
+  "fields": {
+    "session_data": ".eJxVjMEOwiAQRP-FsyHAYqEevfsNhF0WqRpISnsy_rtt0oMeZ96beYsQ16WEtfMcpiQuAsTpt8NIT647SI9Y701Sq8s8odwVedAuby3x63q4fwcl9rKt0ZNBMzrgbCCbMzgXWbF1mPWgDLFO7DR4AmVGPbC3TuOWMUdCYCs-X96TN8g:1vGnaq:-PUiQ85zBFxepN78Av10d2qSRJskhiFGYqwAqv0ZtcY",
+    "expire_date": "2025-11-07T00:11:12.205Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "hrz63czjcxbjq0kei2p5ltqqv8dnhyzz",
+  "fields": {
+    "session_data": ".eJxVjDsOwjAQBe_iGlk4_lPScwZr17smAWRLcVIh7o4spYD2zcx7iwT7Nqe985oWEhcxidPvhpCfXAegB9R7k7nVbV1QDkUetMtbI35dD_fvYIY-j9qcfcxsigYflbdonAPrgCMxKy5R8wSTNZiDQ0UQStFEHIDBY0EUny_91TmQ:1vGPA7:T9EqTZy9tdDKFGcZD2jye3gCIa1A7Fh4WfXtAu3SJbA",
+    "expire_date": "2025-11-05T22:05:59.890Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "kdmf1exygy27ued2ouv9lfiabyptpyko",
+  "fields": {
+    "session_data": ".eJxVjMEOwiAQRP-FsyHAYqEevfsNhF0WqRpISnsy_rtt0oMeZ96beYsQ16WEtfMcpiQuAsTpt8NIT647SI9Y701Sq8s8odwVedAuby3x63q4fwcl9rKt0ZNBMzrgbCCbMzgXWbF1mPWgDLFO7DR4AmVGPbC3TuOWMUdCYCs-X96TN8g:1vH1dR:z72ZQQaNB_gG9E4U2jPaSn5TPe3CRQX2sdx2C8JiRW4",
+    "expire_date": "2025-11-07T15:10:49.918Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "l18hxtbombfbxzq6qknp01j2wihoq8q7",
+  "fields": {
+    "session_data": ".eJxVjMEOwiAQRP-FsyHAYqEevfsNhF0WqRpISnsy_rtt0oMeZ96beYsQ16WEtfMcpiQuAsTpt8NIT647SI9Y701Sq8s8odwVedAuby3x63q4fwcl9rKt0ZNBMzrgbCCbMzgXWbF1mPWgDLFO7DR4AmVGPbC3TuOWMUdCYCs-X96TN8g:1vGe6r:dKzBGx1qRHdWDzPK_1MSUoMwV15nSRQNunTqQQCakhw",
+    "expire_date": "2025-11-06T14:03:37.413Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "qmt0nhd1p7twosppbhaark86lr4b7rv6",
+  "fields": {
+    "session_data": ".eJxVjMEOwiAQRP-FsyHAYqEevfsNhF0WqRpISnsy_rtt0oMeZ96beYsQ16WEtfMcpiQuAsTpt8NIT647SI9Y701Sq8s8odwVedAuby3x63q4fwcl9rKt0ZNBMzrgbCCbMzgXWbF1mPWgDLFO7DR4AmVGPbC3TuOWMUdCYCs-X96TN8g:1vGedZ:pdUSbWm13A6gmX5YTzT0GFeA5iV8sJxVzsPgiCxvDJw",
+    "expire_date": "2025-11-06T14:37:25.002Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "wda1s1p3s6x9vlmedo9wihw544mnru5a",
+  "fields": {
+    "session_data": ".eJxVjDEOwjAMRe-SGUVO48YWIztniNzYpQXUSk07Ie4OlTrA-t97_-WybOuQt2pLHtWdXXSn362T8rBpB3qX6Tb7Mk_rMnZ-V_xBq7_Oas_L4f4dDFKHb80ldBRjaBA5ERAaK5OoQSMICchiC8gcKLBKX8x6QG2pN6IUErj3B7Z6Nu0:1vH9aJ:mn6XEFvABUkN25QDOg0u33eg7KvsJs65At193S-54nw",
+    "expire_date": "2025-11-07T23:40:07.806Z"
+  }
+},
+{
+  "model": "sessions.session",
+  "pk": "wfw5v7neoa4455km92knf0aqrrzhw1l8",
+  "fields": {
+    "session_data": ".eJxVjMEOwiAQRP-FsyHAYqEevfsNhF0WqRpISnsy_rtt0oMeZ96beYsQ16WEtfMcpiQuAsTpt8NIT647SI9Y701Sq8s8odwVedAuby3x63q4fwcl9rKt0ZNBMzrgbCCbMzgXWbF1mPWgDLFO7DR4AmVGPbC3TuOWMUdCYCs-X96TN8g:1vGdw2:mSSzNhqDyueTunN9ojkFT1xGraLMuAHQjMP2vwDT_hU",
+    "expire_date": "2025-11-06T13:52:26.136Z"
+  }
+},
+{
+  "model": "accounts.user",
+  "pk": 1,
+  "fields": {
+    "password": "pbkdf2_sha256$600000$57kdjfWCcBgu2RsDwZGnP1$FhTm2HhR+AjKcEli6L6/bmriSsrVVqapCaSAfdkpTw8=",
+    "last_login": null,
+    "is_superuser": true,
+    "username": "ruben",
+    "first_name": "ruben",
+    "last_name": "reyes",
+    "is_staff": true,
+    "is_active": true,
+    "date_joined": "2025-11-04T20:15:54.491Z",
+    "email": "rr2685346@gmail.com",
+    "rol": "funcionario",
+    "centro": "Centro Minero",
+    "telefono": "",
+    "firma_digital": "",
+    "fecha_registro": "2025-11-04T20:15:55.547Z",
+    "activo": true,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.user",
+  "pk": 2,
+  "fields": {
+    "password": "",
+    "last_login": "2025-11-04T22:24:55.132Z",
+    "is_superuser": false,
+    "username": "ruben_dreyes",
+    "first_name": "Rubén",
+    "last_name": "Reyes",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2025-11-04T21:41:39.851Z",
+    "email": "ruben_dreyes@sena.edu.co",
+    "rol": "funcionario",
+    "centro": "Centro Minero",
+    "telefono": "3118880674",
+    "firma_digital": "firmas/1000152629.png",
+    "fecha_registro": "2025-11-04T21:41:41.064Z",
+    "activo": true,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "accounts.user",
+  "pk": 3,
+  "fields": {
+    "password": "",
+    "last_login": "2025-11-06T15:13:22.719Z",
+    "is_superuser": false,
+    "username": "reyesortegarubendario",
+    "first_name": "ruben",
+    "last_name": "ortega",
+    "is_staff": false,
+    "is_active": true,
+    "date_joined": "2025-11-05T13:48:46.705Z",
+    "email": "reyesortegarubendario@gmail.com",
+    "rol": "funcionario",
+    "centro": "Centro Minero",
+    "telefono": "3118880674",
+    "firma_digital": "firmas/firma_ruben_gjN8ick.jpg",
+    "fecha_registro": "2025-11-05T13:48:48.012Z",
+    "activo": true,
+    "groups": [],
+    "user_permissions": []
+  }
+},
+{
+  "model": "actas.acta",
+  "pk": 1,
+  "fields": {
+    "numero_acta": "ACT-2025-001",
+    "titulo": "acta prueba 1 funcionalidad grog",
+    "tipo_reunion": "consejo_academico",
+    "fecha_reunion": "2025-11-06T15:54:00Z",
+    "lugar_reunion": "Centro Minero Morca",
+    "modalidad": "presencial",
+    "estado": "en_revision",
+    "creador": 3,
+    "fecha_creacion": "2025-11-06T16:12:11.943Z",
+    "fecha_modificacion": "2025-11-06T16:12:44.568Z",
+    "orden_dia": "1. Reunión de seguimiento del proyecto de actas\r\n2. Participantes: Juan (Coordinador), María (Desarrolladora), Carlos (Instructor)\r\n3. Temas tratados:\r\n   a. Avance en integración con Groq (funcionando correctamente)\r\n   b. Próximos pasos: ajustar templates\r\n   c. Testing previsto para próxima semana\r\n4. Compromisos acordados:\r\n   a. María: Terminar ajustes de UI para el viernes\r\n   b. Juan: Preparar presentación para instructores\r\n5. Próxima reunión: Viernes a las 2 PM",
+    "desarrollo": "Se llevó a cabo la reunión de seguimiento del proyecto de actas donde se discutieron los siguientes puntos: el avance en la integración con Groq, los próximos pasos para ajustar los templates y se estableció un plan de testing para la próxima semana. En cuanto a compromisos, María se comprometió a terminar los ajustes de UI para el viernes y Juan se encargará de preparar la presentación para los instructores. La próxima reunión será el viernes a las 2 PM.",
+    "resumen_ia": "Reunión de seguimiento del proyecto de actas.\r\n\r\nParticipantes: Juan (Coordinador), María (Desarrolladora), Carlos (Instructor)\r\n\r\nTemas tratados:\r\n- Avance en integración con Groq (funcionando correctamente)\r\n- Próximos pasos: ajustar templates\r\n- Testing previsto para próxima semana\r\n\r\nCompromisos acordados:\r\n- María: Terminar ajustes de UI para el viernes\r\n- Juan: Preparar presentación para instructores\r\n\r\nPróxima reunión: Viernes a las 2 PM",
+    "observaciones": "",
+    "fecha_limite_firmas": "2025-11-13T16:12:44.568Z",
+    "silencio_administrativo": false,
+    "aplicar_silencio_dias": 7,
+    "archivo_adjunto": "",
+    "generada_con_ia": false,
+    "prompt_original": null,
+    "modelo_ia_usado": null,
+    "tiempo_generacion": null,
+    "editada_despues_ia": false,
+    "fecha_ultima_edicion_manual": null,
+    "version": 1
+  }
+},
+{
+  "model": "actas.acta",
+  "pk": 2,
+  "fields": {
+    "numero_acta": "ACT-2025-002",
+    "titulo": "prueba 2, fuicionalidad grog mofelo f084 y firma",
+    "tipo_reunion": "comite_evaluacion",
+    "fecha_reunion": "2025-11-06T23:33:00Z",
+    "lugar_reunion": "Centro Minero Morca",
+    "modalidad": "presencial",
+    "estado": "en_revision",
+    "creador": 3,
+    "fecha_creacion": "2025-11-06T23:36:56.675Z",
+    "fecha_modificacion": "2025-11-06T23:37:20.742Z",
+    "orden_dia": "1. Presentación y objetivo de la reunión\n2. Principales temas tratados\n3. Decisiones tomadas\n4. Compromisos y acciones a realizar",
+    "desarrollo": "Se llevó a cabo la reunión con el objetivo de implementar la inteligencia artificial en el sistema de gestión del SENA, con la participación de los responsables de la dirección y los expertos en tecnología. Los principales temas tratados fueron la definición de los alcances y beneficios de la implementación, la selección de las herramientas y tecnologías adecuadas, y la estrategia para la adopción de la inteligencia artificial en las diferentes áreas del SENA. Se tomaron las siguientes decisiones:\n- Se creará un equipo de trabajo para liderar la implementación de la inteligencia artificial.\n- Se seleccionarán las herramientas y tecnologías adecuadas para la implementación.\n- Se realizarán capacitaciones y talleres para los funcionarios del SENA sobre la utilización de la inteligencia artificial.\n- Se establecerá un plazo de 6 meses para la implementación completa de la inteligencia artificial en el sistema de gestión. Los compromisos y acciones a realizar son:\n- El equipo de trabajo deberá presentar un informe de progreso cada 2 semanas.\n- Los expertos en tecnología deberán proporcionar soporte técnico durante la implementación.\n- Los responsables de las áreas del SENA deberán asignar recursos y personal para apoyar la implementación.\n- Se realizará una reunión mensual para revisar el progreso y tomar decisiones adicionales.",
+    "resumen_ia": "Genera el contenido de un acta de reunión sobre la implementación de inteligencia artificial en el sistema de gestión del SENA. \r\nIncluye los siguientes puntos:\r\n- Objetivo de la reunión.\r\n- Principales temas tratados.\r\n- Decisiones tomadas.\r\n- Compromisos con responsables y fechas.\r\nRedáctalo con lenguaje formal y estructurado como un acta institucional.",
+    "observaciones": "",
+    "fecha_limite_firmas": "2025-11-13T23:37:20.741Z",
+    "silencio_administrativo": false,
+    "aplicar_silencio_dias": 7,
+    "archivo_adjunto": "",
+    "generada_con_ia": false,
+    "prompt_original": null,
+    "modelo_ia_usado": null,
+    "tiempo_generacion": null,
+    "editada_despues_ia": false,
+    "fecha_ultima_edicion_manual": null,
+    "version": 1
+  }
+},
+{
+  "model": "actas.participante",
+  "pk": 2,
+  "fields": {
+    "acta": 1,
+    "usuario": 3,
+    "rol_en_reunion": "aprendiz",
+    "obligatorio_firma": true,
+    "fecha_agregado": "2025-11-06T16:12:11.977Z"
+  }
+},
+{
+  "model": "actas.participante",
+  "pk": 3,
+  "fields": {
+    "acta": 2,
+    "usuario": 3,
+    "rol_en_reunion": "instructor",
+    "obligatorio_firma": true,
+    "fecha_agregado": "2025-11-06T23:36:56.705Z"
+  }
+},
+{
+  "model": "actas.firma",
+  "pk": 2,
+  "fields": {
+    "acta": 1,
+    "usuario": 3,
+    "firmado": true,
+    "fecha_firma": "2025-11-06T16:20:30.848Z",
+    "firma_imagen": "firmas/firma_ruben.jpg",
+    "firmado_por_silencio": false,
+    "comentarios": "",
+    "ip_address": null
+  }
+},
+{
+  "model": "actas.firma",
+  "pk": 3,
+  "fields": {
+    "acta": 2,
+    "usuario": 3,
+    "firmado": true,
+    "fecha_firma": "2025-11-06T23:40:32.175Z",
+    "firma_imagen": "firmas/firma_ruben_gjN8ick.jpg",
+    "firmado_por_silencio": false,
+    "comentarios": "",
+    "ip_address": null
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 1,
+  "fields": {
+    "usuario": 2,
+    "tipo": "firma_pendiente",
+    "titulo": "📝 Nueva acta pendiente de firma",
+    "mensaje": "Tienes pendiente firmar el acta 'ACT-2025-001 - Acta prueba 1 funcionalidad en móvil '. Fecha límite: 11/11/2025",
+    "enlace": "/actas/1/",
+    "leida": false,
+    "fecha_creacion": "2025-11-04T22:29:38.212Z",
+    "fecha_lectura": null,
+    "metadata": {}
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 2,
+  "fields": {
+    "usuario": 2,
+    "tipo": "firma_completada",
+    "titulo": "Nueva firma en acta",
+    "mensaje": "Rubén Reyes ha firmado el acta ACT-2025-001",
+    "enlace": "/actas/1/",
+    "leida": false,
+    "fecha_creacion": "2025-11-04T22:32:35.386Z",
+    "fecha_lectura": null,
+    "metadata": {}
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 3,
+  "fields": {
+    "usuario": 2,
+    "tipo": "acta_lista_finalizar",
+    "titulo": "Acta lista para finalizar",
+    "mensaje": "El acta ACT-2025-001 tiene todas las firmas necesarias",
+    "enlace": "/actas/1/",
+    "leida": false,
+    "fecha_creacion": "2025-11-04T22:32:35.396Z",
+    "fecha_lectura": null,
+    "metadata": {}
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 4,
+  "fields": {
+    "usuario": 3,
+    "tipo": "firma_pendiente",
+    "titulo": "📝 Nueva acta pendiente de firma",
+    "mensaje": "Tienes pendiente firmar el acta 'ACT-2025-001 - acta prueba 1 funcionalidad grog'. Fecha límite: 13/11/2025",
+    "enlace": "/actas/1/",
+    "leida": true,
+    "fecha_creacion": "2025-11-06T16:12:44.593Z",
+    "fecha_lectura": "2025-11-06T16:12:47.140Z",
+    "metadata": {}
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 5,
+  "fields": {
+    "usuario": 3,
+    "tipo": "firma_completada",
+    "titulo": "Nueva firma en acta",
+    "mensaje": "ruben ortega ha firmado el acta ACT-2025-001",
+    "enlace": "/actas/1/",
+    "leida": true,
+    "fecha_creacion": "2025-11-06T16:20:30.859Z",
+    "fecha_lectura": "2025-11-06T17:11:01.036Z",
+    "metadata": {}
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 6,
+  "fields": {
+    "usuario": 3,
+    "tipo": "acta_lista_finalizar",
+    "titulo": "Acta lista para finalizar",
+    "mensaje": "El acta ACT-2025-001 tiene todas las firmas necesarias",
+    "enlace": "/actas/1/",
+    "leida": true,
+    "fecha_creacion": "2025-11-06T16:20:30.875Z",
+    "fecha_lectura": "2025-11-06T17:11:01.016Z",
+    "metadata": {}
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 7,
+  "fields": {
+    "usuario": 3,
+    "tipo": "firma_pendiente",
+    "titulo": "📝 Nueva acta pendiente de firma",
+    "mensaje": "Tienes pendiente firmar el acta 'ACT-2025-002 - prueba 2, fuicionalidad grog mofelo f084 y firma'. Fecha límite: 13/11/2025",
+    "enlace": "/actas/2/",
+    "leida": true,
+    "fecha_creacion": "2025-11-06T23:37:20.773Z",
+    "fecha_lectura": "2025-11-06T23:37:22.411Z",
+    "metadata": {}
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 8,
+  "fields": {
+    "usuario": 3,
+    "tipo": "firma_completada",
+    "titulo": "Nueva firma en acta",
+    "mensaje": "ruben ortega ha firmado el acta ACT-2025-002",
+    "enlace": "/actas/2/",
+    "leida": false,
+    "fecha_creacion": "2025-11-06T23:40:32.188Z",
+    "fecha_lectura": null,
+    "metadata": {}
+  }
+},
+{
+  "model": "notifications.notification",
+  "pk": 9,
+  "fields": {
+    "usuario": 3,
+    "tipo": "acta_lista_finalizar",
+    "titulo": "Acta lista para finalizar",
+    "mensaje": "El acta ACT-2025-002 tiene todas las firmas necesarias",
+    "enlace": "/actas/2/",
+    "leida": false,
+    "fecha_creacion": "2025-11-06T23:40:32.201Z",
+    "fecha_lectura": null,
+    "metadata": {}
+  }
+}
+]

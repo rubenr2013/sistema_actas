@@ -1,0 +1,1634 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Sistema de Gestión de Actas - Centro Minero SENA{% endblock %}</title>
+
+    {% load static %}
+    <link rel="icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+
+    <style>
+        :root {
+            --sena-green: #39A900;
+            --sena-dark-green: #2d8000;
+            --sena-light-green: #e8f5e8;
+            --text-dark: #1a1a1a;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8f9fa;
+            color: var(--text-dark);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: visible !important; 
+            padding-bottom: 70px;
+        }
+
+        /* ===== NAVBAR ===== */
+        .navbar-sena  {
+            background: linear-gradient(135deg, var(--sena-green), var(--sena-dark-green));
+            color: white;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+        }
+
+        .navbar-sena .navbar-brand {
+            font-weight: 600;
+        }
+
+        .navbar-sena .dropdown-menu {
+            font-size: 0.9rem;
+        }
+
+        /* ===== ORDEN DEL NAVBAR RESPONSIVE ===== */
+        .navbar-toggler {
+            border: none;
+            padding: 0.5rem;
+        }
+
+        .navbar-toggler:focus {
+            box-shadow: none;
+        }
+
+        /* Iconos del navbar táctiles */
+        .navbar-sena .nav-link {
+            min-width: 44px;
+            min-height: 44px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .navbar-sena .nav-link i {
+            font-size: 20px;
+        }
+
+        /* Badge de notificaciones */
+        .notification-badge {
+            position: absolute;
+            top: -2px;
+            right: -2px;
+            background-color: #dc3545;
+            color: white;
+            border-radius: 10px;
+            padding: 2px 6px;
+            font-size: 11px;
+            font-weight: bold;
+            min-width: 18px;
+            text-align: center;
+        }
+
+        /* Orden en móvil */
+        @media (max-width: 992px) {
+            .navbar-brand {
+                max-width: calc(100% - 120px); /* Espacio para hamburguesa + iconos */
+            }
+
+            .navbar-brand .d-flex.flex-column span:first-child {
+                font-size: 14px;
+            }
+
+            .navbar-sena .nav-link {
+                padding: 8px 10px;
+            }
+        }
+
+        /* Mejorar dropdown en móvil */
+        @media (max-width: 576px) {
+            .dropdown-menu {
+                max-width: 90vw !important;
+                left: auto !important;
+                right: 0 !important;
+            }
+        }
+
+        /* ===== SIDEBAR ===== */
+        .sidebar {
+            position: fixed;
+            top: 76px;
+            left: 0;
+            width: 240px;
+            height: calc(100vh - 76px);
+            background-color: #fff;
+            box-shadow: 2px 0 8px rgba(0,0,0,0.05);
+            overflow-y: auto;
+            padding: 1rem 0;
+            transition: left 0.3s ease;
+            z-index: 1050;
+        }
+
+        .sidebar h6 {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #6c757d;
+            text-transform: uppercase;
+            margin: 1rem 1rem 0.5rem;
+        }
+
+        .sidebar .nav-link {
+            display: flex;
+            align-items: center;
+            color: #333;
+            font-weight: 500;
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            margin: 0.1rem 0.5rem;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar .nav-link i {
+            width: 22px;
+            margin-right: 10px;
+            font-size: 1rem;
+        }
+
+        .sidebar .nav-link:hover,
+        .sidebar .nav-link.active {
+            background-color: var(--sena-light-green);
+            color: var(--sena-dark-green);
+            transform: translateX(3px);
+        }
+
+        /* ===== SIDEBAR RESPONSIVE ===== */
+        @media (max-width: 992px) {
+            .sidebar {
+                left: -240px;
+            }
+            .sidebar.active {
+                left: 0;
+                box-shadow: 2px 0 8px rgba(0,0,0,0.2);
+            }
+            .sidebar-overlay {
+            position: fixed;
+            top: var(--navbar-height);
+            left: 0;
+            width: 100%;
+            height: calc(100vh - var(--navbar-height));
+            background: rgba(0, 0, 0, 0.4);
+            display: none;
+            z-index: 1000; /* Más bajo que el sidebar */
+        }
+
+            .sidebar-overlay.active {
+                display: block;
+            }
+            .main-content.with-sidebar {
+                margin-left: 0 !important;
+            }
+        }
+
+        /* ===== MAIN CONTENT ===== */
+        .main-content {
+            margin-left: 0;
+            padding: 2rem;
+            padding-top: calc(var(--navbar-height, 76px) + 1rem);
+            transition: margin-left 0.25s ease;
+            flex: 1;
+            min-height: calc(100vh - var(--navbar-height, 76px));
+            box-sizing: border-box;
+            overflow-x: hidden;
+        }
+
+        .main-content.with-sidebar {
+            margin-left: 240px;
+        }
+
+        /* === FOOTER COMPACTO === */
+        .footer {
+            position:fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            border-top: 2px solid #3a9b00;
+            background-color: #fff;
+            text-align: center;
+            padding: 10px 0; /* antes era más alto, lo reducimos */
+            font-size: 0.9rem;
+            color: #333;
+            margin-top: 1rem;
+            z-index: 1000;
+        }
+
+        .footer-content {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height:61px;
+        }
+
+        .footer-text {
+            margin: 0;
+            font-weight: 500;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            justify-content: center;
+            font-size: 0.88rem;
+        }
+
+        .footer-links a {
+            color: #2d7a00;
+            text-decoration: none;
+            transition: color 0.2s ease-in-out;
+        }
+
+        .footer-links a:hover {
+            color: #1f5b00;
+        }
+
+        .footer-social {
+            display: flex;
+            gap: 10px;
+            margin-top: 4px;
+        }
+
+        .footer-social a {
+            color: #2d7a00;
+            font-size: 1rem;
+            transition: transform 0.2s, color 0.2s;
+        }
+
+        .footer-social a:hover {
+            color: #1f5b00;
+            transform: scale(1.1);
+        }
+
+        /* Versión responsive */
+        @media (max-width: 768px) {
+            .footer {
+                position: relative !important;
+                font-size: 0.75rem;
+                padding: 8px 10px;
+            }
+            .footer-content {
+                height: auto !important;
+            }
+            .footer-social {
+                margin-top: 4px;
+                gap: 15px;
+            }
+            .footer-links {
+                font-size: 0.7rem;
+            }
+            body {
+                padding-bottom: 0 !important;
+            }
+        }
+
+
+        @media (max-width: 992px) {
+            .main-content {
+                margin-left: 0;
+                padding: 1rem;
+                padding-top: calc(var(--navbar-height, 76px) + 0.75rem);
+            }
+        }
+
+        .btn-primary {
+            background-color: var(--sena-green);
+            border-color: var(--sena-green);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--sena-dark-green);
+            border-color: var(--sena-dark-green);
+        }
+
+        .alert-custom {
+            border-radius: 8px;
+            font-size: 0.95rem;
+        }
+
+        /* ===== BOTÓN FIJO DE AYUDA (MANUAL) ===== */
+        .help-fixed-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px; /* Esquina inferior derecha */
+            width: 50px;
+            height: 50px;
+            background-color: #007bff; /* Azul de Bootstrap */
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            cursor: pointer;
+            z-index: 1080; /* Alto, pero debajo del botón de accesibilidad (9999) */
+            transition: background-color 0.3s ease, transform 0.3s ease;
+        }
+
+        .help-fixed-btn:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+
+        /* Ajuste de estilo para el modo oscuro */
+        .dark-mode .help-fixed-btn {
+            background-color: #1a75ff !important;
+        }
+        /* ===== AJUSTE PARA FUENTE DEL BOTÓN ===== */
+        .btn-custom-font {
+            font-family: 'Verdana', sans-serif !important; /* ✅ Se añade !important */
+            font-weight: 500 !important; /* ✅ Se añade !important */
+        }
+        /* ========================================
+           FIXES MÓVILES RESPONSIVE
+           ======================================== */
+
+        /* ===== NAVBAR RESPONSIVE MÓVIL ===== */
+        @media (max-width: 992px) {
+            /* Navbar compacto en una sola fila */
+            .navbar-sena {
+                min-height: auto !important;
+                padding: 8px 0 !important;
+            }
+
+            .navbar .container-fluid {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                align-items: center !important;
+                padding: 5px 10px !important;
+                gap: 8px !important;
+            }
+
+            /* Hamburguesa a la izquierda */
+            .navbar-toggler {
+                order: 1 !important;
+                flex-shrink: 0 !important;
+                padding: 6px !important;
+                margin: 0 !important;
+            }
+
+            /* Logo y título en el centro */
+            .navbar-brand {
+                order: 2 !important;
+                flex: 1 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                min-width: 0 !important;
+            }
+
+            .navbar-brand img {
+                height: 30px !important;
+                margin-right: 6px !important;
+            }
+
+            .navbar-brand .d-flex.flex-column {
+                display: flex !important;
+                min-width: 0 !important;
+            }
+
+            .navbar-brand span {
+                font-size: 13px !important;
+                white-space: nowrap !important;
+                overflow: hidden !important;
+                text-overflow: ellipsis !important;
+            }
+
+            .navbar-brand small {
+                display: none !important;
+            }
+
+            /* Iconos a la derecha */
+            .d-flex.d-lg-none {
+                order: 3 !important;
+                flex-shrink: 0 !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            .d-flex.d-lg-none .navbar-nav {
+                flex-direction: row !important;
+                gap: 2px !important;
+            }
+
+            .d-flex.d-lg-none .nav-item {
+                margin: 0 !important;
+            }
+
+            /* Iconos táctiles más pequeños */
+            .navbar-sena .nav-link {
+                min-width: 40px !important;
+                min-height: 40px !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                padding: 8px !important;
+            }
+
+            .navbar-sena .nav-link i {
+                font-size: 18px !important;
+            }
+
+            /* Ajustar posición del sidebar */
+            .sidebar {
+                top: 56px !important;
+                height: calc(100vh - 56px) !important;
+            }
+
+            /* Ajustar overlay */
+            .sidebar-overlay {
+                top: 56px !important;
+                height: calc(100vh - 56px) !important;
+            }
+
+            /* Ajustar main content */
+            .main-content {
+                padding-top: 70px !important;
+            }
+        }
+
+        /* Pantallas muy pequeñas */
+        @media (max-width: 400px) {
+            .navbar-brand span {
+                font-size: 11px !important;
+            }
+
+            .navbar-brand img {
+                height: 25px !important;
+            }
+
+            .navbar-sena .nav-link {
+                min-width: 36px !important;
+                min-height: 36px !important;
+                padding: 6px !important;
+            }
+
+            .navbar-sena .nav-link i {
+                font-size: 16px !important;
+            }
+        }
+
+        /* ===== MENSAJE DE BIENVENIDA ===== */
+        @media (max-width: 768px) {
+            /* Mensaje de bienvenida NO cortado */
+            .main-content > * {
+                word-wrap: break-word !important;
+                overflow-wrap: break-word !important;
+            }
+
+            .main-content h1 {
+                font-size: 20px !important;
+                line-height: 1.4 !important;
+                margin-bottom: 12px !important;
+                white-space: normal !important;
+            }
+            
+            .main-content h2 {
+                font-size: 18px !important;
+                margin-bottom: 10px !important;
+            }
+            
+            .main-content h3 {
+                font-size: 16px !important;
+            }
+
+            .main-content p {
+                font-size: 14px !important;
+                margin-bottom: 15px !important;
+            }
+
+            /* Contenedor de texto no debe cortarse */
+            .main-content > div,
+            .main-content > section {
+                width: 100% !important;
+                overflow: visible !important;
+            }
+        }
+
+        /* ===== BOTONES GRANDES Y TÁCTILES ===== */
+        @media (max-width: 768px) {
+            .btn {
+                min-height: 44px !important;
+                padding: 12px 16px !important;
+                font-size: 15px !important;
+            }
+
+            /* Botón Nueva Acta */
+            .btn-primary,
+            .btn-success {
+                width: 100% !important;
+                margin-bottom: 10px !important;
+            }
+
+            /* Botones en grupo */
+            .d-flex.gap-2 {
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+
+            .d-flex.gap-2 .btn {
+                width: 100% !important;
+            }
+
+            /* Botones en cards */
+            .card-body .btn {
+                width: 100% !important;
+                margin-top: 8px !important;
+            }
+        }
+
+        /* ===== CARDS DEL DASHBOARD ===== */
+        @media (max-width: 768px) {
+            .card {
+                margin-bottom: 15px !important;
+            }
+
+            .card-body {
+                padding: 15px !important;
+            }
+
+            .card-title {
+                font-size: 16px !important;
+            }
+
+            /* Números grandes en cards */
+            .card-body h2,
+            .card-body h3 {
+                font-size: 28px !important;
+            }
+        }
+
+        /* ===== TABLAS RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            /* Hacer tablas scrolleables horizontalmente */
+            .table-responsive {
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+            }
+
+            .table-responsive table {
+                min-width: 600px !important;
+                font-size: 13px !important;
+            }
+
+            .table-responsive th,
+            .table-responsive td {
+                padding: 8px 6px !important;
+                white-space: nowrap !important;
+            }
+
+            /* Tablas que se convierten a cards (usar clase .table-cards-mobile) */
+            .table-cards-mobile {
+                display: block !important;
+                min-width: unset !important;
+            }
+
+            .table-cards-mobile thead {
+                display: none !important;
+            }
+
+            .table-cards-mobile tbody {
+                display: block !important;
+            }
+
+            .table-cards-mobile tbody tr {
+                display: block !important;
+                background: #fff !important;
+                border: 1px solid #ddd !important;
+                border-radius: 8px !important;
+                padding: 15px !important;
+                margin-bottom: 15px !important;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            }
+
+            .table-cards-mobile tbody td {
+                display: flex !important;
+                justify-content: space-between !important;
+                align-items: center !important;
+                text-align: left !important;
+                padding: 8px 0 !important;
+                border: none !important;
+                border-bottom: 1px solid #eee !important;
+            }
+
+            .table-cards-mobile tbody td:last-child {
+                border-bottom: none !important;
+            }
+
+            .table-cards-mobile tbody td::before {
+                content: attr(data-label);
+                font-weight: 600 !important;
+                color: #666 !important;
+                flex-shrink: 0 !important;
+                margin-right: 10px !important;
+            }
+        }
+
+        /* ===== FORMULARIOS RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .form-control,
+            .form-select,
+            textarea {
+                font-size: 16px !important;
+                min-height: 44px !important;
+                padding: 10px !important;
+            }
+
+            .form-label {
+                font-size: 14px !important;
+                font-weight: 600 !important;
+            }
+
+            /* Columnas a vertical */
+            .row > [class*='col-'] {
+                margin-bottom: 15px !important;
+            }
+        }
+
+        /* ===== DROPDOWN RESPONSIVE ===== */
+        @media (max-width: 576px) {
+            .dropdown-menu {
+                max-width: 90vw !important;
+                left: auto !important;
+                right: 0 !important;
+            }
+
+            .dropdown-item {
+                padding: 12px 16px !important;
+                font-size: 15px !important;
+            }
+        }
+
+        /* ===== LISTAS DE ACTAS ===== */
+        @media (max-width: 768px) {
+            .list-group-item {
+                padding: 15px !important;
+                margin-bottom: 10px !important;
+            }
+
+            .list-group-item h5 {
+                font-size: 16px !important;
+            }
+
+            .badge {
+                font-size: 12px !important;
+                padding: 4px 8px !important;
+            }
+        }
+
+        /* ===== VISTA CREAR ACTA ===== */
+        @media (max-width: 992px) {
+            /* Ocultar sidebar de pasos */
+            .process-steps,
+            .progress-sidebar,
+            .sidebar-steps {
+                display: none !important;
+            }
+
+            /* Contenido principal ocupa todo */
+            .acta-form-container,
+            .form-container {
+                width: 100% !important;
+                padding: 15px !important;
+                margin-left: 0 !important;
+            }
+
+            /* Botones de navegación */
+            .form-navigation {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+
+            .form-navigation .btn {
+                width: 100% !important;
+            }
+        }
+
+        /* ===== VISTA DETALLE ACTA ===== */
+        @media (max-width: 768px) {
+            .acta-header {
+                padding: 15px !important;
+            }
+
+            .acta-section {
+                margin-bottom: 20px !important;
+            }
+
+            .acta-section h4 {
+                font-size: 16px !important;
+                border-bottom: 2px solid #39A900 !important;
+                padding-bottom: 8px !important;
+            }
+
+            /* Listas de participantes */
+            .participantes-list,
+            .compromisos-list {
+                list-style: none !important;
+                padding: 0 !important;
+            }
+
+            .participantes-list li,
+            .compromisos-list li {
+                background: #f8f9fa !important;
+                padding: 12px !important;
+                margin-bottom: 8px !important;
+                border-radius: 6px !important;
+                border-left: 3px solid #39A900 !important;
+            }
+        }
+
+        /* ===== FIRMA DIGITAL ===== */
+        @media (max-width: 768px) {
+            .signature-container,
+            .firma-container {
+                padding: 15px !important;
+            }
+
+            canvas {
+                max-width: 100% !important;
+                height: auto !important;
+                touch-action: none !important;
+                border: 2px solid #39A900 !important;
+                border-radius: 8px !important;
+            }
+
+            .signature-actions,
+            .firma-actions {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+
+            .signature-actions .btn,
+            .firma-actions .btn {
+                width: 100% !important;
+            }
+        }
+
+        /* ===== MODAL RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .modal-dialog {
+                margin: 10px !important;
+                max-width: calc(100% - 20px) !important;
+            }
+
+            .modal-body {
+                padding: 15px !important;
+            }
+
+            .modal-footer {
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+
+            .modal-footer .btn {
+                width: 100% !important;
+            }
+        }
+
+        /* ===== PROCESAMIENTO IA ===== */
+        @media (max-width: 768px) {
+            .ia-container {
+                padding: 15px !important;
+            }
+
+            .ia-textarea,
+            textarea[name*="resumen"] {
+                width: 100% !important;
+                min-height: 120px !important;
+                font-size: 16px !important;
+                padding: 12px !important;
+            }
+
+            .ia-buttons {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 10px !important;
+            }
+
+            .ia-buttons .btn {
+                width: 100% !important;
+            }
+        }
+
+        /* ===== ESPACIADO GENERAL ===== */
+        @media (max-width: 768px) {
+            .container,
+            .container-fluid {
+                padding-left: 12px !important;
+                padding-right: 12px !important;
+            }
+
+            .main-content {
+                padding: 15px !important;
+                padding-top: calc(76px + 15px) !important;
+            }
+        }
+
+        /* ===== ÁREA TÁCTIL MÍNIMA ===== */
+        @media (max-width: 768px) {
+            a:not(.dropdown-item),
+            button,
+            input[type="button"],
+            input[type="submit"] {
+                min-height: 44px !important;
+                min-width: 44px !important;
+            }
+        }
+
+        /* ===== PREVENIR ZOOM EN IOS ===== */
+        @media (max-width: 768px) {
+            input[type="text"],
+            input[type="email"],
+            input[type="password"],
+            input[type="number"],
+            input[type="tel"],
+            textarea,
+            select {
+                font-size: 16px !important;
+            }
+        }
+
+        /* ===== ALERTS RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .alert {
+                font-size: 13px !important;
+                padding: 10px 12px !important;
+                margin-bottom: 10px !important;
+            }
+
+            .alert .btn-close {
+                padding: 12px !important;
+            }
+        }
+
+        /* ===== WIZARD/STEPPER RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            /* Pasos horizontales compactos */
+            .step-indicator,
+            .wizard-steps,
+            .nav-pills.nav-justified {
+                flex-wrap: nowrap !important;
+                overflow-x: auto !important;
+                -webkit-overflow-scrolling: touch !important;
+                padding-bottom: 10px !important;
+            }
+
+            .step-indicator .step,
+            .wizard-steps .step,
+            .nav-pills .nav-item {
+                flex: 0 0 auto !important;
+                min-width: 80px !important;
+                font-size: 11px !important;
+            }
+
+            .step-indicator .step-number,
+            .wizard-steps .step-number {
+                width: 28px !important;
+                height: 28px !important;
+                font-size: 12px !important;
+            }
+        }
+
+        /* ===== CARDS ACTA RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .acta-card,
+            .card-acta {
+                padding: 12px !important;
+            }
+
+            .acta-card .card-title,
+            .card-acta h5 {
+                font-size: 15px !important;
+            }
+
+            .acta-card .badge {
+                font-size: 10px !important;
+                padding: 4px 6px !important;
+            }
+
+            /* Info de acta en columnas */
+            .acta-info {
+                display: flex !important;
+                flex-direction: column !important;
+                gap: 5px !important;
+            }
+
+            .acta-info span {
+                font-size: 12px !important;
+            }
+        }
+
+        /* ===== PARTICIPANTES/COMPROMISOS DINÁMICOS ===== */
+        @media (max-width: 768px) {
+            .participante-item,
+            .compromiso-item,
+            .dynamic-item {
+                padding: 12px !important;
+                margin-bottom: 10px !important;
+                border-radius: 8px !important;
+            }
+
+            .participante-item .row,
+            .compromiso-item .row {
+                flex-direction: column !important;
+            }
+
+            .participante-item .col,
+            .compromiso-item .col,
+            .participante-item [class*="col-"],
+            .compromiso-item [class*="col-"] {
+                width: 100% !important;
+                margin-bottom: 10px !important;
+            }
+
+            .btn-remove-item,
+            .btn-eliminar {
+                width: 100% !important;
+                margin-top: 8px !important;
+            }
+        }
+
+        /* ===== INPUTS GRUPO RESPONSIVE ===== */
+        @media (max-width: 768px) {
+            .input-group {
+                flex-direction: column !important;
+            }
+
+            .input-group .form-control,
+            .input-group .form-select,
+            .input-group .btn {
+                width: 100% !important;
+                border-radius: 6px !important;
+                margin-bottom: 5px !important;
+            }
+
+            .input-group .btn {
+                margin-bottom: 0 !important;
+            }
+        }
+
+        /* ===== ACCIONES FIJAS EN MÓVIL ===== */
+        @media (max-width: 768px) {
+            .sticky-actions,
+            .form-actions-fixed {
+                position: fixed !important;
+                bottom: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                background: #fff !important;
+                padding: 12px !important;
+                box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
+                z-index: 1000 !important;
+                display: flex !important;
+                gap: 10px !important;
+            }
+
+            .sticky-actions .btn,
+            .form-actions-fixed .btn {
+                flex: 1 !important;
+            }
+        }
+
+        /* ===== SCROLL SUAVE Y MEJORAS GENERALES ===== */
+        @media (max-width: 768px) {
+            html {
+                scroll-behavior: smooth !important;
+            }
+
+            /* Mejorar tap targets */
+            .nav-link,
+            .dropdown-item,
+            .list-group-item-action {
+                min-height: 44px !important;
+                display: flex !important;
+                align-items: center !important;
+            }
+
+            /* Esconder scrollbars pero permitir scroll */
+            .hide-scrollbar {
+                -ms-overflow-style: none !important;
+                scrollbar-width: none !important;
+            }
+
+            .hide-scrollbar::-webkit-scrollbar {
+                display: none !important;
+            }
+
+            /* Row gaps en móvil */
+            .row {
+                --bs-gutter-x: 0.75rem !important;
+            }
+
+            /* Contenedor principal con padding */
+            .container,
+            .container-fluid {
+                padding-left: 10px !important;
+                padding-right: 10px !important;
+            }
+        }
+
+        /* ===== BOTONES FLOTANTES MÓVIL ===== */
+        @media (max-width: 768px) {
+            .help-fixed-btn,
+            #btnAccesibilidad {
+                width: 45px !important;
+                height: 45px !important;
+                font-size: 1.2rem !important;
+            }
+
+            .help-fixed-btn {
+                bottom: 80px !important;
+                right: 15px !important;
+            }
+
+            #btnAccesibilidad {
+                bottom: 15px !important;
+                left: 15px !important;
+            }
+
+            #accesibilidadPanel {
+                width: calc(100vw - 30px) !important;
+                max-width: 280px !important;
+                left: 15px !important;
+                bottom: 70px !important;
+            }
+        }
+    </style>
+
+    {% block extra_css %}{% endblock %}
+</head>
+
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-sena fixed-top py-2">
+        <div class="container-fluid">
+            <!-- HAMBURGUESA A LA IZQUIERDA (solo móvil) -->
+            {% if user.is_authenticated %}
+            <button class="navbar-toggler me-2 order-0" type="button">
+                <i class="fas fa-bars text-white"></i>
+            </button>
+            {% endif %}
+
+            <!-- LOGO Y TÍTULO EN EL CENTRO -->
+            <a class="navbar-brand d-flex align-items-center gap-2 order-1 flex-grow-1" href="{% url 'core:dashboard' %}">
+                <img src="{% static 'img/logo_sena.png' %}" alt="Logo SENA" style="height: 40px;">
+                <div class="d-flex flex-column lh-sm">
+                    <span class="fw-bold text-white">Sistema de Gestión de Actas</span>
+                    <small class="text-white-50 d-none d-sm-block">Centro Minero SENA</small>
+                </div>
+            </a>
+
+            <!-- ICONOS A LA DERECHA (móvil) -->
+            {% if user.is_authenticated %}
+            <div class="d-flex d-lg-none order-2">
+                <ul class="navbar-nav flex-row align-items-center">
+                    <!-- Notificaciones -->
+                    <li class="nav-item dropdown me-2">
+                        <a class="nav-link position-relative" 
+                           href="#" 
+                           id="notificationDropdownMobile" 
+                           role="button" 
+                           data-bs-toggle="dropdown" 
+                           aria-expanded="false">
+                            <i class="fas fa-bell"></i>
+                            <span class="visually-hidden">Notificaciones</span>
+                            {% if notifications_count > 0 %}
+                                <span class="notification-badge">{{ notifications_count }}</span>
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="width: 350px; max-width: 90vw;">
+                            <li class="dropdown-header d-flex justify-content-between align-items-center">
+                                <span>Notificaciones</span>
+                                <small class="text-muted">{{ notifications_count }} nuevas</small>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            {% for notification in user_notifications %}
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ notification.get_url }}">
+                                        <div class="d-flex">
+                                            <div class="me-2">
+                                                <i class="fas fa-{{ notification.get_icon }} text-{{ notification.get_color }}"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold">{{ notification.titulo }}</div>
+                                                <small class="text-muted d-block">{{ notification.mensaje|truncatechars:50 }}</small>
+                                                <small class="text-muted">{{ notification.fecha_creacion|timesince }} ago</small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                            {% empty %}
+                                <li><span class="dropdown-item-text text-muted">No hay notificaciones nuevas</span></li>
+                            {% endfor %}
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-center" href="{% url 'notifications:list' %}">Ver todas</a></li>
+                        </ul>
+                    </li>
+                    
+                    <!-- Usuario -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link" href="{% url 'accounts:profile' %}">
+                            {% if user.firma_digital %}
+                                <img src="{{ user.firma_digital.url }}" class="rounded-circle" style="width:32px;height:32px;object-fit:cover;" alt="Perfil">
+                            {% else %}
+                                <i class="fas fa-user-circle fs-4"></i>
+                            {% endif %}
+                        </a>
+                    </li>
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- MENÚ DESKTOP (derecha) -->
+            <div class="collapse navbar-collapse justify-content-end order-3" id="navbarNav">
+                {% if user.is_authenticated %}
+                <ul class="navbar-nav align-items-center">
+                    <!-- Notificaciones Desktop -->
+                    <li class="nav-item dropdown me-3 d-none d-lg-block">
+                        <a class="nav-link position-relative" 
+                           href="#" 
+                           id="notificationDropdown" 
+                           role="button" 
+                           data-bs-toggle="dropdown" 
+                           aria-expanded="false"
+                           data-bs-toggle="tooltip"
+                           data-bs-placement="bottom"
+                           title="Notificaciones">
+                            <i class="fas fa-bell"></i>
+                            {% if notifications_count > 0 %}
+                                <span class="notification-badge">{{ notifications_count }}</span>
+                            {% endif %}
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm" style="width: 350px;">
+                            <li class="dropdown-header d-flex justify-content-between align-items-center">
+                                <span>Notificaciones</span>
+                                <small class="text-muted">{{ notifications_count }} nuevas</small>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+
+                            {% for notification in user_notifications %}
+                                <li>
+                                    <a class="dropdown-item py-2" href="{{ notification.get_url }}">
+                                        <div class="d-flex">
+                                            <div class="me-2">
+                                                <i class="fas fa-{{ notification.get_icon }} text-{{ notification.get_color }}"></i>
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold">{{ notification.titulo }}</div>
+                                                <small class="text-muted d-block">{{ notification.mensaje|truncatechars:50 }}</small>
+                                                <small class="text-muted">{{ notification.fecha_creacion|timesince }} ago</small>
+                                            </div>
+                                        </div>
+                                    </a>
+                                </li>
+                            {% empty %}
+                                <li><span class="dropdown-item-text text-muted">No hay notificaciones nuevas</span></li>
+                            {% endfor %}
+
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-center" href="{% url 'notifications:list' %}">Ver todas</a></li>
+                        </ul>
+                    </li>
+
+                    <!-- Usuario Desktop -->
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" 
+                           href="#" 
+                           data-bs-toggle="dropdown" 
+                           aria-expanded="false">
+                            {% if user.firma_digital %}
+                                <img src="{{ user.firma_digital.url }}" class="rounded-circle me-2" style="width:32px;height:32px;object-fit:cover;" alt="Perfil">
+                            {% else %}
+                                <i class="fas fa-user-circle fs-4 me-2"></i>
+                            {% endif %}
+                            <span>{{ user.first_name }}</span>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end shadow-sm">
+                            <li><a class="dropdown-item" href="{% url 'accounts:profile' %}"><i class="fas fa-user me-2"></i>Mi Perfil</a></li>
+                            <li><a class="dropdown-item" href="{% url 'accounts:settings' %}"><i class="fas fa-cog me-2"></i>Configuración</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item text-danger" href="{% url 'accounts:logout' %}"><i class="fas fa-sign-out-alt me-2"></i>Salir</a></li>
+                        </ul>
+                    </li>
+                </ul>
+                {% else %}
+                    <button type="button" 
+                            class="btn btn-outline-light btn-sm me-2" 
+                            data-bs-toggle="modal"
+                            data-bs-target="#infoModal"
+                            title="Información del Sistema"
+                            style="font-family: Arial, sans-serif; font-weight: bold; text-transform: uppercase;">
+                        <i class="fas fa-info-circle"></i> Información del Sistema
+                    </button>
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- ===== SIDEBAR (solo autenticado) ===== -->
+    {% if user.is_authenticated %}
+    <div class="sidebar-overlay"></div>
+    <aside class="sidebar">
+        {% if user.rol == "aprendiz" or user.rol == "invitado" %}
+            <!-- MENÚ EXCLUSIVO DE APRENDIZ -->
+            <h6>Zona del Aprendiz</h6>
+            <nav class="nav flex-column">
+                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'core:dashboard' %}">
+                    <i class="fas fa-home"></i>Inicio
+                </a>
+                <a class="nav-link" href="{% url 'actas:aprendiz_pendientes' %}">
+                    <i class="fas fa-file-signature"></i>Actas Pendientes
+                </a>
+                <a class="nav-link" href="{% url 'actas:aprendiz_compromisos' %}">
+                    <i class="fas fa-list-check"></i>Mis Compromisos
+                </a>
+                <a class="nav-link" href="{% url 'actas:firmas_pendientes' %}">
+                    <i class="fas fa-signature"></i>Firmas Pendientes
+                </a>
+            </nav>
+
+        {% else %}
+            <!-- MENÚ PARA FUNCIONARIOS, INSTRUCTORES, COORDINADORES, DIRECTORES, ADMIN -->
+            <h6>Menú Principal</h6>
+            <nav class="nav flex-column">
+                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'core:dashboard' %}">
+                    <i class="fas fa-home"></i>Inicio
+                </a>
+                <a class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}" href="{% url 'accounts:profile' %}">
+                    <i class="fas fa-user"></i>Mi Perfil
+                </a>
+                <a class="nav-link" href="{% url 'actas:actas_list' %}">
+                    <i class="fas fa-file-alt"></i>Mis Actas
+                </a>
+                {% if user.email_verificado and user.cuenta_aprobada %}
+                <a class="nav-link" href="{% url 'actas:crear' %}">
+                    <i class="fas fa-plus-circle"></i>Nueva Acta
+                </a>
+                {% endif %}
+                <a class="nav-link" href="{% url 'actas:firmas_pendientes' %}">
+                    <i class="fas fa-signature"></i>Firmas Pendientes
+                </a>
+                {% if user.rol == 'admin' %}
+                <a class="nav-link" href="{% url 'core:vista_backup' %}">
+                    <i class="fas fa-database me-1"></i>Copias de Seguridad
+                </a>
+                {% endif %}
+                <a class="nav-link" href="{% url 'actas:mis_compromisos' %}">
+                    <i class="fas fa-tasks"></i>Compromisos
+                </a>
+
+                {% if user.is_staff %}
+                <hr>
+                <h6>Administración</h6>
+                <a class="nav-link" href="{% url 'accounts:usuarios' %}">
+                    <i class="fas fa-users"></i>Usuarios
+                </a>
+                <a class="nav-link" href="{% url 'admin:index' %}">
+                    <i class="fas fa-tools"></i>Panel Admin
+                </a>
+                {% endif %}
+            </nav>
+        {% endif %}
+    </aside>
+    {% endif %}
+
+
+    <!-- ===== CONTENIDO PRINCIPAL ===== -->
+    <main class="main-content {% if user.is_authenticated %}with-sidebar{% endif %}">
+        {% if messages %}
+        <div class="container mb-3">
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-custom">
+                    <i class="fas fa-info-circle me-2"></i> {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- ===== PIE DE PÁGINA ===== -->
+    <footer class="footer">
+        <div class="footer-content">
+            <p class="footer-text">
+                <i class="fas fa-file-alt"></i>
+                Sistema de Gestión de Actas - Centro Minero SENA © 2026
+            </p>
+            <div class="footer-links">
+                <a href="#" target="_blank">Portal SENA</a>
+                <span>|</span>
+                <a href="#">Soporte Técnico</a>
+                <span>|</span>
+                <a href="#">Contáctenos</a>
+            </div>
+            <div class="footer-social">
+                <a href="#"><i class="fab fa-facebook-f"></i></a>
+                <a href="#"><i class="fab fa-twitter"></i></a>
+                <a href="#"><i class="fab fa-instagram"></i></a>
+                <a href="#"><i class="fab fa-youtube"></i></a>
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- Bootstrap 5 JS Bundle -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <script>
+        // Inicializar tooltips
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'))
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl)
+        })
+
+        // Auto-hide alerts after 5 seconds
+        setTimeout(function() {
+            $('.alert').fadeOut('slow');
+        }, 5000);
+
+        // Marcar notificaciones como leídas
+        $('#notificationDropdown').on('click', function() {
+            $.post('{% url "notifications:mark_as_read" %}', {
+                'csrfmiddlewaretoken': '{{ csrf_token }}'
+            });
+        });
+
+        // Lógica de Sidebar
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.querySelector('.sidebar');
+            const overlay = document.querySelector('.sidebar-overlay');
+            const toggler = document.querySelector('.navbar-toggler');
+
+            if (toggler && sidebar && overlay) {
+                toggler.addEventListener('click', function() {
+                    sidebar.classList.toggle('active');
+                    overlay.classList.toggle('active');
+                });
+
+                overlay.addEventListener('click', function() {
+                    sidebar.classList.remove('active');
+                    overlay.classList.remove('active');
+                });
+            }
+
+            document.querySelectorAll('.sidebar .nav-link').forEach(link => {
+                link.addEventListener('click', () => {
+                    if (window.innerWidth < 992) {
+                        sidebar.classList.remove('active');
+                        overlay.classList.remove('active');
+                    }
+                });
+            });
+        });
+    </script>
+
+    <script src="https://website-widgets.pages.dev/dist/sienna.min.js" async></script> 
+    
+    <script>
+        // Función de chequeo recursivo
+        function checkSiennaLoaded() {
+            // Verificamos si la función global existe.
+            if (typeof SiennaAccessibility !== 'undefined' && typeof SiennaAccessibility.load === 'function') {
+                SiennaAccessibility.load();
+                console.log("Sienna Accessibility cargado con éxito.");
+            } else {
+                // Si no está lista, intentamos de nuevo en 200 milisegundos.
+                setTimeout(checkSiennaLoaded, 200); 
+            }
+        }
+        
+        // Iniciar el chequeo después de que el DOM está listo
+        document.addEventListener("DOMContentLoaded", checkSiennaLoaded);
+    </script>
+    {% block extra_js %}{% endblock %}
+
+        <!-- ======= PANEL DE ACCESIBILIDAD SENA ======= -->
+    <style>
+    /* Botón flotante de accesibilidad */
+    #btnAccesibilidad {
+    position: fixed;
+    bottom: 20px;
+    left: 20px;
+    background-color: #2e8b57;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    font-size: 24px;
+    cursor: pointer;
+    z-index: 9999;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(57,169,0,0.5); }
+    70% { box-shadow: 0 0 0 12px rgba(57,169,0,0); }
+    100% { box-shadow: 0 0 0 0 rgba(57,169,0,0); }
+    }
+
+    /* Panel lateral */
+    #accesibilidadPanel {
+    position: fixed;
+    bottom: 80px;
+    left: 20px;
+    background-color: #198754;
+    border-radius: 10px;
+    width: 280px;
+    padding: 10px;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
+    display: none;
+    z-index: 9998;
+    color: white;
+    }
+
+    #accesibilidadPanel h5 {
+    text-align: center;
+    margin-bottom: 8px;
+    }
+
+    /* Botones dentro del panel */
+    #accesibilidadPanel button {
+    display: block;
+    width: 100%;
+    margin: 5px 0;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    background: #f8f9fa;
+    color: #000;
+    font-weight: bold;
+    padding: 8px;
+    cursor: pointer;
+    }
+
+    #accesibilidadPanel button:hover {
+    background-color: #d9ffd9;
+    }
+
+    /* Estilos para modo oscuro */
+    .dark-mode,
+    .dark-mode * {
+    background-color: #121212 !important;
+    color: #f0f0f0 !important;
+    border-color: #333 !important;
+    }
+    .dark-mode .card,
+    .dark-mode .form-control,
+    .dark-mode .btn {
+    background-color: #1e1e1e !important;
+    color: #f0f0f0 !important;
+    }
+
+    /* Fuente disléxica */
+    @import url('https://cdn.jsdelivr.net/gh/antijingoist/open-dyslexic/open-dyslexic.css');
+    .dyslexic-font, .dyslexic-font * {
+    font-family: 'OpenDyslexic', Arial, sans-serif !important;
+    letter-spacing: 0.5px;
+    }
+
+    /* Resaltado de títulos */
+    .highlight-titles h1,
+    .highlight-titles h2,
+    .highlight-titles h3,
+    .highlight-titles h4,
+    .highlight-titles h5,
+    .highlight-titles h6 {
+    background-color: #ffe066;
+    color: #000 !important;
+    text-decoration: underline;
+    padding: 4px 6px;
+    border-radius: 5px;
+    }
+    </style>
+
+    <!-- Botón flotante -->
+    <button id="btnAccesibilidad" title="Opciones de accesibilidad">♿</button>
+
+    <!-- Panel -->
+    <div id="accesibilidadPanel">
+    <h5>♿ Accesibilidad</h5>
+    <button onclick="toggleDarkMode()">🌙 Modo oscuro</button>
+    <button onclick="toggleHighContrast()">⚫ Alto contraste</button>
+    <button onclick="aumentarTexto()">🔍 Aumentar texto</button>
+    <button onclick="reducirTexto()">🔎 Reducir texto</button>
+    <button onclick="toggleDyslexicFont()">📖 Fuente Disléxica</button>
+    <button onclick="toggleHighlightTitles()">✨ Resaltar títulos</button>
+    <button onclick="leerTexto()">🔊 Lectura de texto</button>
+    <button onclick="restablecer()">♻️ Restablecer</button>
+    </div>
+
+    <!-- Scripts -->
+    <script>
+    let darkMode = false;
+    let highContrast = false;
+    let dyslexic = false;
+    let highlighted = false;
+    let currentSize = 100;
+
+    // Mostrar/ocultar panel
+    document.getElementById('btnAccesibilidad').addEventListener('click', () => {
+    const panel = document.getElementById('accesibilidadPanel');
+    panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
+    });
+
+    // Modo oscuro
+    function toggleDarkMode() {
+    darkMode = !darkMode;
+    document.body.classList.toggle('dark-mode', darkMode);
+    }
+
+    // Alto contraste
+    function toggleHighContrast() {
+    highContrast = !highContrast;
+    document.body.style.filter = highContrast ? 'contrast(1.8)' : 'contrast(1)';
+    }
+
+    // Aumentar texto
+    function aumentarTexto() {
+    currentSize += 10;
+    document.body.style.fontSize = currentSize + '%';
+    }
+
+    // Reducir texto
+    function reducirTexto() {
+    currentSize = Math.max(80, currentSize - 10);
+    document.body.style.fontSize = currentSize + '%';
+    }
+
+    // Fuente disléxica
+    function toggleDyslexicFont() {
+    dyslexic = !dyslexic;
+    document.body.classList.toggle('dyslexic-font', dyslexic);
+    }
+
+    // Resaltar títulos
+    function toggleHighlightTitles() {
+    highlighted = !highlighted;
+    document.body.classList.toggle('highlight-titles', highlighted);
+    }
+
+    function leerTexto() {
+    const texto = document.body.innerText;
+    const mensaje = new SpeechSynthesisUtterance(texto);
+    mensaje.lang = 'es-CO'; // español de Colombia por defecto
+    mensaje.rate = 1;
+    mensaje.pitch = 1;
+
+    // Buscar voz en español disponible
+    const voces = window.speechSynthesis.getVoices();
+    const vozEspanol = voces.find(v => v.lang.startsWith('es'));
+    if (vozEspanol) {
+        mensaje.voice = vozEspanol;
+    } else {
+        console.warn("⚠️ No se encontró una voz en español, usando por defecto.");
+    }
+
+    // Detener lectura anterior y reproducir
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(mensaje);
+    }
+
+    let leyendo = false;
+
+    function alternarLectura() {
+    if (!leyendo) {
+        leerTexto();
+        leyendo = true;
+    } else {
+        window.speechSynthesis.cancel();
+        leyendo = false;
+    }
+    }
+
+    // Restablecer
+    function restablecer() {
+    document.body.classList.remove('dark-mode', 'dyslexic-font', 'highlight-titles');
+    document.body.style.filter = 'none';
+    document.body.style.fontSize = '100%';
+    darkMode = highContrast = dyslexic = highlighted = false;
+    currentSize = 100;
+    window.speechSynthesis.cancel();
+    }
+    </script>
+
+    <a href="{% static 'docs/manual_usuario.pdf' %}" 
+        target="_blank" 
+        class="help-fixed-btn" 
+        title="Descargar Manual de Usuario">
+        <i class="fas fa-question"></i>
+    </a>
+</body>
+</html>
