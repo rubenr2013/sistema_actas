@@ -1246,8 +1246,8 @@
                 <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" href="{% url 'core:dashboard' %}">
                     <i class="fas fa-home"></i>Inicio
                 </a>
-                <a class="nav-link" href="{% url 'actas:aprendiz_pendientes' %}">
-                    <i class="fas fa-file-signature"></i>Actas Pendientes
+                <a class="nav-link" href="{% url 'actas:actas_list' %}">
+                    <i class="fas fa-file-alt"></i>Mis Actas
                 </a>
                 <a class="nav-link" href="{% url 'actas:aprendiz_compromisos' %}">
                     <i class="fas fa-list-check"></i>Mis Compromisos

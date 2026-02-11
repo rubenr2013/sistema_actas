@@ -82,6 +82,12 @@ def login_view(request):
         form = CustomAuthenticationForm(request, data=request.POST)
         if form.is_valid():
             user = form.get_user()
+
+            # Bloquear login si el email no ha sido verificado
+            if not user.email_verificado:
+                messages.error(request, "Debes verificar tu correo electrónico antes de iniciar sesión.")
+                return redirect("accounts:verificar_email", email=user.email)
+
             # Login exitoso: resetear intentos
             reset_login_attempts(client_ip)
             login(request, user)
@@ -170,11 +176,12 @@ def register_view(request):
 
             if email_enviado:
                 messages.success(request, f"Se ha enviado un código de verificación a {user.email}. Revisa tu correo.")
-                # Redirigir a página de verificación con el email
                 return redirect("accounts:verificar_email", email=user.email)
             else:
-                messages.warning(request, "Hubo un problema al enviar el email de verificación. Contacta al administrador.")
-                return redirect("accounts:verificar_email", email=user.email)
+                # Si no se pudo enviar el email, eliminar la cuenta creada
+                user.delete()
+                messages.error(request, "No se pudo enviar el correo de verificación. Verifica que el correo electrónico sea válido e intenta de nuevo.")
+                return redirect("accounts:register")
         else:
             messages.error(request, "Por favor corrige los errores en el formulario.")
     else:
