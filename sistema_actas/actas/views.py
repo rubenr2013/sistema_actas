@@ -1038,13 +1038,21 @@ def archivar_acta(request, acta_id):
         'message': 'El acta ha sido archivada exitosamente.'
     })
 
-# ✍️ Firmas pendientes (solo las del usuario autenticado)
+# ✍️ Firmas pendientes
 @login_required
 def firmas_pendientes(request):
-    firmas = Firma.objects.filter(usuario=request.user, firmado=False, acta__estado="en_revision")
+    if request.user.rol == 'admin':
+        firmas = Firma.objects.filter(
+            firmado=False, acta__estado="en_revision"
+        ).select_related('acta', 'usuario')
+    else:
+        firmas = Firma.objects.filter(
+            usuario=request.user, firmado=False, acta__estado="en_revision"
+        ).select_related('acta')
 
     return render(request, "actas/firmas_pendientes.html", {
-        "firmas": firmas
+        "firmas": firmas,
+        "es_admin": request.user.rol == 'admin',
     })
     
 @login_required
@@ -1113,8 +1121,19 @@ def eliminar_compromiso(request, compromiso_id):
 
 @login_required
 def mis_compromisos(request):
-    compromisos = Compromiso.objects.filter(responsable=request.user).order_by('-fecha_limite')
-    return render(request, "actas/mis_compromisos.html", {"compromisos": compromisos})
+    if request.user.rol == 'admin':
+        compromisos = Compromiso.objects.all().select_related(
+            'responsable', 'acta'
+        ).order_by('-fecha_limite')
+    else:
+        compromisos = Compromiso.objects.filter(
+            responsable=request.user
+        ).select_related('acta').order_by('-fecha_limite')
+
+    return render(request, "actas/mis_compromisos.html", {
+        "compromisos": compromisos,
+        "es_admin": request.user.rol == 'admin',
+    })
 
 @login_required
 @require_POST

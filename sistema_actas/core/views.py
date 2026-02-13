@@ -25,55 +25,92 @@ BACKUP_DIR = os.path.join(settings.BASE_DIR, "backups")
 @login_required
 def dashboard(request):
     user = request.user
-    
-    # Estadísticas generales
-    stats = {
-        'total_actas': Acta.objects.filter(
+    # Toggle vista personal para admin: ?vista=personal
+    vista_personal = request.GET.get('vista') == 'personal'
+
+    if user.rol == 'admin' and not vista_personal:
+        # ===== DASHBOARD DE SUPERVISIÓN (ADMIN) =====
+        from accounts.models import User as UserModel
+
+        stats = {
+            'total_actas': Acta.objects.count(),
+            'actas_en_revision': Acta.objects.filter(estado='en_revision').count(),
+            'firmas_pendientes_global': Firma.objects.filter(
+                firmado=False, acta__estado='en_revision'
+            ).count(),
+            'compromisos_vencidos_global': Compromiso.objects.filter(estado='vencido').count(),
+            'total_usuarios': UserModel.objects.count(),
+            'usuarios_no_verificados': UserModel.objects.filter(email_verificado=False).count(),
+        }
+
+        actas_recientes = Acta.objects.select_related('creador').order_by('-fecha_creacion')[:10]
+
+        compromisos_vencidos_lista = Compromiso.objects.filter(
+            estado='vencido'
+        ).select_related('responsable', 'acta').order_by('-fecha_limite')[:10]
+
+        firmas_pendientes_lista = Firma.objects.filter(
+            firmado=False, acta__estado='en_revision'
+        ).select_related('acta', 'usuario').order_by('acta__fecha_limite_firmas')[:10]
+
+        notificaciones = Notification.objects.filter(
+            usuario=user, leida=False
+        ).order_by('-fecha_creacion')[:5]
+
+        context = {
+            'stats': stats,
+            'actas_recientes': actas_recientes,
+            'compromisos_vencidos_lista': compromisos_vencidos_lista,
+            'firmas_pendientes_lista': firmas_pendientes_lista,
+            'notificaciones': notificaciones,
+            'es_vista_admin': True,
+        }
+    else:
+        # ===== DASHBOARD PERSONAL (todos los roles + admin en modo personal) =====
+        stats = {
+            'total_actas': Acta.objects.filter(
+                Q(creador=user) | Q(participantes__usuario=user)
+            ).distinct().count(),
+            'actas_pendientes_firma': Firma.objects.filter(
+                usuario=user, firmado=False, acta__estado='en_revision'
+            ).count(),
+            'compromisos_pendientes': Compromiso.objects.filter(
+                responsable=user, estado__in=['pendiente', 'en_progreso']
+            ).count(),
+            'compromisos_vencidos': Compromiso.objects.filter(
+                responsable=user, estado='vencido'
+            ).count()
+        }
+
+        actas_recientes = Acta.objects.filter(
             Q(creador=user) | Q(participantes__usuario=user)
-        ).distinct().count(),
-        'actas_pendientes_firma': Firma.objects.filter(
-            usuario=user, firmado=False, acta__estado='en_revision'
-        ).count(),
-        'compromisos_pendientes': Compromiso.objects.filter(
-            responsable=user, estado__in=['pendiente', 'en_progreso']
-        ).count(),
-        'compromisos_vencidos': Compromiso.objects.filter(
-            responsable=user, estado='vencido'
-        ).count()
-    }
-    
-    # Actas recientes del usuario
-    actas_recientes = Acta.objects.filter(
-        Q(creador=user) | Q(participantes__usuario=user)
-    ).distinct().order_by('-fecha_creacion')[:5]
-    
-    # Compromisos próximos a vencer
-    compromisos_proximos = Compromiso.objects.filter(
-        responsable=user,
-        estado__in=['pendiente', 'en_progreso'],
-        fecha_limite__lte=timezone.now().date() + timedelta(days=7)
-    ).order_by('fecha_limite')[:5]
-    
-    # Actas pendientes de firma
-    firmas_pendientes = Firma.objects.filter(
-        usuario=user,
-        firmado=False,
-        acta__estado='en_revision'
-    ).select_related('acta')[:5]
-    
-    # Notificaciones recientes
-    notificaciones = Notification.objects.filter(
-        usuario=user, leida=False
-    ).order_by('-fecha_creacion')[:5]
-    
-    context = {
-        'stats': stats,
-        'actas_recientes': actas_recientes,
-        'compromisos_proximos': compromisos_proximos,
-        'firmas_pendientes': firmas_pendientes,
-        'notificaciones': notificaciones,
-    }
-    
+        ).distinct().order_by('-fecha_creacion')[:5]
+
+        compromisos_proximos = Compromiso.objects.filter(
+            responsable=user,
+            estado__in=['pendiente', 'en_progreso'],
+            fecha_limite__lte=timezone.now().date() + timedelta(days=7)
+        ).order_by('fecha_limite')[:5]
+
+        firmas_pendientes = Firma.objects.filter(
+            usuario=user,
+            firmado=False,
+            acta__estado='en_revision'
+        ).select_related('acta')[:5]
+
+        notificaciones = Notification.objects.filter(
+            usuario=user, leida=False
+        ).order_by('-fecha_creacion')[:5]
+
+        context = {
+            'stats': stats,
+            'actas_recientes': actas_recientes,
+            'compromisos_proximos': compromisos_proximos,
+            'firmas_pendientes': firmas_pendientes,
+            'notificaciones': notificaciones,
+            'es_vista_admin': False,
+        }
+
     return render(request, 'dashboard/index.html', context)
 
 @login_required

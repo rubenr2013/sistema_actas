@@ -7,10 +7,10 @@
     ======================================= */
     body {
         /* Fondo ligeramente gris/azul claro para el cuerpo, similar al pantallazo */
-        background-color: #f5f7fa; 
+        background-color: #f5f7fa;
     }
 
-    /* Título de la sección (e.g., Mis Compromisos Asignados) */
+    /* Titulo de la seccion (e.g., Mis Compromisos Asignados) */
     h2 {
         color: #2d8000; /* Verde SENA para los encabezados */
         font-weight: 700;
@@ -22,11 +22,11 @@
     .compromisos-container {
         background-color: #ffffff;
         border-radius: 12px;
-        /* Sombra suave y sutil, similar a los módulos del pantallazo */
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1); 
+        /* Sombra suave y sutil, similar a los modulos del pantallazo */
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
         padding: 30px 20px; /* Reducido para mejor responsividad */
         margin: 30px auto;
-        /* Usamos un max-width flexible, el contenido ya estará centrado si se usa la estructura de grid de Bootstrap */
+        /* Usamos un max-width flexible, el contenido ya estara centrado si se usa la estructura de grid de Bootstrap */
     }
 
     /* Encabezado de la tabla (Verde SENA) */
@@ -45,23 +45,31 @@
 </style>
 {% endblock %}
 {% block content %}
-<div class="container-fluid"> 
+<div class="container-fluid">
     <div class="row justify-content-center">
-        <div class="col-12 col-lg-10"> 
+        <div class="col-12 col-lg-10">
             <div class="compromisos-container">
-                <h2>Mis Compromisos Asignados ({{ request.user.username }})</h2>
-                
+                {% if es_admin %}
+                    <h2><i class="fas fa-tasks me-2"></i>Compromisos del Sistema</h2>
+                    <p class="text-center text-muted mb-4">Vista global de todos los compromisos</p>
+                {% else %}
+                    <h2>Mis Compromisos Asignados ({{ request.user.username }})</h2>
+                {% endif %}
+
                 {% if compromisos %}
-                <div class="table-responsive"> 
+                <div class="table-responsive">
                     <table class="table table-hover align-middle">
-                        <thead class="table-success"> 
+                        <thead class="table-success">
                             <tr>
                                 <th>Acta</th>
-                                <th>Descripción</th>
+                                {% if es_admin %}
+                                    <th>Responsable</th>
+                                {% endif %}
+                                <th>Descripcion</th>
                                 <th>Estado</th>
                                 <th>Avance</th>
-                                <th>Fecha Límite</th>
-                                <th>Días Restantes</th>
+                                <th>Fecha Limite</th>
+                                <th>Dias Restantes</th>
                                 <th>Acciones</th>
                             </tr>
                         </thead>
@@ -69,8 +77,14 @@
                             {% for compromiso in compromisos %}
                             <tr>
                                 <td><a href="{% url 'actas:detalle' acta_id=compromiso.acta.id %}">{{ compromiso.acta.numero_acta }}</a></td>
+                                {% if es_admin %}
+                                    <td>
+                                        <span class="fw-semibold">{{ compromiso.responsable.get_full_name|default:compromiso.responsable.username }}</span>
+                                        <br><small class="text-muted">{{ compromiso.responsable.get_rol_display }}</small>
+                                    </td>
+                                {% endif %}
                                 <td>{{ compromiso.descripcion|truncatechars:70 }}</td>
-                                
+
                                 <td>
                                     {% if compromiso.estado == 'completado' %}
                                         <span class="badge bg-success">Completado</span>
@@ -82,12 +96,12 @@
                                         <span class="badge bg-warning text-dark">Pendiente</span>
                                     {% endif %}
                                 </td>
-                                
+
                                 <td>
                                     <div class="progress" style="height: 20px;">
-                                        <div class="progress-bar progress-bar-striped 
-                                             {% if compromiso.porcentaje_avance == 100 %}bg-success{% elif compromiso.porcentaje_avance < 100 and compromiso.esta_vencido %}bg-danger{% else %}bg-info{% endif %}" 
-                                             role="progressbar" style="width: {{ compromiso.porcentaje_avance }}%;" 
+                                        <div class="progress-bar progress-bar-striped
+                                             {% if compromiso.porcentaje_avance == 100 %}bg-success{% elif compromiso.porcentaje_avance < 100 and compromiso.esta_vencido %}bg-danger{% else %}bg-info{% endif %}"
+                                             role="progressbar" style="width: {{ compromiso.porcentaje_avance }}%;"
                                              aria-valuenow="{{ compromiso.porcentaje_avance }}" aria-valuemin="0" aria-valuemax="100">
                                             {{ compromiso.porcentaje_avance }}%
                                         </div>
@@ -95,22 +109,22 @@
                                 </td>
 
                                 <td>{{ compromiso.fecha_limite|date:"d M Y" }}</td>
-                                
+
                                 <td>
                                     {% if compromiso.dias_restantes > 0 %}
-                                        <span class="text-success">{{ compromiso.dias_restantes }} día(s)</span>
+                                        <span class="text-success">{{ compromiso.dias_restantes }} dia(s)</span>
                                     {% elif compromiso.dias_restantes == 0 and compromiso.estado != 'completado' %}
-                                        <span class="text-warning">¡Hoy!</span>
+                                        <span class="text-warning">Hoy!</span>
                                     {% elif compromiso.dias_restantes < 0 and compromiso.estado != 'completado' %}
-                                        <span class="text-danger fw-bold">{{ compromiso.dias_restantes|make_list|slice:"1:"|join:"" }} día(s) Vencido</span>
+                                        <span class="text-danger fw-bold">{{ compromiso.dias_restantes|make_list|slice:"1:"|join:"" }} dia(s) Vencido</span>
                                     {% else %}
                                         -
                                     {% endif %}
                                 </td>
-                                
+
                                 <td>
                                     <a href="{% url 'actas:editar_compromiso' compromiso_id=compromiso.id %}" class="btn btn-sm btn-outline-success">
-                                        Reportar Avance
+                                        {% if es_admin %}Ver{% else %}Reportar Avance{% endif %}
                                     </a>
                                 </td>
                             </tr>
@@ -120,7 +134,11 @@
                 </div>
                 {% else %}
                     <div class="alert alert-info text-center" role="alert">
-                        No tienes compromisos asignados actualmente.
+                        {% if es_admin %}
+                            No hay compromisos registrados en el sistema.
+                        {% else %}
+                            No tienes compromisos asignados actualmente.
+                        {% endif %}
                     </div>
                 {% endif %}
             </div>

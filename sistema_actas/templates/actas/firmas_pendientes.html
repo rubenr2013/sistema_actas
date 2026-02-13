@@ -8,7 +8,7 @@
     }
 
     .firmas-container {
-        max-width: 800px;
+        max-width: 900px;
         margin: 50px auto;
         background-color: #ffffff;
         border-radius: 12px;
@@ -74,31 +74,64 @@
         gap: 8px;
         color: #333;
         font-weight: 500;
+        flex: 1;
     }
 
     .firma-info i {
         color: #39A900;
         font-size: 1.2rem;
     }
+
+    .firma-usuario {
+        color: #666;
+        font-size: 0.9em;
+        margin-left: 10px;
+    }
+
+    .badge-usuario {
+        background-color: #e9ecef;
+        color: #495057;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.8em;
+        font-weight: 500;
+        margin-left: 8px;
+    }
 </style>
 
 <div class="firmas-container">
-    <h2>Mis Firmas Pendientes</h2>
+    {% if es_admin %}
+        <h2><i class="fas fa-signature me-2"></i>Firmas Pendientes del Sistema</h2>
+        <p class="text-center text-muted mb-4">Vista global de todas las firmas pendientes</p>
+    {% else %}
+        <h2>Mis Firmas Pendientes</h2>
+    {% endif %}
+
     <ul class="list-group mt-3">
         {% for firma in firmas %}
             <li class="list-group-item">
                 <div class="firma-info">
                     <i class="bi bi-file-earmark-text"></i>
                     <span>{{ firma.acta.numero_acta }} - {{ firma.acta.titulo }}</span>
+                    {% if es_admin %}
+                        <span class="badge-usuario">
+                            <i class="fas fa-user me-1"></i>{{ firma.usuario.get_full_name|default:firma.usuario.username }}
+                        </span>
+                    {% endif %}
                 </div>
-                <a href="{% url 'actas:detalle' firma.acta.id %}" class="btn btn-firmar">Firmar</a>
+                <a href="{% url 'actas:detalle' firma.acta.id %}" class="btn btn-firmar">
+                    {% if es_admin %}Ver{% else %}Firmar{% endif %}
+                </a>
             </li>
         {% empty %}
             <li class="list-group-item empty-item">
-                No tienes actas pendientes de firma.
+                {% if es_admin %}
+                    No hay firmas pendientes en el sistema.
+                {% else %}
+                    No tienes actas pendientes de firma.
+                {% endif %}
             </li>
         {% endfor %}
     </ul>
 </div>
 {% endblock %}
-

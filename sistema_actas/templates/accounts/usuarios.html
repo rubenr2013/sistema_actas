@@ -177,13 +177,13 @@
                                         </span>
                                     </td>
                                     <td>
-                                        {% if u.is_active %}
+                                        {% if u.email_verificado %}
                                             <span class="badge bg-success">
-                                                <i class="fas fa-check-circle me-1"></i>Activo
+                                                <i class="fas fa-check-circle me-1"></i>Verificado
                                             </span>
                                         {% else %}
-                                            <span class="badge bg-secondary">
-                                                <i class="fas fa-times-circle me-1"></i>Inactivo
+                                            <span class="badge bg-warning text-dark">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>No Verificado
                                             </span>
                                         {% endif %}
                                     </td>

@@ -323,22 +323,22 @@ def usuarios(request):
         lista_usuarios = lista_usuarios.filter(rol=rol)
     
     # Aplicar filtro por estado
-    if estado == 'activo':
-        lista_usuarios = lista_usuarios.filter(is_active=True)
-    elif estado == 'inactivo':
-        lista_usuarios = lista_usuarios.filter(is_active=False)
-    
+    if estado == 'verificado':
+        lista_usuarios = lista_usuarios.filter(email_verificado=True)
+    elif estado == 'no_verificado':
+        lista_usuarios = lista_usuarios.filter(email_verificado=False)
+
     # Paginación
     paginator = Paginator(lista_usuarios, 10)  # 10 usuarios por página
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
-    
+
     # Opciones para los filtros
     roles = User.ROLES
-    
+
     estados = [
-        ('activo', 'Activo'),
-        ('inactivo', 'Inactivo'),
+        ('verificado', 'Verificado'),
+        ('no_verificado', 'No Verificado'),
     ]
     
     context = {
