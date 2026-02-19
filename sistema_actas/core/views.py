@@ -118,111 +118,157 @@ def dashboard(request):
 @login_required
 def crear_copia_seguridad(request):
     """
-    Crea una copia de seguridad ZIP válida solo con los archivos importantes.
-    SOLO ADMINISTRADORES pueden crear backups generales del sistema.
+    Crea backup del sistema completo usando dumpdata de Django.
+    Compatible con PostgreSQL y SQLite. Solo administradores.
     """
-    # Verificar que el usuario sea administrador
     if request.user.rol != 'admin':
-        messages.error(request, "❌ Solo los administradores pueden crear copias de seguridad del sistema.")
+        messages.error(request, "Solo los administradores pueden crear copias de seguridad del sistema.")
         return redirect("core:vista_backup")
 
     try:
+        from io import StringIO
         os.makedirs(BACKUP_DIR, exist_ok=True)
 
         fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
         backup_filename = f"backup_sistema_{fecha}.zip"
         backup_path = os.path.join(BACKUP_DIR, backup_filename)
 
-        # Archivos y carpetas a incluir
-        incluir = [
-            "db.sqlite3",
-            "actas",
-            "accounts",
-            "core",
-        ]
+        # Exportar toda la BD con dumpdata (funciona con PostgreSQL y SQLite)
+        output = StringIO()
+        call_command(
+            'dumpdata',
+            '--natural-foreign',
+            '--exclude=contenttypes',
+            '--exclude=auth.permission',
+            '--exclude=sessions',
+            '--indent=2',
+            stdout=output,
+        )
+        json_data = output.getvalue()
 
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            for item in incluir:
-                ruta_item = os.path.join(settings.BASE_DIR, item)
-                if os.path.exists(ruta_item):
-                    if os.path.isfile(ruta_item):
-                        zipf.write(ruta_item, arcname=item)
-                    else:
-                        for root, dirs, files in os.walk(ruta_item):
-                            for archivo in files:
-                                if "_pycache_" not in root:
-                                    ruta_completa = os.path.join(root, archivo)
-                                    arcname = os.path.relpath(ruta_completa, settings.BASE_DIR)
-                                    zipf.write(ruta_completa, arcname)
+            zipf.writestr("sistema_backup.json", json_data)
 
-        # Descargar el archivo automáticamente
         response = FileResponse(open(backup_path, 'rb'), as_attachment=True, filename=backup_filename)
         response['Content-Type'] = 'application/zip'
         response['Content-Length'] = os.path.getsize(backup_path)
         return response
 
     except Exception as e:
-        messages.error(request, f"❌ Error al crear la copia de seguridad: {str(e)}")
+        messages.error(request, f"Error al crear la copia de seguridad: {str(e)}")
         return redirect("core:vista_backup")
 
 
 @login_required
 def crear_backup_personal(request):
     """
-    Crea una copia de seguridad PERSONAL del usuario (solo sus datos).
-    Descarga automáticamente el archivo ZIP.
+    Crea backup personal con datos completos de cada acta creada por el usuario.
+    Incluye participantes, firmas y compromisos de cada acta para restauración completa.
+    Disponible para todos los roles.
     """
     try:
         import json
-        from actas.models import Acta, Compromiso, Firma
+        from actas.models import Acta, Compromiso, Firma, Participante
 
         os.makedirs(BACKUP_DIR, exist_ok=True)
 
         user = request.user
         fecha = datetime.now().strftime("%Y%m%d_%H%M%S")
-        # Formato: backup_personal_[username]_[fecha].zip
-        backup_filename = f"backup_personal_{user.username}_{fecha}.zip"
+        # Reemplazar espacios en username para el nombre de archivo
+        username_safe = user.username.replace(' ', '_')
+        backup_filename = f"backup_personal_{username_safe}_{fecha}.zip"
         backup_path = os.path.join(BACKUP_DIR, backup_filename)
 
-        # Recopilar datos del usuario
+        # Construir datos completos de cada acta creada por el usuario
+        actas_data = []
+        for acta in Acta.objects.filter(creador=user).prefetch_related(
+            'participantes__usuario', 'firmas__usuario', 'compromisos__responsable'
+        ):
+            acta_dict = {
+                'numero_acta': acta.numero_acta,
+                'titulo': acta.titulo,
+                'tipo_reunion': acta.tipo_reunion,
+                'fecha_reunion': str(acta.fecha_reunion),
+                'lugar_reunion': acta.lugar_reunion,
+                'modalidad': acta.modalidad,
+                'estado': acta.estado,
+                'fecha_creacion': str(acta.fecha_creacion),
+                'orden_dia': acta.orden_dia,
+                'desarrollo': acta.desarrollo,
+                'resumen_ia': acta.resumen_ia,
+                'observaciones': acta.observaciones,
+                'fecha_limite_firmas': str(acta.fecha_limite_firmas) if acta.fecha_limite_firmas else None,
+                'silencio_administrativo': acta.silencio_administrativo,
+                'generada_con_ia': acta.generada_con_ia,
+                'participantes': [
+                    {
+                        'usuario_email': p.usuario.email,
+                        'usuario_nombre': p.usuario.get_full_name(),
+                        'rol_en_reunion': p.rol_en_reunion,
+                        'obligatorio_firma': p.obligatorio_firma,
+                    }
+                    for p in acta.participantes.all()
+                ],
+                'firmas': [
+                    {
+                        'usuario_email': f.usuario.email,
+                        'firmado': f.firmado,
+                        'fecha_firma': str(f.fecha_firma) if f.fecha_firma else None,
+                        'firmado_por_silencio': f.firmado_por_silencio,
+                        'comentarios': f.comentarios,
+                    }
+                    for f in acta.firmas.all()
+                ],
+                'compromisos': [
+                    {
+                        'descripcion': c.descripcion,
+                        'responsable_email': c.responsable.email,
+                        'responsable_nombre': c.responsable.get_full_name(),
+                        'fecha_limite': str(c.fecha_limite),
+                        'estado': c.estado,
+                        'porcentaje_avance': c.porcentaje_avance,
+                        'observaciones': c.observaciones,
+                    }
+                    for c in acta.compromisos.all()
+                ],
+            }
+            actas_data.append(acta_dict)
+
         datos_usuario = {
+            'version': '2.0',
             'usuario': {
-                'username': user.username,
                 'email': user.email,
+                'username': user.username,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'rol': user.rol,
-                'telefono': user.telefono,
             },
-            'actas_creadas': list(Acta.objects.filter(creador=user).values()),
-            'actas_participante': list(Acta.objects.filter(participantes__usuario=user).values()),
-            'compromisos': list(Compromiso.objects.filter(responsable=user).values()),
-            'firmas': list(Firma.objects.filter(usuario=user).values()),
+            'total_actas': len(actas_data),
+            'fecha_backup': datetime.now().isoformat(),
+            'actas_creadas': actas_data,
         }
 
-        # Crear archivo ZIP con los datos del usuario
         with zipfile.ZipFile(backup_path, "w", zipfile.ZIP_DEFLATED) as zipf:
-            # Guardar datos en formato JSON
-            datos_json = json.dumps(datos_usuario, indent=2, default=str)
-            zipf.writestr(f"datos_usuario_{user.username}.json", datos_json)
+            datos_json = json.dumps(datos_usuario, indent=2, default=str, ensure_ascii=False)
+            zipf.writestr(f"datos_usuario_{username_safe}.json", datos_json)
 
             # Incluir firma digital si existe
             if user.firma_digital:
                 try:
                     firma_path = user.firma_digital.path
                     if os.path.exists(firma_path):
-                        zipf.write(firma_path, arcname=f"firma_digital_{user.username}{os.path.splitext(firma_path)[1]}")
-                except:
-                    pass  # Si no se puede acceder a la firma, continuar
+                        ext = os.path.splitext(firma_path)[1]
+                        zipf.write(firma_path, arcname=f"firma_digital{ext}")
+                except Exception:
+                    pass
 
-        # Descargar el archivo automáticamente
         response = FileResponse(open(backup_path, 'rb'), as_attachment=True, filename=backup_filename)
         response['Content-Type'] = 'application/zip'
         response['Content-Length'] = os.path.getsize(backup_path)
         return response
 
     except Exception as e:
-        messages.error(request, f"❌ Error al crear tu copia de seguridad: {str(e)}")
+        messages.error(request, f"Error al crear tu copia de seguridad: {str(e)}")
         return redirect("accounts:profile")
 
 
@@ -240,16 +286,14 @@ def vista_backup(request):
         ruta = os.path.join(BACKUP_DIR, archivo)
         if os.path.isfile(ruta) and archivo.endswith(".zip"):
             # Filtrar según el rol del usuario
+            # Sanitizar username para comparar con nombre de archivo (espacios → guiones bajos)
+            username_safe = request.user.username.replace(' ', '_')
             if request.user.rol == 'admin':
-                # Administradores ven:
-                # 1. Backups del sistema (backup_sistema_*)
-                # 2. Sus propios backups personales (backup_personal_{username}_*)
                 es_backup_sistema = archivo.startswith("backup_sistema_")
-                es_backup_propio = archivo.startswith(f"backup_personal_{request.user.username}_")
+                es_backup_propio = archivo.startswith(f"backup_personal_{username_safe}_")
                 mostrar = es_backup_sistema or es_backup_propio
             else:
-                # Usuarios regulares solo ven sus propios backups personales
-                mostrar = archivo.startswith(f"backup_personal_{request.user.username}_")
+                mostrar = archivo.startswith(f"backup_personal_{username_safe}_")
 
             if mostrar:
                 tamaño_mb = os.path.getsize(ruta) / (1024 * 1024)
@@ -258,6 +302,7 @@ def vista_backup(request):
                     "nombre": archivo,
                     "tamaño": f"{tamaño_mb:.2f} MB",
                     "fecha": fecha_mod,
+                    "tipo": "sistema" if archivo.startswith("backup_sistema_") else "personal",
                 })
 
     archivos.sort(key=lambda x: x["fecha"], reverse=True)
@@ -267,8 +312,9 @@ def vista_backup(request):
 @login_required
 def restaurar_backup(request, nombre_archivo):
     """
-    Restaura una copia de seguridad existente desde la lista.
-    Cierra las conexiones de BD antes de reemplazar el archivo SQLite.
+    Restaura backup del sistema completo usando loaddata de Django.
+    Vacia la BD y recarga todos los datos del backup.
+    Solo administradores.
     """
     if request.user.rol != 'admin':
         messages.error(request, "Solo los administradores pueden restaurar copias de seguridad.")
@@ -280,104 +326,226 @@ def restaurar_backup(request, nombre_archivo):
         messages.error(request, "El archivo seleccionado no existe.")
         return redirect("core:vista_backup")
 
+    temp_json = None
     try:
-        from django import db as django_db
-
-        # Cerrar TODAS las conexiones a la base de datos antes de reemplazar el archivo
-        django_db.connections.close_all()
-
         with zipfile.ZipFile(ruta_backup, "r") as zip_ref:
-            # Solo extraer db.sqlite3 (la base de datos)
-            archivos_en_zip = zip_ref.namelist()
-            if "db.sqlite3" in archivos_en_zip:
-                zip_ref.extract("db.sqlite3", settings.BASE_DIR)
-            else:
-                messages.error(request, "El backup no contiene la base de datos (db.sqlite3).")
+            if "sistema_backup.json" not in zip_ref.namelist():
+                messages.error(
+                    request,
+                    "Este archivo no es un backup del sistema valido. "
+                    "Solo los backups creados con la nueva version pueden restaurarse."
+                )
                 return redirect("core:vista_backup")
 
-        messages.success(
-            request,
-            f"El backup '{nombre_archivo}' fue restaurado correctamente. "
-            "Es posible que necesites iniciar sesion nuevamente."
-        )
+            json_data = zip_ref.read("sistema_backup.json").decode("utf-8")
+
+        # Escribir JSON en archivo temporal para loaddata
+        temp_json = os.path.join(BACKUP_DIR, f"_temp_restore_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json")
+        with open(temp_json, "w", encoding="utf-8") as f:
+            f.write(json_data)
+
+        # Vaciar la BD y recargar desde el backup
+        call_command("flush", "--no-input", verbosity=0)
+        call_command("loaddata", temp_json, verbosity=0)
+
+        os.remove(temp_json)
+
+        # Limpiar la sesion actual: el admin debe iniciar sesion nuevamente
+        request.session.flush()
+
+        # Retornar HTML directamente (no podemos usar messages porque la sesion fue limpiada)
+        return HttpResponse("""
+            <!DOCTYPE html>
+            <html lang="es">
+            <head>
+                <meta charset="UTF-8">
+                <title>Backup Restaurado</title>
+                <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+            </head>
+            <body class="d-flex justify-content-center align-items-center bg-light" style="min-height:100vh">
+                <div class="card shadow-lg p-5 text-center" style="max-width:480px;border-radius:1rem">
+                    <div class="mb-3" style="font-size:3.5rem;color:#198754">&#10003;</div>
+                    <h4 class="mb-2">Sistema restaurado correctamente</h4>
+                    <p class="text-muted mb-1">
+                        El sistema fue restaurado al estado del backup:
+                    </p>
+                    <p class="fw-bold text-dark mb-3">""" + nombre_archivo + """</p>
+                    <div class="alert alert-warning py-2">
+                        Debes iniciar sesion nuevamente con las credenciales del backup.
+                    </div>
+                    <a href="/accounts/login/" class="btn btn-success mt-2 px-4">Ir al Login</a>
+                </div>
+            </body>
+            </html>
+        """)
+
     except zipfile.BadZipFile:
-        messages.error(request, f"Error: el archivo '{nombre_archivo}' no es un archivo ZIP valido.")
+        messages.error(request, "El archivo no es un ZIP valido.")
     except Exception as e:
-        messages.error(request, f"Error al restaurar '{nombre_archivo}': {str(e)}")
+        messages.error(request, f"Error al restaurar el sistema: {str(e)}")
+    finally:
+        if temp_json and os.path.exists(temp_json):
+            try:
+                os.remove(temp_json)
+            except Exception:
+                pass
 
     return redirect("core:vista_backup")
 
 @login_required
-def restaurar_backup_personal(request):
+def restaurar_backup_personal(request, nombre_archivo):
     """
-    Restaura un backup personal que el usuario sube desde su computadora.
-    TODOS LOS USUARIOS pueden restaurar su propio backup.
+    Restaura backup personal desde el archivo almacenado en el servidor.
+    Recrea unicamente las actas que ya no existen en la BD.
+    Disponible para todos los roles.
     """
-    if request.method != 'POST':
-        messages.error(request, "❌ Método no permitido.")
-        return redirect("accounts:profile")
+    import json
+    from actas.models import Acta, Compromiso, Firma, Participante
+    from accounts.models import User as UserModel
+    from django.utils.dateparse import parse_datetime, parse_date
+    from django.db import transaction
+
+    user = request.user
+
+    # Verificar que el backup pertenece al usuario actual
+    username_safe = user.username.replace(' ', '_')
+    if not nombre_archivo.startswith(f"backup_personal_{username_safe}_"):
+        messages.error(request, "No tienes permiso para restaurar este backup.")
+        return redirect("core:vista_backup")
+
+    ruta_backup = os.path.join(BACKUP_DIR, nombre_archivo)
+    if not os.path.exists(ruta_backup):
+        messages.error(request, "El archivo de backup no existe.")
+        return redirect("core:vista_backup")
 
     try:
-        import json
-        from actas.models import Acta, Compromiso, Firma
-
-        # Verificar que se subió un archivo
-        if 'backup_file' not in request.FILES:
-            messages.error(request, "❌ No se seleccionó ningún archivo.")
-            return redirect("accounts:profile")
-
-        backup_file = request.FILES['backup_file']
-
-        # Verificar que sea un archivo ZIP
-        if not backup_file.name.endswith('.zip'):
-            messages.error(request, "❌ El archivo debe ser un ZIP.")
-            return redirect("accounts:profile")
-
-        user = request.user
-
-        # Guardar temporalmente el archivo
-        temp_path = os.path.join(BACKUP_DIR, f"temp_{user.username}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip")
-        with open(temp_path, 'wb+') as destination:
-            for chunk in backup_file.chunks():
-                destination.write(chunk)
-
-        # Extraer y restaurar datos
-        with zipfile.ZipFile(temp_path, 'r') as zipf:
-            # Buscar el archivo JSON con los datos del usuario
-            json_files = [f for f in zipf.namelist() if f.startswith('datos_usuario_') and f.endswith('.json')]
-
+        with zipfile.ZipFile(ruta_backup, "r") as zipf:
+            json_files = [f for f in zipf.namelist() if f.endswith(".json")]
             if not json_files:
-                os.remove(temp_path)
-                messages.error(request, "❌ El archivo de backup no contiene datos válidos.")
-                return redirect("accounts:profile")
+                messages.error(request, "El backup no contiene datos validos.")
+                return redirect("core:vista_backup")
 
-            # Leer los datos del JSON
-            with zipf.open(json_files[0]) as json_file:
-                datos = json.load(json_file)
+            with zipf.open(json_files[0]) as f:
+                datos = json.load(f)
 
-            # Verificar que el backup sea del usuario actual (seguridad)
-            if datos.get('usuario', {}).get('username') != user.username:
-                os.remove(temp_path)
-                messages.error(request, "❌ Este backup no pertenece a tu cuenta.")
-                return redirect("accounts:profile")
+        # Verificar que el backup pertenece a este usuario (por email)
+        backup_email = datos.get("usuario", {}).get("email", "")
+        if backup_email != user.email:
+            messages.error(request, "Este backup no pertenece a tu cuenta.")
+            return redirect("core:vista_backup")
 
-            # Restaurar firma digital si existe en el backup
-            firma_files = [f for f in zipf.namelist() if f.startswith(f'firma_digital_{user.username}')]
-            if firma_files and not user.firma_digital:
-                # Solo restaurar si el usuario no tiene firma actual
-                zipf.extract(firma_files[0], BACKUP_DIR)
-                # Aquí podrías mover la firma al directorio de medios si lo deseas
+        # Verificar version del backup
+        version = datos.get("version", "1.0")
+        if version == "1.0":
+            messages.warning(
+                request,
+                "Este backup fue creado con una version antigua y no incluye datos completos. "
+                "Crea un nuevo backup para obtener restauracion completa."
+            )
+            return redirect("core:vista_backup")
 
-        # Eliminar archivo temporal
-        os.remove(temp_path)
+        actas_restauradas = 0
+        actas_omitidas = 0
 
-        messages.success(request, f"✅ Tu copia de seguridad ha sido restaurada correctamente. Se recuperaron {len(datos.get('actas_creadas', []))} actas creadas y {len(datos.get('compromisos', []))} compromisos.")
-        messages.info(request, "ℹ️ Nota: La restauración completa de datos requiere acceso administrativo a la base de datos.")
+        for acta_data in datos.get("actas_creadas", []):
+            numero_acta = acta_data.get("numero_acta", "")
 
+            # Omitir si el acta ya existe
+            if Acta.objects.filter(numero_acta=numero_acta).exists():
+                actas_omitidas += 1
+                continue
+
+            try:
+                with transaction.atomic():
+                    # Crear acta (numero_acta ya definido, save() no lo regenera)
+                    acta = Acta(
+                        numero_acta=numero_acta,
+                        titulo=acta_data.get("titulo", ""),
+                        tipo_reunion=acta_data.get("tipo_reunion", "otra"),
+                        fecha_reunion=acta_data.get("fecha_reunion"),
+                        lugar_reunion=acta_data.get("lugar_reunion", ""),
+                        modalidad=acta_data.get("modalidad", "presencial"),
+                        estado=acta_data.get("estado", "finalizada"),
+                        creador=user,
+                        orden_dia=acta_data.get("orden_dia", ""),
+                        desarrollo=acta_data.get("desarrollo", ""),
+                        resumen_ia=acta_data.get("resumen_ia", ""),
+                        observaciones=acta_data.get("observaciones", ""),
+                        silencio_administrativo=acta_data.get("silencio_administrativo", False),
+                        generada_con_ia=acta_data.get("generada_con_ia", False),
+                    )
+                    if acta_data.get("fecha_limite_firmas"):
+                        acta.fecha_limite_firmas = parse_datetime(acta_data["fecha_limite_firmas"])
+                    acta.save()
+
+                    # Restaurar participantes (solo si el usuario sigue existiendo)
+                    for p_data in acta_data.get("participantes", []):
+                        try:
+                            usuario_p = UserModel.objects.get(email=p_data["usuario_email"])
+                            Participante.objects.get_or_create(
+                                acta=acta,
+                                usuario=usuario_p,
+                                defaults={
+                                    "rol_en_reunion": p_data.get("rol_en_reunion", ""),
+                                    "obligatorio_firma": p_data.get("obligatorio_firma", True),
+                                },
+                            )
+                        except UserModel.DoesNotExist:
+                            pass
+
+                    # Restaurar firmas
+                    for f_data in acta_data.get("firmas", []):
+                        try:
+                            usuario_f = UserModel.objects.get(email=f_data["usuario_email"])
+                            fecha_firma = parse_datetime(f_data["fecha_firma"]) if f_data.get("fecha_firma") else None
+                            Firma.objects.get_or_create(
+                                acta=acta,
+                                usuario=usuario_f,
+                                defaults={
+                                    "firmado": f_data.get("firmado", False),
+                                    "fecha_firma": fecha_firma,
+                                    "firmado_por_silencio": f_data.get("firmado_por_silencio", False),
+                                    "comentarios": f_data.get("comentarios", ""),
+                                },
+                            )
+                        except UserModel.DoesNotExist:
+                            pass
+
+                    # Restaurar compromisos
+                    for c_data in acta_data.get("compromisos", []):
+                        try:
+                            responsable = UserModel.objects.get(email=c_data["responsable_email"])
+                            Compromiso.objects.create(
+                                acta=acta,
+                                descripcion=c_data.get("descripcion", ""),
+                                responsable=responsable,
+                                fecha_limite=parse_date(c_data["fecha_limite"]),
+                                estado=c_data.get("estado", "pendiente"),
+                                porcentaje_avance=c_data.get("porcentaje_avance", 0),
+                                observaciones=c_data.get("observaciones", ""),
+                            )
+                        except UserModel.DoesNotExist:
+                            pass
+
+                    actas_restauradas += 1
+
+            except Exception:
+                # Si falla una acta, continuar con las demas
+                continue
+
+        if actas_restauradas > 0:
+            messages.success(request, f"Se restauraron {actas_restauradas} acta(s) correctamente.")
+        if actas_omitidas > 0:
+            messages.info(request, f"{actas_omitidas} acta(s) ya existian y no fueron modificadas.")
+        if actas_restauradas == 0 and actas_omitidas == 0:
+            messages.warning(request, "No habia actas para restaurar en este backup.")
+
+    except zipfile.BadZipFile:
+        messages.error(request, "El archivo no es un ZIP valido.")
     except Exception as e:
-        messages.error(request, f"❌ Error al restaurar el backup: {str(e)}")
+        messages.error(request, f"Error al restaurar el backup: {str(e)}")
 
-    return redirect("accounts:profile")
+    return redirect("core:vista_backup")
 
 
 @login_required

@@ -33,10 +33,17 @@
     {% endif %}
 
     {% if archivos %}
+        <div class="alert alert-secondary small mb-3">
+            <i class="fas fa-info-circle me-1"></i>
+            <strong>Backup del Sistema</strong> (solo admin): restaura toda la base de datos, se requiere iniciar sesion nuevamente.
+            &nbsp;|&nbsp;
+            <strong>Backup Personal</strong>: restaura unicamente tus actas eliminadas sin afectar el resto del sistema.
+        </div>
         <table class="table table-hover shadow-sm rounded">
             <thead class="table-success">
                 <tr>
                     <th>Nombre del Archivo</th>
+                    <th>Tipo</th>
                     <th>Tamaño</th>
                     <th>Fecha de Creación</th>
                     <th class="text-center">Acciones</th>
@@ -46,24 +53,44 @@
                 {% for archivo in archivos %}
                     <tr>
                         <td>{{ archivo.nombre }}</td>
+                        <td>
+                            {% if archivo.tipo == 'sistema' %}
+                                <span class="badge bg-success"><i class="fas fa-database me-1"></i>Sistema</span>
+                            {% else %}
+                                <span class="badge bg-secondary"><i class="fas fa-user me-1"></i>Personal</span>
+                            {% endif %}
+                        </td>
                         <td>{{ archivo.tamaño }}</td>
                         <td>{{ archivo.fecha }}</td>
                         <td class="text-center">
-                            {% if user.rol == 'admin' %}
-                                <a href="{% url 'core:restaurar_backup' archivo.nombre %}"
-                                    class="btn btn-warning btn-sm"
-                                    onclick="return confirm('¿Seguro que deseas restaurar este backup? Se sobrescribirán los datos actuales.')">
+                            {% if archivo.tipo == 'sistema' %}
+                                {% if user.rol == 'admin' %}
+                                    <a href="{% url 'core:restaurar_backup' archivo.nombre %}"
+                                        class="btn btn-warning btn-sm"
+                                        onclick="return confirm('ADVERTENCIA: Se borrarán TODOS los datos actuales y se reemplazarán con los del backup. Deberás iniciar sesión nuevamente. ¿Continuar?')">
+                                        <i class="fas fa-redo me-1"></i> Restaurar
+                                    </a>
+                                    <a href="{% url 'core:eliminar_copia_seguridad' archivo.nombre %}"
+                                        class="btn btn-danger btn-sm ms-1"
+                                        onclick="return confirm('¿Eliminar este backup permanentemente?')">
+                                        <i class="fas fa-trash me-1"></i> Eliminar
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small"><i class="fas fa-lock me-1"></i> Solo admin</span>
+                                {% endif %}
+                            {% else %}
+                                <a href="{% url 'core:restaurar_backup_personal' archivo.nombre %}"
+                                    class="btn btn-success btn-sm"
+                                    onclick="return confirm('Se restaurarán las actas eliminadas de este backup. Las actas que ya existen no serán modificadas. ¿Continuar?')">
                                     <i class="fas fa-redo me-1"></i> Restaurar
                                 </a>
-                                <a href="{% url 'core:eliminar_copia_seguridad' archivo.nombre %}"
-                                    class="btn btn-danger btn-sm ms-2"
-                                    onclick="return confirm('¿Estás seguro de que quieres eliminar este archivo de forma permanente? Esta acción no se puede deshacer.')">
-                                    <i class="fas fa-trash me-1"></i> Eliminar
-                                </a>
-                            {% else %}
-                                <button class="btn btn-secondary btn-sm" disabled title="Solo administradores">
-                                    <i class="fas fa-lock me-1"></i> Sin permisos
-                                </button>
+                                {% if user.rol == 'admin' %}
+                                    <a href="{% url 'core:eliminar_copia_seguridad' archivo.nombre %}"
+                                        class="btn btn-danger btn-sm ms-1"
+                                        onclick="return confirm('¿Eliminar este backup permanentemente?')">
+                                        <i class="fas fa-trash me-1"></i> Eliminar
+                                    </a>
+                                {% endif %}
                             {% endif %}
                         </td>
                     </tr>
