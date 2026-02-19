@@ -1,13 +1,26 @@
 from django.contrib.auth.models import AbstractUser #Importacion del modelo base de usrio de Django
 from django.db import models #Importacion de utilidades de modelos Django
 from django.core.validators import validate_email # Validar emails de Django
+from django.contrib.auth.validators import UnicodeUsernameValidator
 from PIL import Image #Libreria pillow para trabajar con imagenes (Para firma digital)
 import os
 from django.core.exceptions import ValidationError
 
 
+class UsernameValidator(UnicodeUsernameValidator):
+    """Validador de username que permite espacios además de los caracteres estándar."""
+    regex = r'^[\w\s.@+-]+$'
+    message = 'El nombre de usuario solo puede contener letras, números, espacios y los caracteres @/./+/-/_'
+
+
 #Modelo personalizado de usuario
 class User (AbstractUser) :
+    username = models.CharField(
+        max_length=150,
+        unique=True,
+        validators=[UsernameValidator()],
+        error_messages={'unique': 'Ya existe un usuario con ese nombre de usuario.'},
+    )
     ROLES = [
         ('aprendiz', 'Aprendiz'),
         ('instructor', 'Instructor'),

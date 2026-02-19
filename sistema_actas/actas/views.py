@@ -364,21 +364,39 @@ def procesar_con_ia(request):
             {"success": False, "message": f"Error al procesar con IA: {str(e)}"}
         )
 
+# Tamaño máximo estándar para todas las firmas en el PDF
+FIRMA_MAX_WIDTH = 1.8 * inch
+FIRMA_MAX_HEIGHT = 0.7 * inch
+
+
+def _escalar_firma(ruta):
+    """Carga imagen de firma escalada proporcionalmente dentro del tamaño máximo."""
+    from reportlab.platypus import Image
+    from reportlab.lib.utils import ImageReader
+    try:
+        img_reader = ImageReader(ruta)
+        img_w, img_h = img_reader.getSize()
+        if img_w > 0 and img_h > 0:
+            ratio = min(FIRMA_MAX_WIDTH / img_w, FIRMA_MAX_HEIGHT / img_h)
+            return Image(ruta, width=img_w * ratio, height=img_h * ratio)
+    except Exception:
+        pass
+    return Image(ruta, width=FIRMA_MAX_WIDTH, height=FIRMA_MAX_HEIGHT)
+
+
 def obtener_firma_imagen(firma, usuario):
     """
     Intenta obtener la imagen de firma con múltiples fallbacks.
     Retorna un objeto Image de ReportLab o None.
     """
-    from reportlab.platypus import Image
     from django.conf import settings
 
     # 1. Intentar desde Firma.firma_imagen
     if firma and firma.firma_imagen:
         try:
-            # Usar os.path.join con MEDIA_ROOT (funciona tanto local como en Docker)
             ruta = os.path.join(settings.MEDIA_ROOT, str(firma.firma_imagen))
             if os.path.exists(ruta):
-                return Image(ruta, width=1.5*inch, height=0.6*inch)
+                return _escalar_firma(ruta)
         except Exception as e:
             print(f"Error cargando firma desde Firma.firma_imagen: {e}")
 
@@ -387,7 +405,7 @@ def obtener_firma_imagen(firma, usuario):
         try:
             ruta = os.path.join(settings.MEDIA_ROOT, str(usuario.firma_digital))
             if os.path.exists(ruta):
-                return Image(ruta, width=1.5*inch, height=0.6*inch)
+                return _escalar_firma(ruta)
         except Exception as e:
             print(f"Error cargando firma desde User.firma_digital: {e}")
 
@@ -696,11 +714,11 @@ def generar_pdf(request, acta_id):
                 # ✅ Se encontró la imagen de firma
                 firma_cell = firma_imagen
             else:
-                # ⚠️ Firmado pero sin imagen
+                # Sin imagen: mostrar nombre del usuario (silencio administrativo u otro caso)
+                nombre = participante.usuario.get_full_name() or participante.usuario.username
+                prefijo = "<font color='grey' size=7>[Silencio Adm.]</font><br/>" if getattr(firma_obj, 'firmado_por_silencio', False) else ""
                 firma_cell = Paragraph(
-                    "✓ Firmado<br/><font size=6>({fecha})</font>".format(
-                        fecha=firma_obj.fecha_firma.strftime("%d/%m/%Y %H:%M") if firma_obj.fecha_firma else "N/A"
-                    ),
+                    f"{prefijo}<b>{nombre}</b><br/><font size=6>{firma_obj.fecha_firma.strftime('%d/%m/%Y') if firma_obj.fecha_firma else 'N/A'}</font>",
                     styles['Normal']
                 )
         else:

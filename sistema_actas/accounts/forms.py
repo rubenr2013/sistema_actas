@@ -3,6 +3,13 @@ from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
 from .models import User
 
 class CustomUserCreationForm(UserCreationForm):
+    firma_digital = forms.ImageField(
+        required=True,
+        label="Firma Digital",
+        help_text="Sube una imagen de tu firma (PNG, JPG o JPEG, máx. 2 MB). Es obligatoria.",
+        widget=forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/png,image/jpeg'})
+    )
+
     class Meta:
         model = User
         fields = ['first_name', 'last_name', 'email', 'telefono', 'firma_digital']
@@ -42,11 +49,12 @@ class CustomUserCreationForm(UserCreationForm):
 
     def clean_firma_digital(self):
         firma = self.cleaned_data.get("firma_digital")
-        if firma:
-            if firma.size > 2 * 1024 * 1024:
-                raise forms.ValidationError("La firma no debe superar los 2 MB.")
-            if not firma.name.lower().endswith((".png", ".jpg", ".jpeg")):
-                raise forms.ValidationError("Solo se permiten archivos PNG, JPG o JPEG.")
+        if not firma:
+            raise forms.ValidationError("La firma digital es obligatoria para registrarse.")
+        if firma.size > 2 * 1024 * 1024:
+            raise forms.ValidationError("La firma no debe superar los 2 MB.")
+        if not firma.name.lower().endswith((".png", ".jpg", ".jpeg")):
+            raise forms.ValidationError("Solo se permiten archivos PNG, JPG o JPEG.")
         return firma
 
 class CustomAuthenticationForm(AuthenticationForm):

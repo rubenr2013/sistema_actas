@@ -133,30 +133,29 @@ def register_view(request):
                 user.firma_digital = firma
 
             # ✅ Generar username único basado en primer nombre y primer apellido
-            # Formato: nombreapellido (sin espacios, sin punto, en minúsculas, sin acentos)
+            # Formato: "Ruben Reyes" (capitalizado, con espacio, sin acentos)
             import unicodedata
 
-            def limpiar_texto(texto):
-                """Elimina acentos, convierte a minúsculas y toma solo la primera palabra"""
-                texto = texto.lower().strip()
-                # Tomar solo la primera palabra (primer nombre o primer apellido)
+            def limpiar_palabra(texto):
+                """Toma la primera palabra, elimina acentos y caracteres especiales, capitaliza."""
+                texto = texto.strip()
                 primera_palabra = texto.split()[0] if texto.split() else texto
                 # Eliminar acentos
                 primera_palabra = ''.join(c for c in unicodedata.normalize('NFD', primera_palabra)
                                if unicodedata.category(c) != 'Mn')
                 # Eliminar caracteres especiales (solo letras)
                 primera_palabra = ''.join(c for c in primera_palabra if c.isalpha())
-                return primera_palabra
+                return primera_palabra.capitalize()
 
-            primer_nombre = limpiar_texto(user.first_name)
-            primer_apellido = limpiar_texto(user.last_name)
-            base_username = f"{primer_nombre}{primer_apellido}"
+            primer_nombre = limpiar_palabra(user.first_name)
+            primer_apellido = limpiar_palabra(user.last_name)
+            base_username = f"{primer_nombre} {primer_apellido}"
 
             # Asegurar unicidad del username
             username = base_username
             counter = 1
             while User.objects.filter(username=username).exists():
-                username = f"{base_username}{counter}"
+                username = f"{base_username} {counter}"
                 counter += 1
             user.username = username
 

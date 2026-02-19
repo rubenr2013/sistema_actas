@@ -38,7 +38,9 @@ def dashboard(request):
             'firmas_pendientes_global': Firma.objects.filter(
                 firmado=False, acta__estado='en_revision'
             ).count(),
-            'compromisos_vencidos_global': Compromiso.objects.filter(estado='vencido').count(),
+            'compromisos_vencidos_global': Compromiso.objects.filter(
+                fecha_limite__lt=timezone.now().date()
+            ).exclude(estado='completado').count(),
             'total_usuarios': UserModel.objects.count(),
             'usuarios_no_verificados': UserModel.objects.filter(email_verificado=False).count(),
         }
@@ -266,22 +268,42 @@ def vista_backup(request):
 def restaurar_backup(request, nombre_archivo):
     """
     Restaura una copia de seguridad existente desde la lista.
+    Cierra las conexiones de BD antes de reemplazar el archivo SQLite.
     """
+    if request.user.rol != 'admin':
+        messages.error(request, "Solo los administradores pueden restaurar copias de seguridad.")
+        return redirect("core:vista_backup")
+
     ruta_backup = os.path.join(BACKUP_DIR, nombre_archivo)
 
     if not os.path.exists(ruta_backup):
-        messages.error(request, "❌ El archivo seleccionado no existe.")
+        messages.error(request, "El archivo seleccionado no existe.")
         return redirect("core:vista_backup")
 
     try:
-        with zipfile.ZipFile(ruta_backup, "r") as zip_ref:
-            zip_ref.extractall(settings.BASE_DIR)
+        from django import db as django_db
 
-        messages.success(request, f"✅ El backup '{nombre_archivo}' fue restaurado correctamente.")
+        # Cerrar TODAS las conexiones a la base de datos antes de reemplazar el archivo
+        django_db.connections.close_all()
+
+        with zipfile.ZipFile(ruta_backup, "r") as zip_ref:
+            # Solo extraer db.sqlite3 (la base de datos)
+            archivos_en_zip = zip_ref.namelist()
+            if "db.sqlite3" in archivos_en_zip:
+                zip_ref.extract("db.sqlite3", settings.BASE_DIR)
+            else:
+                messages.error(request, "El backup no contiene la base de datos (db.sqlite3).")
+                return redirect("core:vista_backup")
+
+        messages.success(
+            request,
+            f"El backup '{nombre_archivo}' fue restaurado correctamente. "
+            "Es posible que necesites iniciar sesion nuevamente."
+        )
     except zipfile.BadZipFile:
-        messages.error(request, f"❌ Error: el archivo '{nombre_archivo}' no es un archivo ZIP válido.")
+        messages.error(request, f"Error: el archivo '{nombre_archivo}' no es un archivo ZIP valido.")
     except Exception as e:
-        messages.error(request, f"❌ Error al restaurar '{nombre_archivo}': {str(e)}")
+        messages.error(request, f"Error al restaurar '{nombre_archivo}': {str(e)}")
 
     return redirect("core:vista_backup")
 

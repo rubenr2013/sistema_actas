@@ -160,13 +160,10 @@
                                     <td>
                                         <div class="d-flex align-items-center">
                                             <div class="user-icon me-2">
-                                                {{ u.username|slice:":1"|upper }}
+                                                {{ u.first_name|slice:":1"|upper }}
                                             </div>
                                             <div>
-                                                <strong>{{ u.username }}</strong>
-                                                {% if u.get_full_name %}
-                                                    <br><small class="text-muted">{{ u.get_full_name }}</small>
-                                                {% endif %}
+                                                <strong>{{ u.get_full_name|default:u.username }}</strong>
                                             </div>
                                         </div>
                                     </td>
@@ -194,7 +191,7 @@
                                         <a href="{% url 'accounts:eliminar_usuario' u.id %}" 
                                            class="btn btn-sm btn-outline-danger" 
                                            title="Eliminar"
-                                           onclick="return confirm('¿Estás seguro de eliminar a {{ u.username }}?')">
+                                           onclick="return confirm('¿Estás seguro de eliminar a {{ u.get_full_name|default:u.username }}?')">
                                             <i class="fas fa-trash-alt"></i>
                                         </a>
                                     </td>

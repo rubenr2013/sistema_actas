@@ -173,6 +173,46 @@ body {
     h5 { font-size: 1rem; }
     .form-floating label { font-size: 0.85rem; }
 }
+
+/* === Zona de carga de firma === */
+.signature-upload {
+    border: 2px dashed #adb5bd;
+    border-radius: 12px;
+    padding: 2rem 1rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #f8f9fa;
+}
+.signature-upload:hover,
+.signature-upload.dragover {
+    border-color: var(--sena-green);
+    background: #f0fbe8;
+}
+
+/* === Preview de firma: cuadro pequeño centrado === */
+#signature-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    border: 1.5px solid #dee2e6;
+    border-radius: 12px;
+    background: #f8f9fa;
+    margin-top: 0.5rem;
+}
+.signature-preview {
+    max-width: 220px;
+    max-height: 100px;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 6px;
+    background: white;
+}
 </style>
 {% endblock %}
 
@@ -367,32 +407,30 @@ body {
 
                             <!-- Paso 3: Firma Digital -->
                             <div class="form-step" id="step-3">
-                                <h5 class="mb-3">Firma Digital</h5>
-                                <p class="text-muted mb-4">Suba su firma digital para uso en las actas</p>
+                                <h5 class="mb-3">Firma Digital <span class="text-danger">*</span></h5>
+                                <p class="text-muted mb-4">Suba una imagen de su firma. Es obligatoria para firmar actas.</p>
 
                                 <div class="signature-upload position-relative" id="signature-upload">
                                     <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
                                     <h6>Arrastra tu firma aquí o haz clic para seleccionar</h6>
-                                    <p class="text-muted mb-0">Formatos: PNG, JPG, GIF (máx. 2MB)</p>
+                                    <p class="text-muted mb-0">Formatos: PNG, JPG, JPEG (máx. 2MB)</p>
 
-                                    <!-- Input ahora ocupa todo el área clickeable -->
                                     <input type="file" id="firma_digital" name="firma_digital"
-                                        accept="image/*"
+                                        accept="image/png,image/jpeg"
                                         style="opacity: 0; position: absolute; top: 0; left: 0; width: 100%; height: 100%; cursor: pointer;">
                                 </div>
 
                                 <!-- Vista previa -->
-                                <div id="signature-preview" class="text-center" style="display: none;">
+                                <div id="signature-preview" style="display: none;">
                                     <img id="preview-image" class="signature-preview" alt="Vista previa de firma">
-                                    <br>
                                     <button type="button" class="btn btn-sm btn-outline-danger mt-2" onclick="removeSignature()">
-                                        <i class="fas fa-trash me-1"></i>Eliminar
+                                        <i class="fas fa-trash me-1"></i>Eliminar firma
                                     </button>
                                 </div>
 
-                                <div class="alert alert-info mt-3">
-                                    <i class="fas fa-info-circle me-2"></i>
-                                    <strong>Opcional:</strong> Puede agregar su firma digital ahora o hacerlo más tarde desde su perfil.
+                                <div class="alert alert-warning mt-3">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    <strong>Obligatorio:</strong> La firma digital es requerida para poder firmar actas y para el proceso de silencio administrativo.
                                 </div>
 
                                 <div class="d-flex justify-content-between">
