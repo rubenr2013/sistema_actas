@@ -974,11 +974,17 @@ def perfil_api(request):
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
+                'nombre_completo': user.get_full_name(),
                 'rol': user.rol,
+                'centro': user.centro,
+                'telefono': user.telefono,
                 'fecha_registro': user.date_joined.isoformat(),
                 'ultimo_login': user.last_login.isoformat() if user.last_login else None,
                 'firma_digital': user.firma_digital.url if user.firma_digital else None,
                 'tiene_firma': bool(user.firma_digital),
+                'email_verificado': user.email_verificado,
+                'cuenta_aprobada': user.cuenta_aprobada,
+                'activo': user.activo,
             }
             
             # Estadísticas del usuario
@@ -4315,3 +4321,279 @@ def eliminar_archivo_adjunto_api(request, adjunto_id):
             'success': False,
             'error': f'Error al eliminar archivo: {str(e)}'
         }, status=500)
+
+
+# =============================================================================
+# ENDPOINTS DE ADMINISTRACIÓN DE USUARIOS
+# =============================================================================
+
+def _serializar_usuario_admin(u):
+    """Serializa un usuario con todos los campos necesarios para la vista admin."""
+    return {
+        'id': u.id,
+        'username': u.username,
+        'email': u.email,
+        'first_name': u.first_name,
+        'last_name': u.last_name,
+        'nombre_completo': u.get_full_name(),
+        'rol': u.rol,
+        'centro': u.centro,
+        'telefono': u.telefono,
+        'email_verificado': u.email_verificado,
+        'cuenta_aprobada': u.cuenta_aprobada,
+        'activo': u.activo,
+        'is_active': u.is_active,
+        'fecha_registro': u.date_joined.isoformat(),
+        'ultimo_login': u.last_login.isoformat() if u.last_login else None,
+        'tiene_firma': bool(u.firma_digital),
+        'firma_digital': u.firma_digital.url if u.firma_digital else None,
+    }
+
+
+@csrf_exempt
+def admin_usuarios_list_api(request):
+    """
+    GET /api/admin/usuarios/
+    Lista todos los usuarios del sistema con estado completo.
+    Solo administradores, coordinadores y directores.
+    Filtros: ?rol=instructor, ?verificado=false, ?aprobado=false, ?buscar=texto
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    if user.rol not in ['admin', 'coordinador', 'director']:
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para esta acción.'}, status=403)
+
+    try:
+        usuarios = User.objects.all().order_by('first_name', 'last_name')
+
+        # Filtros opcionales
+        rol_filtro = request.GET.get('rol')
+        verificado = request.GET.get('verificado')
+        aprobado = request.GET.get('aprobado')
+        buscar = request.GET.get('buscar', '').strip()
+
+        if rol_filtro:
+            usuarios = usuarios.filter(rol=rol_filtro)
+        if verificado is not None:
+            usuarios = usuarios.filter(email_verificado=(verificado.lower() == 'true'))
+        if aprobado is not None:
+            usuarios = usuarios.filter(cuenta_aprobada=(aprobado.lower() == 'true'))
+        if buscar:
+            from django.db.models import Q as Qdb
+            usuarios = usuarios.filter(
+                Qdb(first_name__icontains=buscar) |
+                Qdb(last_name__icontains=buscar) |
+                Qdb(email__icontains=buscar)
+            )
+
+        return JsonResponse({
+            'success': True,
+            'total': usuarios.count(),
+            'data': [_serializar_usuario_admin(u) for u in usuarios],
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': handle_error(e)}, status=500)
+
+
+@csrf_exempt
+def admin_usuario_detalle_api(request, user_id):
+    """
+    GET /api/admin/usuarios/<id>/
+    Detalle completo de un usuario. Solo admin, coordinador, director.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    if user.rol not in ['admin', 'coordinador', 'director']:
+        return JsonResponse({'success': False, 'error': 'No tienes permiso para esta acción.'}, status=403)
+
+    try:
+        objetivo = User.objects.get(id=user_id)
+        data = _serializar_usuario_admin(objetivo)
+        data['stats'] = {
+            'total_actas_creadas': Acta.objects.filter(creador=objetivo).count(),
+            'firmas_pendientes': Firma.objects.filter(usuario=objetivo, firmado=False).count(),
+            'compromisos_asignados': Compromiso.objects.filter(responsable=objetivo).count(),
+            'compromisos_completados': Compromiso.objects.filter(responsable=objetivo, estado='completado').count(),
+        }
+        return JsonResponse({'success': True, 'data': data})
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': handle_error(e)}, status=500)
+
+
+@csrf_exempt
+def admin_aprobar_usuario_api(request, user_id):
+    """
+    POST /api/admin/usuarios/<id>/aprobar/
+    Body: {"aprobar": true/false}
+    Aprueba o rechaza la cuenta de un usuario. Solo admin.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    if user.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Solo los administradores pueden aprobar cuentas.'}, status=403)
+
+    try:
+        objetivo = User.objects.get(id=user_id)
+        data = json.loads(request.body)
+        aprobar = data.get('aprobar', True)
+
+        objetivo.cuenta_aprobada = bool(aprobar)
+        objetivo.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Cuenta {'aprobada' if aprobar else 'rechazada'} correctamente.",
+            'cuenta_aprobada': objetivo.cuenta_aprobada,
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': handle_error(e)}, status=500)
+
+
+@csrf_exempt
+def admin_activar_usuario_api(request, user_id):
+    """
+    POST /api/admin/usuarios/<id>/activar/
+    Body: {"activar": true/false}
+    Activa o desactiva un usuario. Solo admin.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    if user.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Solo los administradores pueden activar/desactivar usuarios.'}, status=403)
+
+    try:
+        objetivo = User.objects.get(id=user_id)
+
+        if objetivo.id == user.id:
+            return JsonResponse({'success': False, 'error': 'No puedes desactivar tu propia cuenta.'}, status=400)
+
+        data = json.loads(request.body)
+        activar = data.get('activar', True)
+
+        objetivo.activo = bool(activar)
+        objetivo.is_active = bool(activar)
+        objetivo.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Usuario {'activado' if activar else 'desactivado'} correctamente.",
+            'activo': objetivo.activo,
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': handle_error(e)}, status=500)
+
+
+@csrf_exempt
+def admin_cambiar_rol_api(request, user_id):
+    """
+    PATCH /api/admin/usuarios/<id>/rol/
+    Body: {"rol": "instructor"}
+    Cambia el rol de un usuario. Solo admin.
+    Roles válidos: aprendiz, instructor, invitado, funcionario, coordinador, director
+    (No se puede asignar 'admin' por API por seguridad)
+    """
+    if request.method != 'PATCH':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    if user.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Solo los administradores pueden cambiar roles.'}, status=403)
+
+    try:
+        objetivo = User.objects.get(id=user_id)
+        data = json.loads(request.body)
+        nuevo_rol = data.get('rol', '').lower()
+
+        roles_validos = ['aprendiz', 'instructor', 'invitado', 'funcionario', 'coordinador', 'director']
+        if nuevo_rol not in roles_validos:
+            return JsonResponse({
+                'success': False,
+                'error': f"Rol inválido. Roles permitidos: {', '.join(roles_validos)}"
+            }, status=400)
+
+        objetivo.rol = nuevo_rol
+        objetivo.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Rol cambiado a '{nuevo_rol}' correctamente.",
+            'rol': objetivo.rol,
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': handle_error(e)}, status=500)
+
+
+@csrf_exempt
+def admin_eliminar_usuario_api(request, user_id):
+    """
+    DELETE /api/admin/usuarios/<id>/
+    Elimina un usuario del sistema. Solo admin.
+    No se puede eliminar al propio admin.
+    """
+    if request.method != 'DELETE':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    if user.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Solo los administradores pueden eliminar usuarios.'}, status=403)
+
+    try:
+        objetivo = User.objects.get(id=user_id)
+
+        if objetivo.id == user.id:
+            return JsonResponse({'success': False, 'error': 'No puedes eliminar tu propia cuenta.'}, status=400)
+
+        if objetivo.rol == 'admin':
+            return JsonResponse({'success': False, 'error': 'No puedes eliminar a otro administrador.'}, status=400)
+
+        nombre = objetivo.get_full_name()
+        objetivo.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': f"Usuario '{nombre}' eliminado correctamente.",
+        })
+
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'success': False, 'error': handle_error(e)}, status=500)

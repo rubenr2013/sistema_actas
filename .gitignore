@@ -13,11 +13,20 @@ __pycache__/
 *.pyo
 *.pyd
 
-# Base de datos SQLite
+# Base de datos SQLite y backups de BD
 db.sqlite3
+*.sqlite3
+*.sqlite3.backup*
+*.sql.gz
+backups/*.sql.gz
 
-# Archivos estáticos recolectados
-/staticfiles/
+# Archivos de Railway (no usados, se despliega en AWS EB)
+nixpacks.toml
+railway.toml
+
+# Archivos estáticos recolectados por collectstatic (no van en git)
+staticfiles/
+*/staticfiles/
 
 # Archivos de logs
 *.log

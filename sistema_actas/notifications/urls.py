@@ -11,6 +11,9 @@ urlpatterns = [
     # Listado de notificaciones
     path("", views.notifications_list, name="list"),
 
+    # Redirección inteligente: marca como leída y verifica que el recurso exista
+    path("go/<int:notification_id>/", views.notification_redirect, name="go"),
+
     # Marcar como leídas (varias o todas)
     path("mark-as-read/", views.mark_as_read, name="mark_as_read"),
 

@@ -72,6 +72,14 @@ urlpatterns = [
     path('api/admin/backups/restaurar/', api_views.restaurar_backup_api, name='api_restaurar_backup'),
     path('api/admin/backups/eliminar/<str:filename>/', api_views.eliminar_backup_api, name='api_eliminar_backup'),
 
+    # Gestión de usuarios (admin)
+    path('api/admin/usuarios/', api_views.admin_usuarios_list_api, name='api_admin_usuarios_list'),
+    path('api/admin/usuarios/<int:user_id>/', api_views.admin_usuario_detalle_api, name='api_admin_usuario_detalle'),
+    path('api/admin/usuarios/<int:user_id>/aprobar/', api_views.admin_aprobar_usuario_api, name='api_admin_aprobar_usuario'),
+    path('api/admin/usuarios/<int:user_id>/activar/', api_views.admin_activar_usuario_api, name='api_admin_activar_usuario'),
+    path('api/admin/usuarios/<int:user_id>/rol/', api_views.admin_cambiar_rol_api, name='api_admin_cambiar_rol'),
+    path('api/admin/usuarios/<int:user_id>/eliminar/', api_views.admin_eliminar_usuario_api, name='api_admin_eliminar_usuario'),
+
     # Archivos adjuntos de actas
     path('api/actas/<int:acta_id>/adjuntar-archivo/', api_views.adjuntar_archivo_acta_api, name='api_adjuntar_archivo'),
     path('api/actas/<int:acta_id>/archivos/', api_views.listar_archivos_acta_api, name='api_listar_archivos'),

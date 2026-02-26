@@ -2,13 +2,45 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
-from django.core.paginator import Paginator 
+from django.core.paginator import Paginator
 from django.db.models import Q
+from django.contrib import messages
 
 from .models import Notification, NotificationSettings
 
-@login_required 
-def notifications_list (request): 
+@login_required
+def notification_redirect(request, notification_id):
+    """
+    Marca la notificacion como leida y redirige al enlace.
+    Si el recurso ya no existe, muestra mensaje amigable en lugar de 404.
+    """
+    notification = get_object_or_404(Notification, id=notification_id, usuario=request.user)
+    notification.marcar_como_leida()
+
+    enlace = notification.enlace
+    if not enlace or enlace == '#':
+        return redirect('notifications:list')
+
+    # Verificar si el enlace apunta a un acta y si sigue existiendo
+    import re
+    match = re.search(r'/actas/(\d+)/', enlace)
+    if match:
+        acta_id = int(match.group(1))
+        from actas.models import Acta
+        if not Acta.objects.filter(id=acta_id).exists():
+            messages.warning(
+                request,
+                f'El acta a la que hace referencia esta notificacion ya no existe en el sistema. '
+                f'Es posible que haya sido eliminada.'
+            )
+            notification.delete()
+            return redirect('notifications:list')
+
+    return redirect(enlace)
+
+
+@login_required
+def notifications_list(request):
     """Vist para listar todas las nitificaciones del usuario """
     notificaciones = Notification.objects.filter(usuario=request.user)
     
