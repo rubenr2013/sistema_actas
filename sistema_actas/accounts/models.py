@@ -1,4 +1,4 @@
-from django.contrib.auth.models import AbstractUser #Importacion del modelo base de usrio de Django
+from django.contrib.auth.models import AbstractUser, BaseUserManager #Importacion del modelo base de usrio de Django
 from django.db import models #Importacion de utilidades de modelos Django
 from django.core.validators import validate_email # Validar emails de Django
 from django.contrib.auth.validators import UnicodeUsernameValidator
@@ -11,6 +11,35 @@ class UsernameValidator(UnicodeUsernameValidator):
     """Validador de username que permite espacios además de los caracteres estándar."""
     regex = r'^[\w\s.@+-]+$'
     message = 'El nombre de usuario solo puede contener letras, números, espacios y los caracteres @/./+/-/_'
+
+
+class UserManager(BaseUserManager):
+    """Manager personalizado que garantiza campos correctos para superusuarios."""
+
+    def create_user(self, email, password=None, **extra_fields):
+        if not email:
+            raise ValueError('El correo electrónico es obligatorio.')
+        email = self.normalize_email(email)
+        user = self.model(email=email, **extra_fields)
+        user.set_password(password)
+        user.save(using=self._db)
+        return user
+
+    def create_superuser(self, email, password=None, **extra_fields):
+        """Crea un superusuario con todos los campos de acceso correctos."""
+        extra_fields.setdefault('is_staff', True)
+        extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('rol', 'admin')
+        extra_fields.setdefault('email_verificado', True)
+        extra_fields.setdefault('cuenta_aprobada', True)
+        extra_fields.setdefault('activo', True)
+
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('El superusuario debe tener is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('El superusuario debe tener is_superuser=True.')
+
+        return self.create_user(email, password, **extra_fields)
 
 
 #Modelo personalizado de usuario
@@ -44,6 +73,8 @@ class User (AbstractUser) :
     email_verificado = models.BooleanField(default=False, help_text='Indica si el usuario verificó su email')
     cuenta_aprobada = models.BooleanField(default=False, help_text='Indica si la cuenta está aprobada para uso')
     
+    objects = UserManager()
+
     #Configuracion de login: se usara el email en lugar de username
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['username', 'first_name', 'last_name'] #Campos obligatorios
@@ -92,10 +123,16 @@ class User (AbstractUser) :
         #Redimensionar firma digital si es muy grade
         super().save(*args, **kwargs)
 
-        if self.rol =='admin':
+        if self.rol == 'admin':
             self.is_staff = True
             self.is_superuser = True
             super().save(*args, **kwargs)
+        else:
+            # Si el rol ya no es admin, revocar permisos de Django admin
+            if self.is_staff or self.is_superuser:
+                self.is_staff = False
+                self.is_superuser = False
+                super().save(*args, **kwargs)
 
         if self.firma_digital:
             import os

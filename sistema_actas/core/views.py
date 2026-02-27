@@ -320,6 +320,8 @@ def restaurar_backup(request, nombre_archivo):
         messages.error(request, "Solo los administradores pueden restaurar copias de seguridad.")
         return redirect("core:vista_backup")
 
+    # Sanitizar nombre de archivo para prevenir path traversal
+    nombre_archivo = os.path.basename(nombre_archivo)
     ruta_backup = os.path.join(BACKUP_DIR, nombre_archivo)
 
     if not os.path.exists(ruta_backup):
@@ -406,6 +408,9 @@ def restaurar_backup_personal(request, nombre_archivo):
     from django.db import transaction
 
     user = request.user
+
+    # Sanitizar nombre de archivo para prevenir path traversal
+    nombre_archivo = os.path.basename(nombre_archivo)
 
     # Verificar que el backup pertenece al usuario actual
     username_safe = user.username.replace(' ', '_')
@@ -701,7 +706,8 @@ def eliminar_copia_seguridad(request, nombre_archivo):
         messages.error(request, "❌ Solo los administradores pueden eliminar copias de seguridad.")
         return redirect("core:vista_backup")
 
-    # Construir la ruta completa y segura al archivo
+    # Sanitizar nombre de archivo para prevenir path traversal
+    nombre_archivo = os.path.basename(nombre_archivo)
     ruta_backup = os.path.join(BACKUP_DIR, nombre_archivo)
 
     # 1. Verificar que el archivo realmente existe antes de intentar borrarlo

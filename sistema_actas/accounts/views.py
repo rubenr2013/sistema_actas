@@ -376,6 +376,12 @@ def editar_usuario(request, user_id):
         password = request.POST.get('password')
         firma = request.FILES.get('firma_digital')
 
+        # Validar que el rol sea uno de los valores permitidos
+        roles_validos = ['aprendiz', 'instructor', 'invitado', 'funcionario', 'coordinador', 'director', 'admin']
+        if rol not in roles_validos:
+            messages.error(request, 'Rol inválido.')
+            return redirect('accounts:editar_usuario', user_id=user_id)
+
         # Actualizamos los campos
         usuario.first_name = first_name
         usuario.last_name = last_name

@@ -125,8 +125,11 @@ def login_api(request):
             user = authenticate(request, username=username, password=password)
 
             if user is not None:
-                # Verificar si el email está verificado
-                if not user.email_verificado:
+                # Los admin/superusuarios omiten verificaciones de email y cuenta
+                es_admin = user.rol == 'admin' or user.is_superuser
+
+                # Verificar si el email está verificado (no aplica para admin)
+                if not es_admin and not user.email_verificado:
                     return JsonResponse({
                         'success': False,
                         'error': 'Debes verificar tu email antes de iniciar sesión',
@@ -134,8 +137,8 @@ def login_api(request):
                         'email': user.email
                     }, status=403)
 
-                # Verificar si la cuenta está aprobada
-                if not user.cuenta_aprobada:
+                # Verificar si la cuenta está aprobada (no aplica para admin)
+                if not es_admin and not user.cuenta_aprobada:
                     return JsonResponse({
                         'success': False,
                         'error': 'Tu cuenta aún no ha sido aprobada',
@@ -1133,9 +1136,17 @@ def usuarios_list_api(request):
         if error_response:
             return error_response
 
+        # Solo roles que crean actas pueden ver la lista de usuarios
+        roles_permitidos = ['instructor', 'funcionario', 'coordinador', 'director', 'admin']
+        if user.rol not in roles_permitidos:
+            return JsonResponse({
+                'success': False,
+                'error': 'No tienes permiso para ver la lista de usuarios.'
+            }, status=403)
+
         # Obtener todos los usuarios activos
         usuarios = User.objects.filter(is_active=True).order_by('first_name', 'last_name')
-        
+
         usuarios_data = []
         for u in usuarios:
             usuarios_data.append({
@@ -1147,7 +1158,7 @@ def usuarios_list_api(request):
                 'nombre_completo': u.get_full_name(),
                 'rol': u.rol,
             })
-        
+
         return JsonResponse({
             'success': True,
             'data': usuarios_data
@@ -1176,8 +1187,8 @@ def crear_acta_api(request):
         if error_response:
             return error_response
 
-        # Validación de permisos: solo funcionarios, coordinadores, directores y administradores pueden crear actas
-        roles_permitidos = ['funcionario', 'coordinador', 'director', 'admin']
+        # Validación de permisos: mismos roles que la vista web
+        roles_permitidos = ['instructor', 'funcionario', 'coordinador', 'director', 'admin']
 
         rol_usuario = user.rol.lower() if user.rol else 'invitado'
 
@@ -1561,6 +1572,13 @@ def firmar_acta_api(request):
                 'error': 'Firma no encontrada o no tienes permiso'
             }, status=404)
         
+        # Verificar que el acta esté en estado 'en_revision'
+        if firma.acta.estado != 'en_revision':
+            return JsonResponse({
+                'success': False,
+                'error': 'El acta debe estar en revisión para poder firmarla.'
+            }, status=400)
+
         # Verificar que no esté ya firmada
         if firma.firmado:
             return JsonResponse({

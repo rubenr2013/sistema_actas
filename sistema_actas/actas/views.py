@@ -997,6 +997,11 @@ def finalizar_acta(request, acta_id):
         messages.error(request, "No tienes permisos para finalizar actas.")
         return redirect("actas:detalle", acta_id=acta.id)
 
+    # Instructores y funcionarios solo pueden finalizar sus propias actas
+    if request.user.rol in ['instructor', 'funcionario'] and acta.creador != request.user:
+        messages.error(request, "Solo puedes finalizar actas que tú has creado.")
+        return redirect("actas:detalle", acta_id=acta.id)
+
     if acta.estado not in ["borrador", "en_revision"]:
         messages.warning(request, "El acta no se puede finalizar en este estado.")
         return redirect("actas:detalle", acta_id=acta.id)
@@ -1082,6 +1087,13 @@ def lista_compromisos(request, acta_id):
 @login_required
 def crear_compromiso(request, acta_id):
     acta = get_object_or_404(Acta, id=acta_id)
+
+    # Solo el creador del acta o roles superiores pueden crear compromisos
+    roles_superiores = ['coordinador', 'director', 'admin']
+    if acta.creador != request.user and request.user.rol not in roles_superiores:
+        messages.error(request, "Solo el creador del acta puede agregar compromisos.")
+        return redirect("actas:detalle", acta_id=acta.id)
+
     if request.method == "POST":
         descripcion = request.POST.get("descripcion")
         responsable_id = request.POST.get("responsable")
@@ -1133,6 +1145,13 @@ def editar_compromiso(request, compromiso_id):
 @login_required
 def eliminar_compromiso(request, compromiso_id):
     compromiso = get_object_or_404(Compromiso, id=compromiso_id)
+
+    # Solo el creador del acta o roles superiores pueden eliminar compromisos
+    roles_superiores = ['coordinador', 'director', 'admin']
+    if compromiso.acta.creador != request.user and request.user.rol not in roles_superiores:
+        messages.error(request, "Solo el creador del acta puede eliminar compromisos.")
+        return redirect("actas:lista_compromisos", acta_id=compromiso.acta.id)
+
     acta_id = compromiso.acta.id
     compromiso.delete()
     return redirect("actas:lista_compromisos", acta_id=acta_id)
