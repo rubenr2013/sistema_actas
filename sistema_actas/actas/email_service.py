@@ -6,11 +6,20 @@ Funciones helper para cada tipo de notificación
 from django.core.mail import send_mail
 from django.conf import settings
 from django.template.loader import render_to_string
+from django.utils.html import strip_tags
 import logging
 from datetime import datetime, date
 from django.utils import timezone
 
 logger = logging.getLogger('actas.email_service')
+
+
+def get_site_url():
+    """Retorna la URL base del sitio con el protocolo correcto."""
+    domain = getattr(settings, 'SITE_DOMAIN', '127.0.0.1:8000')
+    is_production = '127.0.0.1' not in domain and 'localhost' not in domain
+    protocol = 'https' if is_production else 'http'
+    return f'{protocol}://{domain}'
 
 
 def format_datetime_safe(value, format_str='%d/%m/%Y %H:%M'):
@@ -93,7 +102,7 @@ def enviar_email_compromiso_asignado(compromiso, usuario_asignado):
             'descripcion': compromiso.descripcion,
             'fecha_vencimiento': format_datetime_safe(compromiso.fecha_limite, '%d/%m/%Y') if compromiso.fecha_limite else 'No definida',
             'creador': compromiso.acta.creador.get_full_name() if compromiso.acta else 'Sistema',
-            'enlace_compromiso': f'http://{settings.SITE_DOMAIN}/compromisos/{compromiso.id}/' if hasattr(settings, 'SITE_DOMAIN') else '#',
+            'enlace_compromiso': f'{get_site_url()}/actas/{compromiso.acta.id}/compromisos/',
         }
         print(f"✓ Contexto preparado para el template")
 
@@ -154,8 +163,8 @@ def enviar_email_solicitud_firma(acta, usuario):
             'fecha_reunion': format_datetime_safe(acta.fecha_reunion, '%d/%m/%Y %H:%M'),
             'lugar': acta.lugar_reunion or 'No especificado',
             'creador': acta.creador.get_full_name() or acta.creador.username,
-            'resumen': acta.desarrollo[:200] + '...' if len(acta.desarrollo) > 200 else acta.desarrollo,
-            'enlace_acta': f'http://{settings.SITE_DOMAIN}/actas/{acta.id}/' if hasattr(settings, 'SITE_DOMAIN') else '#',
+            'resumen': strip_tags(acta.desarrollo)[:300] + '...' if len(strip_tags(acta.desarrollo)) > 300 else strip_tags(acta.desarrollo),
+            'enlace_acta': f'{get_site_url()}/actas/{acta.id}/',
         }
         print(f"✓ Contexto preparado para el template")
 
@@ -217,7 +226,7 @@ def enviar_email_acta_firmada_completa(acta):
             'fecha_reunion': format_datetime_safe(acta.fecha_reunion, '%d/%m/%Y %H:%M'),
             'total_participantes': total_participantes,
             'total_firmas': total_firmas,
-            'enlace_acta': f'http://{settings.SITE_DOMAIN}/actas/{acta.id}/' if hasattr(settings, 'SITE_DOMAIN') else '#',
+            'enlace_acta': f'{get_site_url()}/actas/{acta.id}/',
         }
 
         # Renderizar template HTML
@@ -278,7 +287,7 @@ def enviar_email_recordatorio_compromiso(compromiso):
             'fecha_vencimiento': format_datetime_safe(compromiso.fecha_limite, '%d/%m/%Y') if compromiso.fecha_limite else 'No definida',
             'tiempo_restante': tiempo_restante,
             'estado': compromiso.get_estado_display() if hasattr(compromiso, 'get_estado_display') else compromiso.estado,
-            'enlace_compromiso': f'http://{settings.SITE_DOMAIN}/compromisos/{compromiso.id}/' if hasattr(settings, 'SITE_DOMAIN') else '#',
+            'enlace_compromiso': f'{get_site_url()}/actas/{compromiso.acta.id}/compromisos/',
         }
 
         # Renderizar template HTML
@@ -340,7 +349,7 @@ def enviar_email_compromiso_actualizado(compromiso, estado_anterior, actualizado
             'fecha_vencimiento': format_datetime_safe(compromiso.fecha_limite, '%d/%m/%Y') if compromiso.fecha_limite else 'No definida',
             'actualizador': actualizador.get_full_name() or actualizador.username,
             'mensaje_adicional': mensaje_adicional,
-            'enlace_compromiso': f'http://{settings.SITE_DOMAIN}/compromisos/{compromiso.id}/' if hasattr(settings, 'SITE_DOMAIN') else '#',
+            'enlace_compromiso': f'{get_site_url()}/actas/{compromiso.acta.id}/compromisos/',
         }
 
         # Renderizar template HTML
@@ -399,7 +408,7 @@ def enviar_email_nuevo_comentario(acta, comentario, autor):
                     'autor_comentario': autor.get_full_name() or autor.username,
                     'comentario': comentario[:300] + '...' if len(comentario) > 300 else comentario,
                     'fecha_comentario': datetime.now().strftime('%d/%m/%Y %H:%M'),
-                    'enlace_acta': f'http://{settings.SITE_DOMAIN}/actas/{acta.id}/' if hasattr(settings, 'SITE_DOMAIN') else '#',
+                    'enlace_acta': f'{get_site_url()}/actas/{acta.id}/',
                 }
 
                 # Renderizar template HTML
