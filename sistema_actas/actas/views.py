@@ -971,8 +971,9 @@ def crear_acta(request):
     # GET request - mostrar formulario
     context = {
         'tipos_reunion': Acta.TIPOS_REUNION,
+        'usuarios': User.objects.filter(is_active=True).order_by('first_name', 'last_name'),
     }
-    
+
     return render(request, 'actas/crear.html', context)
 
 @login_required

@@ -9,6 +9,10 @@
 <script src="https://cdn.ckeditor.com/4.22.1/standard/ckeditor.js"></script>
 <!-- Signature Pad -->
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<!-- Select2 -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <style>
     .ai-section {
@@ -396,22 +400,28 @@ Ejemplo:
                                 <div class="mb-3 p-3 border rounded bg-light">
                                     <div class="row align-items-center">
                                         <div class="col-md-6">
-                                            <label class="form-label">Email del Participante</label>
-                                            <input type="email" name="participantes" class="form-control" 
-                                                    value="{{ user.email }}" readonly>
+                                            <label class="form-label">Participante</label>
+                                            <input type="hidden" name="participantes" value="{{ user.email }}">
+                                            <input type="text" class="form-control"
+                                                    value="{{ user.get_full_name }} ({{ user.email }})" readonly>
                                         </div>
                                         <div class="col-md-6">
                                             <label class="form-label">Rol en la Reunión</label>
-                                            <input type="text" class="form-control" 
+                                            <input type="text" class="form-control"
                                                     value="Creador del Acta" readonly>
                                         </div>
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <button type="button" class="btn btn-outline-primary" id="btn-agregar-participante">
                                 <i class="fas fa-user-plus me-1"></i>Agregar Participante
                             </button>
+
+                            <!-- Datos de usuarios para JavaScript -->
+                            <script id="usuarios-data" type="application/json">
+                            [{% for u in usuarios %}{"email":"{{ u.email|escapejs }}","nombre":"{{ u.get_full_name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+                            </script>
                         </div>
                     </div>
 
@@ -553,27 +563,83 @@ $(document).ready(function() {
     });
 
     // ========================================
-    // AGREGAR PARTICIPANTE
+    // DATOS DE USUARIOS REGISTRADOS
+    // ========================================
+    const todosLosUsuarios = JSON.parse(document.getElementById('usuarios-data').textContent);
+
+    // Array de participantes actuales del acta (inicia con el creador)
+    let participantesActuales = [
+        { email: '{{ user.email|escapejs }}', nombre: '{{ user.get_full_name|escapejs }}' }
+    ];
+
+    // Construye las opciones del select de responsable para compromisos
+    function buildResponsableOptions() {
+        const emailsParticipantes = participantesActuales.map(p => p.email);
+        let html = '<option value="">Seleccionar responsable...</option>';
+
+        if (participantesActuales.length > 0) {
+            html += '<optgroup label="Participantes del acta">';
+            participantesActuales.forEach(p => {
+                html += `<option value="${p.email}">${p.nombre}</option>`;
+            });
+            html += '</optgroup>';
+        }
+
+        const otros = todosLosUsuarios.filter(u => !emailsParticipantes.includes(u.email));
+        if (otros.length > 0) {
+            html += '<optgroup label="Otros usuarios">';
+            otros.forEach(u => {
+                html += `<option value="${u.email}">${u.nombre}</option>`;
+            });
+            html += '</optgroup>';
+        }
+        return html;
+    }
+
+    // Refresca los selects de responsable ya existentes en compromisos
+    function refreshResponsableSelects() {
+        $('.compromiso-responsable-select').each(function() {
+            const current = $(this).val();
+            $(this).html(buildResponsableOptions());
+            if (current) $(this).val(current);
+        });
+    }
+
+    // ========================================
+    // AGREGAR PARTICIPANTE (con Select2)
     // ========================================
     $('#btn-agregar-participante').click(function() {
         participanteCounter++;
+
+        // Construir opciones excluyendo ya agregados
+        const emailsYaAgregados = participantesActuales.map(p => p.email);
+        let opcionesHtml = '<option value="">Buscar usuario por nombre o email...</option>';
+        todosLosUsuarios.forEach(u => {
+            if (!emailsYaAgregados.includes(u.email)) {
+                opcionesHtml += `<option value="${u.email}">${u.nombre} — ${u.email}</option>`;
+            }
+        });
+
         const html = `
             <div class="mb-3 p-3 border rounded item-dinamico" id="participante-${participanteCounter}">
                 <div class="row align-items-center">
                     <div class="col-md-5">
-                        <label class="form-label">Email del Participante</label>
-                        <input type="email" name="participantes" class="form-control email-sena" 
-                                placeholder="correo@sena.edu.co" required>
-                        <div class="invalid-feedback">Ingrese un email válido del SENA</div>
+                        <label class="form-label">Participante</label>
+                        <select name="participantes"
+                                class="form-select select2-participante"
+                                id="select-participante-${participanteCounter}"
+                                data-pid="${participanteCounter}" required>
+                            ${opcionesHtml}
+                        </select>
                     </div>
                     <div class="col-md-5">
                         <label class="form-label">Rol en la Reunión</label>
-                        <input type="text" name="rol_participante_${participanteCounter}" 
+                        <input type="text" name="rol_participante_${participanteCounter}"
                                 class="form-control" placeholder="Ej: Participante, Secretario">
                     </div>
                     <div class="col-md-2">
                         <label class="form-label">&nbsp;</label>
-                        <button type="button" class="btn btn-danger btn-sm w-100" 
+                        <button type="button" class="btn btn-danger btn-sm w-100"
                                 onclick="eliminarParticipante(${participanteCounter})">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -582,8 +648,27 @@ $(document).ready(function() {
             </div>
         `;
         $('#participantes-container').append(html);
-        
-        // Scroll al nuevo participante
+
+        // Activar Select2 en el nuevo select
+        $(`#select-participante-${participanteCounter}`).select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Buscar usuario por nombre o email...',
+            allowClear: true,
+            width: '100%'
+        }).on('change', function() {
+            const email = $(this).val();
+            const pid = $(this).data('pid');
+            const nombre = $(this).find('option:selected').text().split(' — ')[0];
+
+            // Remover entrada anterior de este slot si existía
+            participantesActuales = participantesActuales.filter(p => p._pid !== pid);
+
+            if (email) {
+                participantesActuales.push({ email, nombre, _pid: pid });
+            }
+            refreshResponsableSelects();
+        });
+
         $('html, body').animate({
             scrollTop: $(`#participante-${participanteCounter}`).offset().top - 100
         }, 300);
@@ -591,39 +676,46 @@ $(document).ready(function() {
 
     // Función global para eliminar participante
     window.eliminarParticipante = function(id) {
+        const email = $(`#select-participante-${id}`).val();
+        participantesActuales = participantesActuales.filter(p => p._pid !== id);
+        refreshResponsableSelects();
         $(`#participante-${id}`).fadeOut(300, function() {
             $(this).remove();
         });
     };
 
     // ========================================
-    // AGREGAR COMPROMISO
+    // AGREGAR COMPROMISO (con select de participantes)
     // ========================================
     $('#btn-agregar-compromiso').click(function() {
         compromisoCounter++;
+        const opcionesResponsable = buildResponsableOptions();
+
         const html = `
             <div class="mb-3 p-3 border rounded item-dinamico" id="compromiso-${compromisoCounter}">
                 <div class="row">
                     <div class="col-md-6 mb-2">
                         <label class="form-label">Descripción del Compromiso</label>
-                        <textarea name="compromiso_desc_${compromisoCounter}" 
-                                    class="form-control compromiso-descripcion" 
+                        <textarea name="compromiso_desc_${compromisoCounter}"
+                                    class="form-control compromiso-descripcion"
                                     rows="2" placeholder="Descripción del compromiso" required></textarea>
                     </div>
                     <div class="col-md-3 mb-2">
                         <label class="form-label">Responsable</label>
-                        <input type="email" name="compromiso_resp_${compromisoCounter}" 
-                                class="form-control email-sena" 
-                                placeholder="correo@sena.edu.co" required>
+                        <select name="compromiso_resp_${compromisoCounter}"
+                                class="form-select select2-responsable compromiso-responsable-select"
+                                id="select-resp-${compromisoCounter}" required>
+                            ${opcionesResponsable}
+                        </select>
                     </div>
                     <div class="col-md-2 mb-2">
                         <label class="form-label">Fecha Límite</label>
-                        <input type="date" name="compromiso_fecha_${compromisoCounter}" 
+                        <input type="date" name="compromiso_fecha_${compromisoCounter}"
                                 class="form-control" required>
                     </div>
                     <div class="col-md-1 mb-2">
                         <label class="form-label">&nbsp;</label>
-                        <button type="button" class="btn btn-danger btn-sm w-100" 
+                        <button type="button" class="btn btn-danger btn-sm w-100"
                                 onclick="eliminarCompromiso(${compromisoCounter})">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -632,8 +724,15 @@ $(document).ready(function() {
             </div>
         `;
         $('#compromisos-container').append(html);
-        
-        // Scroll al nuevo compromiso
+
+        // Activar Select2 en el responsable
+        $(`#select-resp-${compromisoCounter}`).select2({
+            theme: 'bootstrap-5',
+            placeholder: 'Seleccionar responsable...',
+            allowClear: true,
+            width: '100%'
+        });
+
         $('html, body').animate({
             scrollTop: $(`#compromiso-${compromisoCounter}`).offset().top - 100
         }, 300);
