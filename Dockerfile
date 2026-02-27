@@ -33,4 +33,4 @@ EXPOSE 8000
 
 # Comando para iniciar la aplicación
 # Railway provee PORT, EB usa el valor por defecto 8000
-CMD sh -c "python manage.py migrate --noinput && gunicorn sistema_actas.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --log-level info"
+CMD sh -c "python manage.py migrate --noinput && python manage.py create_admin && gunicorn sistema_actas.wsgi:application --bind 0.0.0.0:${PORT:-8000} --workers 2 --timeout 120 --log-level info"
