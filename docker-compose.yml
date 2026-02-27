@@ -18,6 +18,8 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
       - AWS_STORAGE_BUCKET_NAME=${AWS_STORAGE_BUCKET_NAME:-}
       - AWS_S3_REGION_NAME=${AWS_S3_REGION_NAME:-us-east-2}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-}
     restart: always
     mem_limit: 450m
     memswap_limit: 450m
