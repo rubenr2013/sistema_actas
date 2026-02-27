@@ -132,7 +132,7 @@ def delete_notification(request, notification_id):
     notification.delete()
     
     return JsonResponse({
-        'sucess': True,
+        'success': True,
         'message': "Notificación eliminada"
     })
 
@@ -146,12 +146,12 @@ def notification_settings(request):
         settings.email_compromiso_vencido= request.POST.get('email_compromiso_vencido') == 'on'
         settings.email_nueva_acta = request.POST.get('email_nueva_acta') == 'on'
         settings.app_todas_notificaciones = request.POST.get ( 'app_todas_notificaciones') == 'on'
-        settings.resumen.email = request.POST.get('resumen_email', 'semanal')
+        settings.resumen_email = request.POST.get('resumen_email', 'semanal')
         settings.save()
-        
+
         return JsonResponse({
-            'sucess': True,
-            'message': 'Configuración guardada axitosamente.'
+            'success': True,
+            'message': 'Configuración guardada exitosamente.'
         })
         
     return render (request, 'notifications/settings.html', {'settings': settings})

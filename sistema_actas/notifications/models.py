@@ -79,7 +79,7 @@ class Notification (models.Model):
         return self.enlace or '#'
     
     def __str__(self):
-        return f"{self.titulo} - {self.usuario.get_full_name}"
+        return f"{self.titulo} - {self.usuario.get_full_name()}"
     
 class NotificationSettings(models.Model):
     """configuracion de notificaciones por usuario"""

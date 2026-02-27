@@ -299,6 +299,7 @@ def settings_view(request):
     return render(request, 'accounts/settings.html', {'form': form})
 
 
+@login_required
 def usuarios(request):
     # Obtener parámetros de búsqueda y filtros
     search = request.GET.get('search', '')

@@ -549,6 +549,148 @@ def restaurar_backup_personal(request, nombre_archivo):
 
 
 @login_required
+def restaurar_backup_personal_upload(request):
+    """
+    Restaura backup personal desde un archivo ZIP subido por el usuario.
+    El ZIP debe ser un backup exportado desde el perfil.
+    """
+    import json
+    from actas.models import Acta, Compromiso, Firma, Participante
+    from accounts.models import User as UserModel
+    from django.utils.dateparse import parse_datetime, parse_date
+    from django.db import transaction
+
+    if request.method != "POST":
+        return redirect("accounts:profile")
+
+    user = request.user
+    archivo = request.FILES.get("backup_file")
+
+    if not archivo:
+        messages.error(request, "No se seleccionó ningún archivo.")
+        return redirect("accounts:profile")
+
+    try:
+        with zipfile.ZipFile(archivo, "r") as zipf:
+            json_files = [f for f in zipf.namelist() if f.endswith(".json")]
+            if not json_files:
+                messages.error(request, "El backup no contiene datos válidos.")
+                return redirect("accounts:profile")
+
+            with zipf.open(json_files[0]) as f:
+                datos = json.load(f)
+
+        backup_email = datos.get("usuario", {}).get("email", "")
+        if backup_email != user.email:
+            messages.error(request, "Este backup no pertenece a tu cuenta.")
+            return redirect("accounts:profile")
+
+        version = datos.get("version", "1.0")
+        if version == "1.0":
+            messages.warning(
+                request,
+                "Este backup fue creado con una versión antigua. "
+                "Crea un nuevo backup desde tu perfil para obtener restauración completa."
+            )
+            return redirect("accounts:profile")
+
+        actas_restauradas = 0
+        actas_omitidas = 0
+
+        for acta_data in datos.get("actas_creadas", []):
+            numero_acta = acta_data.get("numero_acta", "")
+
+            if Acta.objects.filter(numero_acta=numero_acta).exists():
+                actas_omitidas += 1
+                continue
+
+            try:
+                with transaction.atomic():
+                    acta = Acta(
+                        numero_acta=numero_acta,
+                        titulo=acta_data.get("titulo", ""),
+                        tipo_reunion=acta_data.get("tipo_reunion", "otra"),
+                        fecha_reunion=acta_data.get("fecha_reunion"),
+                        lugar_reunion=acta_data.get("lugar_reunion", ""),
+                        modalidad=acta_data.get("modalidad", "presencial"),
+                        estado=acta_data.get("estado", "finalizada"),
+                        creador=user,
+                        orden_dia=acta_data.get("orden_dia", ""),
+                        desarrollo=acta_data.get("desarrollo", ""),
+                        resumen_ia=acta_data.get("resumen_ia", ""),
+                        observaciones=acta_data.get("observaciones", ""),
+                        silencio_administrativo=acta_data.get("silencio_administrativo", False),
+                        generada_con_ia=acta_data.get("generada_con_ia", False),
+                    )
+                    if acta_data.get("fecha_limite_firmas"):
+                        acta.fecha_limite_firmas = parse_datetime(acta_data["fecha_limite_firmas"])
+                    acta.save()
+
+                    for p_data in acta_data.get("participantes", []):
+                        try:
+                            usuario_p = UserModel.objects.get(email=p_data["usuario_email"])
+                            Participante.objects.get_or_create(
+                                acta=acta, usuario=usuario_p,
+                                defaults={
+                                    "rol_en_reunion": p_data.get("rol_en_reunion", ""),
+                                    "obligatorio_firma": p_data.get("obligatorio_firma", True),
+                                },
+                            )
+                        except UserModel.DoesNotExist:
+                            pass
+
+                    for f_data in acta_data.get("firmas", []):
+                        try:
+                            usuario_f = UserModel.objects.get(email=f_data["usuario_email"])
+                            fecha_firma = parse_datetime(f_data["fecha_firma"]) if f_data.get("fecha_firma") else None
+                            Firma.objects.get_or_create(
+                                acta=acta, usuario=usuario_f,
+                                defaults={
+                                    "firmado": f_data.get("firmado", False),
+                                    "fecha_firma": fecha_firma,
+                                    "firmado_por_silencio": f_data.get("firmado_por_silencio", False),
+                                    "comentarios": f_data.get("comentarios", ""),
+                                },
+                            )
+                        except UserModel.DoesNotExist:
+                            pass
+
+                    for c_data in acta_data.get("compromisos", []):
+                        try:
+                            responsable = UserModel.objects.get(email=c_data["responsable_email"])
+                            Compromiso.objects.create(
+                                acta=acta,
+                                descripcion=c_data.get("descripcion", ""),
+                                responsable=responsable,
+                                fecha_limite=parse_date(c_data["fecha_limite"]),
+                                estado=c_data.get("estado", "pendiente"),
+                                porcentaje_avance=c_data.get("porcentaje_avance", 0),
+                                observaciones=c_data.get("observaciones", ""),
+                            )
+                        except UserModel.DoesNotExist:
+                            pass
+
+                    actas_restauradas += 1
+
+            except Exception:
+                continue
+
+        if actas_restauradas > 0:
+            messages.success(request, f"Se restauraron {actas_restauradas} acta(s) correctamente.")
+        if actas_omitidas > 0:
+            messages.info(request, f"{actas_omitidas} acta(s) ya existían y no fueron modificadas.")
+        if actas_restauradas == 0 and actas_omitidas == 0:
+            messages.warning(request, "No había actas para restaurar en este backup.")
+
+    except zipfile.BadZipFile:
+        messages.error(request, "El archivo no es un ZIP válido.")
+    except Exception as e:
+        messages.error(request, f"Error al restaurar el backup: {str(e)}")
+
+    return redirect("accounts:profile")
+
+
+@login_required
 def eliminar_copia_seguridad(request, nombre_archivo):
     """
     Elimina un archivo de copia de seguridad específico.

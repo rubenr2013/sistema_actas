@@ -67,7 +67,15 @@
 
                     <div class="col-md-6">
                         <label class="form-label">Rol:</label>
-                        <input type="text" name="rol" value="{{ usuario.rol }}" class="form-control">
+                        <select name="rol" class="form-control">
+                            <option value="aprendiz" {% if usuario.rol == 'aprendiz' %}selected{% endif %}>Aprendiz</option>
+                            <option value="instructor" {% if usuario.rol == 'instructor' %}selected{% endif %}>Instructor</option>
+                            <option value="invitado" {% if usuario.rol == 'invitado' %}selected{% endif %}>Invitado</option>
+                            <option value="funcionario" {% if usuario.rol == 'funcionario' %}selected{% endif %}>Funcionario</option>
+                            <option value="coordinador" {% if usuario.rol == 'coordinador' %}selected{% endif %}>Coordinador</option>
+                            <option value="director" {% if usuario.rol == 'director' %}selected{% endif %}>Director</option>
+                            <option value="admin" {% if usuario.rol == 'admin' %}selected{% endif %}>Administrador</option>
+                        </select>
                     </div>
 
                     <div class="col-md-6">
