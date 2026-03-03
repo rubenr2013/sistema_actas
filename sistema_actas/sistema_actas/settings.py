@@ -107,6 +107,7 @@ INSTALLED_APPS = [
     "actas",  # Módulo principal de actas
     "core",  # Funcionalidades compartidas (ej. context processors)
     "notifications",  # Sistema de notificaciones
+    "formacion",  # Gestión de programas y fichas SENA
 ]
 
 MIDDLEWARE = [

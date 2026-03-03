@@ -26,6 +26,7 @@ urlpatterns = [
     path("accounts/", include("accounts.urls")),
     path("actas/", include("actas.urls")),
     path("notifications/", include("notifications.urls")),
+    path("formacion/", include("formacion.urls")),
     path("api/", include("api.urls")),
     path("ckeditor/", include("ckeditor_uploader.urls")),
 ]
