@@ -13,8 +13,13 @@ urlpatterns = [
     path('api/programas/<int:programa_id>/', api_views.programa_detalle_api, name='api_programa_detalle'),
 
     # ── Fichas ─────────────────────────────────────────────────────────────────
-    # IMPORTANTE: 'buscar/' debe estar ANTES de '<int:ficha_id>/'
-    # porque si no, Django intentaría convertir "buscar" a un número y fallaría
+    # IMPORTANTE: las rutas con palabras ('activas/', 'buscar/') deben ir ANTES
+    # de '<int:ficha_id>/' porque Django lee las URLs de arriba a abajo.
+    # Si '<int:ficha_id>/' estuviera primero, intentaría convertir "activas" a número y fallaría.
+
+    # Público: lista para el formulario de registro de la app móvil
+    path('api/fichas/activas/', api_views.fichas_activas_api, name='api_fichas_activas'),
+
     path('api/fichas/buscar/', api_views.buscar_ficha_api, name='api_buscar_ficha'),
 
     # GET  → lista fichas activas (con filtro ?programa=<id>)

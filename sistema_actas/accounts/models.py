@@ -96,6 +96,18 @@ class User (AbstractUser) :
         help_text='Número único de identificación (CC, TI, CE, etc.). Es el identificador de login.',
     )
 
+    # Ficha de formación — solo aplica para aprendices
+    # 'formacion.Ficha' es una referencia en texto para evitar importaciones circulares
+    ficha = models.ForeignKey(
+        'formacion.Ficha',
+        on_delete=models.SET_NULL,   # Si se elimina la ficha, el usuario queda sin ficha (no se borra)
+        null=True,
+        blank=True,
+        related_name='aprendices',
+        verbose_name='Ficha de formación',
+        help_text='Solo para aprendices. Ficha (grupo) a la que pertenece.',
+    )
+
     # Nuevos campos para verificación y aprobación
     email_verificado = models.BooleanField(default=False, help_text='Indica si el usuario verificó su email')
     cuenta_aprobada = models.BooleanField(default=False, help_text='Indica si la cuenta está aprobada para uso')

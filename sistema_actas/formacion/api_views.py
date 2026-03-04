@@ -15,6 +15,36 @@ logger = logging.getLogger(__name__)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  ENDPOINT PÚBLICO — FICHAS ACTIVAS (para formulario de registro)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def fichas_activas_api(request):
+    """
+    GET /formacion/api/fichas/activas/
+
+    Devuelve la lista de fichas activas con su programa.
+    Es pública (no requiere autenticación) para que la app móvil
+    pueda poblar el selector de fichas en el formulario de registro.
+    """
+    fichas = Ficha.objects.filter(activa=True).select_related('programa').order_by('programa__nombre', 'numero')
+
+    resultado = [
+        {
+            'id': ficha.id,
+            'numero': ficha.numero,
+            'programa_id': ficha.programa.id,
+            'programa_nombre': ficha.programa.nombre,
+            'programa_codigo': ficha.programa.codigo,
+        }
+        for ficha in fichas
+    ]
+
+    return JsonResponse({'success': True, 'fichas': resultado})
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  PROGRAMAS
 # ─────────────────────────────────────────────────────────────────────────────
 

@@ -266,45 +266,47 @@ def register_api(request):
     """
     API de registro para nuevos usuarios.
 
-    Recibe:
-        - email: Email del usuario
-        - password: Contraseña
-        - first_name: Nombre
-        - last_name: Apellido
-        - username: Nombre de usuario (opcional, se genera del email si no se provee)
+    Recibe (multipart/form-data porque incluye archivo de imagen):
+        - email            (obligatorio)
+        - password         (obligatorio)
+        - first_name       (obligatorio)
+        - last_name        (obligatorio)
+        - tipo_documento   (obligatorio: CC, TI, CE, PA, OTRO)
+        - numero_documento (obligatorio, único en el sistema)
+        - firma_digital    (obligatorio, archivo JPG/PNG/WEBP, máx 2MB)
+        - ficha_id         (obligatorio solo si email termina en @soy.sena.edu.co)
 
     Flujo:
-        1. Detecta automáticamente el rol basándose en el dominio del email
-        2. Crea el usuario (sin aprobar aún)
-        3. Genera código de verificación de 6 dígitos
-        4. Envía email con el código
-        5. Retorna success y pide verificación
-
-    Retorna:
-        - success: True/False
-        - message: Mensaje descriptivo
-        - user_id: ID del usuario creado
-        - rol_asignado: Rol detectado automáticamente
+        1. Detecta automáticamente el rol por dominio del email
+        2. Valida todos los campos y el archivo de firma
+        3. Crea el usuario con rol, firma y ficha (si aplica)
+        4. Envía email con código de verificación de 6 dígitos
+        5. Retorna mensaje personalizado según el tipo de usuario
     """
     if request.method != 'POST':
-        return JsonResponse({
-            'success': False,
-            'error': 'Método no permitido'
-        }, status=405)
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
 
     try:
         from .utils import detectar_rol_por_email, crear_codigo_verificacion, enviar_email_verificacion
+        import re
+        import os
+        from django.core.validators import validate_email
+        from django.core.exceptions import ValidationError as DjangoValidationError
 
-        # Leer datos del request
-        data = json.loads(request.body)
-        email = data.get('email', '').strip().lower()
-        password = data.get('password', '').strip()
-        first_name = data.get('first_name', '').strip()
-        last_name = data.get('last_name', '').strip()
-        tipo_documento = data.get('tipo_documento', '').strip().upper()
-        numero_documento = data.get('numero_documento', '').strip()
+        # ── Leer campos de texto (vienen en request.POST, no en JSON) ────────────
+        # El endpoint ahora usa multipart/form-data para poder recibir el archivo de firma
+        email = request.POST.get('email', '').strip().lower()
+        password = request.POST.get('password', '').strip()
+        first_name = request.POST.get('first_name', '').strip()
+        last_name = request.POST.get('last_name', '').strip()
+        tipo_documento = request.POST.get('tipo_documento', '').strip().upper()
+        numero_documento = request.POST.get('numero_documento', '').strip()
+        ficha_id = request.POST.get('ficha_id', '').strip()
 
-        # Validaciones básicas de campos obligatorios
+        # ── Leer archivo de firma (viene en request.FILES) ───────────────────────
+        firma = request.FILES.get('firma_digital')
+
+        # ── Validaciones de campos de texto ──────────────────────────────────────
         if not email or not password or not first_name or not last_name:
             return JsonResponse({
                 'success': False,
@@ -317,7 +319,6 @@ def register_api(request):
                 'error': 'El tipo y número de documento son obligatorios'
             }, status=400)
 
-        # Validar que el tipo de documento sea uno de los permitidos
         tipos_validos = ['CC', 'TI', 'CE', 'PA', 'OTRO']
         if tipo_documento not in tipos_validos:
             return JsonResponse({
@@ -325,49 +326,77 @@ def register_api(request):
                 'error': f'Tipo de documento inválido. Los valores aceptados son: {", ".join(tipos_validos)}'
             }, status=400)
 
-        # El número de documento no puede tener espacios ni caracteres especiales
-        # Solo letras, números y guiones (para pasaportes como "AB-123456")
-        import re
+        # Solo letras, números y guiones (cubre pasaportes como "AB-123456")
         if not re.match(r'^[a-zA-Z0-9\-]+$', numero_documento):
             return JsonResponse({
                 'success': False,
                 'error': 'El número de documento solo puede contener letras, números y guiones'
             }, status=400)
 
-        # Verificar que el número de documento no esté ya registrado
         if User.objects.filter(numero_documento=numero_documento).exists():
             return JsonResponse({
                 'success': False,
                 'error': f'Ya existe un usuario registrado con el documento {numero_documento}'
             }, status=400)
 
-        # Validar formato de email
-        from django.core.validators import validate_email
-        from django.core.exceptions import ValidationError as DjangoValidationError
+        # ── Validar email ─────────────────────────────────────────────────────────
         try:
             validate_email(email)
         except DjangoValidationError:
-            return JsonResponse({
-                'success': False,
-                'error': 'Formato de email inválido'
-            }, status=400)
+            return JsonResponse({'success': False, 'error': 'Formato de email inválido'}, status=400)
 
-        # Verificar si el email ya existe
         if User.objects.filter(email=email).exists():
-            return JsonResponse({
-                'success': False,
-                'error': 'Este email ya está registrado'
-            }, status=400)
+            return JsonResponse({'success': False, 'error': 'Este email ya está registrado'}, status=400)
 
-        # El username almacena el numero_documento (identificador interno único)
-        username = numero_documento
-
-        # Detectar rol automáticamente
+        # ── Detectar rol según dominio del email ──────────────────────────────────
         rol_detectado = detectar_rol_por_email(email)
 
-        # Crear usuario (sin verificar ni aprobar aún)
+        # ── Validar firma digital ─────────────────────────────────────────────────
+        if not firma:
+            return JsonResponse({
+                'success': False,
+                'error': 'La firma digital es obligatoria para el registro'
+            }, status=400)
+
+        # Verificar extensión del archivo (solo imágenes)
+        extension = os.path.splitext(firma.name.lower())[1]
+        extensiones_validas = ['.jpg', '.jpeg', '.png', '.webp']
+        if extension not in extensiones_validas:
+            return JsonResponse({
+                'success': False,
+                'error': 'La firma debe ser una imagen JPG, PNG o WEBP'
+            }, status=400)
+
+        # Verificar tamaño (máximo 2MB)
+        TAMANO_MAX_FIRMA = 2 * 1024 * 1024  # 2MB en bytes
+        if firma.size > TAMANO_MAX_FIRMA:
+            return JsonResponse({
+                'success': False,
+                'error': 'La firma no puede superar 2MB de tamaño'
+            }, status=400)
+
+        # ── Validar ficha (obligatoria solo para aprendices) ──────────────────────
+        ficha_obj = None
+        if rol_detectado == 'aprendiz':
+            if not ficha_id:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'Los aprendices deben seleccionar su ficha de formación'
+                }, status=400)
+            try:
+                from formacion.models import Ficha
+                ficha_obj = Ficha.objects.get(id=ficha_id, activa=True)
+            except Ficha.DoesNotExist:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'La ficha seleccionada no existe o no está activa'
+                }, status=400)
+        # Si el usuario NO es aprendiz, ignoramos ficha_id aunque el cliente lo envíe
+
+        # ── Crear usuario ─────────────────────────────────────────────────────────
+        # El modelo save() se encarga de redimensionar la firma si es muy grande
         user = User.objects.create_user(
-            username=username,
+            username=numero_documento,  # username = numero_documento (identificador interno)
             email=email,
             password=password,
             first_name=first_name,
@@ -375,38 +404,40 @@ def register_api(request):
             rol=rol_detectado,
             tipo_documento=tipo_documento,
             numero_documento=numero_documento,
+            firma_digital=firma,
+            ficha=ficha_obj,
             email_verificado=False,
             cuenta_aprobada=False,
             activo=True
         )
 
-        # Crear código de verificación
+        # ── Enviar email de verificación ──────────────────────────────────────────
         codigo_obj = crear_codigo_verificacion(user, tipo='registro')
-
-        # Enviar email con el código
         email_enviado = enviar_email_verificacion(user, codigo_obj.codigo)
 
         if not email_enviado:
-            # Si falla el envío del email, eliminar el usuario creado
             user.delete()
             return JsonResponse({
                 'success': False,
                 'error': 'Error al enviar el email de verificación. Intenta de nuevo'
             }, status=500)
 
+        # Mensaje personalizado según el tipo de usuario
+        if rol_detectado == 'aprendiz':
+            mensaje = 'Registro exitoso. Bienvenido al SENA. Revisa tu email para verificar tu cuenta.'
+        elif rol_detectado == 'funcionario':
+            mensaje = 'Registro exitoso. Tu cuenta está pendiente de aprobación por el administrador. Te notificaremos cuando esté activa.'
+        else:
+            mensaje = 'Registro exitoso. Revisa tu email para verificar tu cuenta.'
+
         return JsonResponse({
             'success': True,
-            'message': 'Registro exitoso. Revisa tu email para obtener el código de verificación',
+            'message': mensaje,
             'user_id': user.id,
             'rol_asignado': rol_detectado,
             'email': email
         }, status=201)
 
-    except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'error': 'Formato de datos inválido'
-        }, status=400)
     except Exception as e:
         return JsonResponse({
             'success': False,
