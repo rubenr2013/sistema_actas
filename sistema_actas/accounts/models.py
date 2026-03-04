@@ -13,6 +13,16 @@ class UsernameValidator(UnicodeUsernameValidator):
     message = 'El nombre de usuario solo puede contener letras, números, espacios y los caracteres @/./+/-/_'
 
 
+# Opciones de tipo de documento de identidad en Colombia
+TIPO_DOCUMENTO_CHOICES = [
+    ('CC', 'Cédula de Ciudadanía'),
+    ('TI', 'Tarjeta de Identidad'),
+    ('CE', 'Cédula de Extranjería'),
+    ('PA', 'Pasaporte'),
+    ('OTRO', 'Otro'),
+]
+
+
 class UserManager(BaseUserManager):
     """Manager personalizado que garantiza campos correctos para superusuarios."""
 
@@ -68,6 +78,23 @@ class User (AbstractUser) :
     firma_digital = models.ImageField(upload_to='firmas/', blank=True, null=True)
     fecha_registro = models.DateTimeField(auto_now_add=True) #Fecha de creacion automatica
     activo = models.BooleanField (default=True) #Estado del usuario activo/inactivo
+
+    # Documento de identidad — identificador institucional único
+    tipo_documento = models.CharField(
+        max_length=10,
+        choices=TIPO_DOCUMENTO_CHOICES,
+        blank=True,
+        default='',
+        verbose_name='Tipo de documento',
+    )
+    numero_documento = models.CharField(
+        max_length=50,
+        unique=True,
+        null=True,       # null=True permite que usuarios existentes no tengan documento aún
+        blank=True,
+        verbose_name='Número de documento',
+        help_text='Número único de identificación (CC, TI, CE, etc.). Es el identificador de login.',
+    )
 
     # Nuevos campos para verificación y aprobación
     email_verificado = models.BooleanField(default=False, help_text='Indica si el usuario verificó su email')

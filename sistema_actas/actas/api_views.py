@@ -112,17 +112,34 @@ def login_api(request):
                 }, status=400)
 
             # Validar que los campos sean strings
-            username = data.get('username') if isinstance(data.get('username'), str) else None
+            numero_documento = data.get('numero_documento', '') if isinstance(data.get('numero_documento'), str) else ''
             password = data.get('password') if isinstance(data.get('password'), str) else None
+            # Soporte legacy: algunos clientes pueden seguir enviando 'username' o 'email'
+            legacy_username = data.get('username', '') or data.get('email', '')
 
-            if not username or not password:
+            if not password:
                 return JsonResponse({
                     'success': False,
-                    'error': 'Usuario y contraseña son requeridos'
+                    'error': 'La contraseña es requerida'
+                }, status=400)
+
+            if not numero_documento and not legacy_username:
+                return JsonResponse({
+                    'success': False,
+                    'error': 'El número de documento es requerido'
                 }, status=400)
 
             # Autenticar usuario
-            user = authenticate(request, username=username, password=password)
+            # Flujo nuevo: buscar por numero_documento y luego autenticar con su email
+            if numero_documento:
+                try:
+                    user_obj = User.objects.get(numero_documento=numero_documento)
+                    user = authenticate(request, username=user_obj.email, password=password)
+                except User.DoesNotExist:
+                    user = None
+            else:
+                # Flujo legacy: el cliente envió email/username directamente
+                user = authenticate(request, username=legacy_username, password=password)
 
             if user is not None:
                 # Los admin/superusuarios omiten verificaciones de email y cuenta
@@ -169,11 +186,12 @@ def login_api(request):
                     'expires_in_hours': token_lifetime,
                     'user': {
                         'id': user.id,
-                        'username': user.username,
                         'email': user.email,
                         'first_name': user.first_name,
                         'last_name': user.last_name,
                         'rol': user.rol,
+                        'tipo_documento': user.tipo_documento,
+                        'numero_documento': user.numero_documento,
                         'firma_digital': user.firma_digital.url if user.firma_digital else None,
                         'email_verificado': user.email_verificado,
                         'cuenta_aprobada': user.cuenta_aprobada,
@@ -283,13 +301,44 @@ def register_api(request):
         password = data.get('password', '').strip()
         first_name = data.get('first_name', '').strip()
         last_name = data.get('last_name', '').strip()
-        username = data.get('username', '').strip()
+        tipo_documento = data.get('tipo_documento', '').strip().upper()
+        numero_documento = data.get('numero_documento', '').strip()
 
-        # Validaciones básicas
+        # Validaciones básicas de campos obligatorios
         if not email or not password or not first_name or not last_name:
             return JsonResponse({
                 'success': False,
                 'error': 'Email, contraseña, nombre y apellido son requeridos'
+            }, status=400)
+
+        if not tipo_documento or not numero_documento:
+            return JsonResponse({
+                'success': False,
+                'error': 'El tipo y número de documento son obligatorios'
+            }, status=400)
+
+        # Validar que el tipo de documento sea uno de los permitidos
+        tipos_validos = ['CC', 'TI', 'CE', 'PA', 'OTRO']
+        if tipo_documento not in tipos_validos:
+            return JsonResponse({
+                'success': False,
+                'error': f'Tipo de documento inválido. Los valores aceptados son: {", ".join(tipos_validos)}'
+            }, status=400)
+
+        # El número de documento no puede tener espacios ni caracteres especiales
+        # Solo letras, números y guiones (para pasaportes como "AB-123456")
+        import re
+        if not re.match(r'^[a-zA-Z0-9\-]+$', numero_documento):
+            return JsonResponse({
+                'success': False,
+                'error': 'El número de documento solo puede contener letras, números y guiones'
+            }, status=400)
+
+        # Verificar que el número de documento no esté ya registrado
+        if User.objects.filter(numero_documento=numero_documento).exists():
+            return JsonResponse({
+                'success': False,
+                'error': f'Ya existe un usuario registrado con el documento {numero_documento}'
             }, status=400)
 
         # Validar formato de email
@@ -310,15 +359,8 @@ def register_api(request):
                 'error': 'Este email ya está registrado'
             }, status=400)
 
-        # Generar username si no se proporciona
-        if not username:
-            username = email.split('@')[0]
-            # Asegurar que el username sea único
-            base_username = username
-            counter = 1
-            while User.objects.filter(username=username).exists():
-                username = f"{base_username}{counter}"
-                counter += 1
+        # El username almacena el numero_documento (identificador interno único)
+        username = numero_documento
 
         # Detectar rol automáticamente
         rol_detectado = detectar_rol_por_email(email)
@@ -331,6 +373,8 @@ def register_api(request):
             first_name=first_name,
             last_name=last_name,
             rol=rol_detectado,
+            tipo_documento=tipo_documento,
+            numero_documento=numero_documento,
             email_verificado=False,
             cuenta_aprobada=False,
             activo=True
@@ -973,12 +1017,13 @@ def perfil_api(request):
         if request.method == 'GET':
             user_data = {
                 'id': user.id,
-                'username': user.username,
                 'email': user.email,
                 'first_name': user.first_name,
                 'last_name': user.last_name,
                 'nombre_completo': user.get_full_name(),
                 'rol': user.rol,
+                'tipo_documento': user.tipo_documento,
+                'numero_documento': user.numero_documento,
                 'centro': user.centro,
                 'telefono': user.telefono,
                 'fecha_registro': user.date_joined.isoformat(),
@@ -1027,11 +1072,12 @@ def perfil_api(request):
                 'message': 'Perfil actualizado correctamente',
                 'user': {
                     'id': user.id,
-                    'username': user.username,
                     'email': user.email,
                     'first_name': user.first_name,
                     'last_name': user.last_name,
                     'rol': user.rol,
+                    'tipo_documento': user.tipo_documento,
+                    'numero_documento': user.numero_documento,
                 }
             })
         
