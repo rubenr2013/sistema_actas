@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from .models import User
+from .models import User, TIPO_DOCUMENTO_CHOICES
 
 class CustomUserCreationForm(UserCreationForm):
     firma_digital = forms.ImageField(
@@ -10,9 +10,43 @@ class CustomUserCreationForm(UserCreationForm):
         widget=forms.FileInput(attrs={'class': 'form-control', 'accept': 'image/png,image/jpeg'})
     )
 
+    # Choices con opción vacía inicial para la validación del select
+    tipo_documento = forms.ChoiceField(
+        choices=[('', 'Selecciona el tipo de documento...')] + TIPO_DOCUMENTO_CHOICES,
+        required=True,
+        label="Tipo de Documento",
+        widget=forms.Select(attrs={'class': 'form-select'})
+    )
+
+    numero_documento = forms.CharField(
+        max_length=50,
+        required=True,
+        label="Número de Documento",
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Ingresa tu número de documento',
+            'autocomplete': 'off',
+        })
+    )
+
     class Meta:
         model = User
-        fields = ['first_name', 'last_name', 'email', 'telefono', 'firma_digital']
+        fields = ['first_name', 'last_name', 'email', 'telefono', 'tipo_documento', 'numero_documento', 'firma_digital']
+
+    def clean_tipo_documento(self):
+        tipo = self.cleaned_data.get('tipo_documento', '').strip()
+        if not tipo:
+            raise forms.ValidationError("Selecciona el tipo de documento.")
+        return tipo
+
+    def clean_numero_documento(self):
+        numero = self.cleaned_data.get('numero_documento', '').strip()
+        if not numero:
+            raise forms.ValidationError("El número de documento es obligatorio.")
+        # Verificar que no esté ya registrado
+        if User.objects.filter(numero_documento=numero).exists():
+            raise forms.ValidationError("Este número de documento ya está registrado.")
+        return numero
 
     def clean_email(self):
         email = self.cleaned_data.get("email", "").lower()

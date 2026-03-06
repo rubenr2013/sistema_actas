@@ -22,6 +22,14 @@ TIPO_DOCUMENTO_CHOICES = [
     ('OTRO', 'Otro'),
 ]
 
+# Estados posibles para una cuenta de usuario
+ESTADO_CUENTA_CHOICES = [
+    ('activa', 'Activa'),
+    ('pendiente_aprobacion', 'Pendiente de aprobación'),
+    ('rechazada', 'Rechazada'),
+    ('suspendida', 'Suspendida'),
+]
+
 
 class UserManager(BaseUserManager):
     """Manager personalizado que garantiza campos correctos para superusuarios."""
@@ -43,6 +51,7 @@ class UserManager(BaseUserManager):
         extra_fields.setdefault('email_verificado', True)
         extra_fields.setdefault('cuenta_aprobada', True)
         extra_fields.setdefault('activo', True)
+        extra_fields.setdefault('estado_cuenta', 'activa')
 
         if extra_fields.get('is_staff') is not True:
             raise ValueError('El superusuario debe tener is_staff=True.')
@@ -111,7 +120,36 @@ class User (AbstractUser) :
     # Nuevos campos para verificación y aprobación
     email_verificado = models.BooleanField(default=False, help_text='Indica si el usuario verificó su email')
     cuenta_aprobada = models.BooleanField(default=False, help_text='Indica si la cuenta está aprobada para uso')
-    
+
+    # Estado de la cuenta con trazabilidad de aprobación
+    estado_cuenta = models.CharField(
+        max_length=25,
+        choices=ESTADO_CUENTA_CHOICES,
+        default='activa',
+        verbose_name='Estado de la cuenta',
+    )
+    fecha_aprobacion = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name='Fecha de aprobación',
+        help_text='Se rellena automáticamente cuando el admin aprueba la cuenta',
+    )
+    # ForeignKey a sí mismo: guarda quién fue el admin que aprobó
+    aprobado_por = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='cuentas_aprobadas',
+        verbose_name='Aprobado por',
+    )
+    observaciones_aprobacion = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Observaciones de aprobación',
+        help_text='Notas del administrador sobre la aprobación o rechazo',
+    )
+
     objects = UserManager()
 
     #Configuracion de login: se usara el email en lugar de username

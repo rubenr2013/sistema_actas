@@ -88,6 +88,13 @@ def login_view(request):
                 messages.error(request, "Debes verificar tu correo electrónico antes de iniciar sesión.")
                 return redirect("accounts:verificar_email", email=user.email)
 
+            # Bloquear login si la cuenta no está activa
+            if getattr(user, 'estado_cuenta', 'activa') != 'activa':
+                # Guardar estado en sesión para mostrarlo sin exponer datos en la URL
+                request.session['estado_bloqueado'] = user.estado_cuenta
+                request.session['motivo_bloqueo'] = user.observaciones_aprobacion
+                return redirect("accounts:cuenta_pendiente")
+
             # Login exitoso: resetear intentos
             reset_login_attempts(client_ip)
             login(request, user)
@@ -126,6 +133,19 @@ def register_view(request):
             # ✅ Detectar rol automáticamente por dominio de email
             rol_detectado = detectar_rol_por_email(user.email)
             user.rol = rol_detectado
+
+            # ✅ Guardar tipo y número de documento (vienen del formulario)
+            user.tipo_documento = form.cleaned_data.get('tipo_documento', '')
+            user.numero_documento = form.cleaned_data.get('numero_documento', '')
+
+            # ✅ Asignar ficha si el usuario es aprendiz y seleccionó una
+            ficha_id = request.POST.get('ficha_id', '').strip()
+            if ficha_id and user.email.endswith('@soy.sena.edu.co'):
+                from formacion.models import Ficha
+                try:
+                    user.ficha = Ficha.objects.get(id=int(ficha_id), activa=True)
+                except (Ficha.DoesNotExist, ValueError):
+                    pass  # Si la ficha no existe, el usuario queda sin ficha asignada
 
             # ✅ Asignar firma digital si se subió
             firma = request.FILES.get("firma_digital")
@@ -207,7 +227,7 @@ def verificar_email_view(request, email):
                 messages.error(request, mensaje_error)
                 return render(request, "accounts/verificar_email.html", {"email": email})
 
-            # Código válido: aprobar usuario automáticamente
+            # Código válido: verificar email y determinar estado de la cuenta
             user = aprobar_usuario_automaticamente(user)
 
             # Marcar el código como usado
@@ -217,7 +237,18 @@ def verificar_email_view(request, email):
             if codigo_obj:
                 codigo_obj.marcar_usado()
 
-            messages.success(request, "Email verificado exitosamente. Tu cuenta ha sido aprobada. Ahora puedes iniciar sesión.")
+            # Mostrar el mensaje correcto según el estado resultante
+            if user.estado_cuenta == 'pendiente_aprobacion':
+                messages.info(
+                    request,
+                    "¡Tu email fue verificado! Tu cuenta está pendiente de aprobación. "
+                    "El administrador revisará tu solicitud y recibirás un correo cuando sea aprobada."
+                )
+            else:
+                messages.success(
+                    request,
+                    "¡Email verificado exitosamente! Tu cuenta está activa. Ahora puedes iniciar sesión."
+                )
             return redirect("accounts:login")
 
         except User.DoesNotExist:
@@ -433,4 +464,110 @@ def eliminar_usuario(request, user_id):
 
     usuario.delete()
     messages.success(request, f'Usuario {usuario.get_full_name()} eliminado correctamente.')
+
+
+# ============================================================================
+# SISTEMA DE ESTADOS DE CUENTA
+# ============================================================================
+
+def cuenta_pendiente_view(request):
+    """
+    Página informativa que se muestra cuando la cuenta del usuario no está activa.
+    El estado y motivo se leen de la sesión (guardados por login_view o el middleware).
+    No requiere login.
+    """
+    estado = request.session.pop('estado_bloqueado', 'pendiente_aprobacion')
+    motivo = request.session.pop('motivo_bloqueo', '')
+    return render(request, "accounts/cuenta_pendiente.html", {
+        'estado': estado,
+        'motivo': motivo,
+    })
+
+
+@login_required
+def cuentas_pendientes_view(request):
+    """
+    Panel de administración: lista todos los usuarios con estado='pendiente_aprobacion'.
+    Solo accesible para administradores.
+    """
+    if request.user.rol != 'admin':
+        messages.error(request, "No tienes permisos para acceder a esta sección.")
+        return redirect('core:dashboard')
+
+    pendientes = User.objects.filter(
+        estado_cuenta='pendiente_aprobacion'
+    ).order_by('-fecha_registro')
+
+    return render(request, "accounts/cuentas_pendientes.html", {
+        'pendientes': pendientes,
+    })
+
+
+@login_required
+def aprobar_cuenta_view(request, user_id):
+    """
+    Aprueba la cuenta de un usuario pendiente.
+    POST: nuevo_rol (requerido), observaciones (opcional).
+    Solo para administradores.
+    """
+    if request.method != 'POST':
+        return redirect('accounts:cuentas_pendientes')
+
+    if request.user.rol != 'admin':
+        messages.error(request, "No tienes permisos para aprobar cuentas.")
+        return redirect('core:dashboard')
+
+    user_a_aprobar = get_object_or_404(User, id=user_id)
+
+    if user_a_aprobar.estado_cuenta != 'pendiente_aprobacion':
+        messages.warning(request, "Esta cuenta no está pendiente de aprobación.")
+        return redirect('accounts:cuentas_pendientes')
+
+    nuevo_rol = request.POST.get('nuevo_rol', '').strip()
+    observaciones = request.POST.get('observaciones', '').strip()
+
+    ROLES_VALIDOS = ['admin', 'director', 'coordinador', 'instructor', 'funcionario']
+    if nuevo_rol not in ROLES_VALIDOS:
+        messages.error(request, f"Rol inválido. Elige uno de: {', '.join(ROLES_VALIDOS)}")
+        return redirect('accounts:cuentas_pendientes')
+
+    from actas.utils import aprobar_cuenta_usuario
+    aprobar_cuenta_usuario(user_a_aprobar, nuevo_rol, request.user, observaciones)
+
+    messages.success(
+        request,
+        f"La cuenta de {user_a_aprobar.get_full_name()} fue aprobada con el rol '{nuevo_rol}'."
+    )
+    return redirect('accounts:cuentas_pendientes')
+
+
+@login_required
+def rechazar_cuenta_view(request, user_id):
+    """
+    Rechaza la cuenta de un usuario pendiente.
+    POST: motivo (requerido).
+    Solo para administradores.
+    """
+    if request.method != 'POST':
+        return redirect('accounts:cuentas_pendientes')
+
+    if request.user.rol != 'admin':
+        messages.error(request, "No tienes permisos para rechazar cuentas.")
+        return redirect('core:dashboard')
+
+    user_a_rechazar = get_object_or_404(User, id=user_id)
+
+    motivo = request.POST.get('motivo', '').strip()
+    if not motivo:
+        messages.error(request, "Debes proporcionar un motivo para el rechazo.")
+        return redirect('accounts:cuentas_pendientes')
+
+    from actas.utils import rechazar_cuenta_usuario
+    rechazar_cuenta_usuario(user_a_rechazar, motivo, request.user)
+
+    messages.success(
+        request,
+        f"La solicitud de {user_a_rechazar.get_full_name()} fue rechazada."
+    )
+    return redirect('accounts:cuentas_pendientes')
     return redirect('accounts:usuarios')

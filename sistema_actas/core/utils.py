@@ -41,21 +41,35 @@ def extract_json_from_string(text):
         raise ValueError(f"Error al limpiar y parsear JSON: {e}")
 
 
-def generar_acta_con_ia(resumen, usuario):
+def generar_acta_con_ia(resumen, usuario, tipo_acta='reunion_general'):
     """
-    Genera contenido de acta usando Groq (reemplaza OpenAI).
-    MEJORADO: Ahora genera desarrollo más extenso y detallado
+    Genera contenido de acta usando Groq.
+    Usa prompts especializados por tipo de acta para mayor precisión y relevancia.
+
+    Args:
+        resumen (str): Descripción breve de la reunión.
+        usuario: Instancia del User que solicita la generación.
+        tipo_acta (str): Tipo de acta ('comite_academico', 'reunion_coordinacion', etc.)
+                         Fallback a 'reunion_general' si el tipo no existe.
     """
     try:
+        # Obtener contexto especializado para el tipo de acta
+        from actas.prompts import get_contexto_prompt, TIPOS_ACTA_DICT
+        contexto_especializado = get_contexto_prompt(tipo_acta)
+        tipo_label = TIPOS_ACTA_DICT.get(tipo_acta, 'Reunion General')
+        logger.info(f'Generando acta con IA. Tipo: {tipo_acta} ({tipo_label}). Usuario: {usuario}')
+
         # Crear instancia del servicio Groq
         servicio_groq = GroqService()
-        
+
         # Verificar conexión
         if not servicio_groq.verificar_conexion():
             raise Exception("No se pudo conectar con el servicio de IA (Groq)")
-        
-        # ✅ PROMPT MEJORADO - EXTENSO Y SIN TILDES
+
+        # PROMPT CON CONTEXTO ESPECIALIZADO POR TIPO DE ACTA
         prompt_content = f"""You are a specialized assistant for generating SENA institutional meeting minutes in Spanish.
+
+{contexto_especializado}
 
 CRITICAL RULES:
 - Response MUST be ONLY a valid JSON object

@@ -1,12 +1,22 @@
 from notifications.models import Notification
 from django.contrib import admin
-from .models import Acta, Participante, Firma, Compromiso, ComentarioActa, ArchivoAdjunto
+from .models import Acta, Participante, Firma, Compromiso, ComentarioActa, ArchivoAdjunto, AnexoActa
+
+
+class AnexoActaInline(admin.TabularInline):
+    model = AnexoActa
+    extra = 0
+    fields = ('archivo', 'nombre_archivo', 'orden', 'cargado_por', 'fecha_carga')
+    readonly_fields = ('fecha_carga',)
+    ordering = ('orden', 'fecha_carga')
+
 
 @admin.register(Acta)
 class ActaAdmin(admin.ModelAdmin):
-    list_display = ('numero_acta', 'titulo', 'tipo_reunion', 'fecha_reunion', 'estado', 'creador')
+    list_display = ('numero_acta', 'titulo', 'tipo_reunion', 'fecha_reunion', 'estado', 'creador', 'ciclo_revision')
     list_filter = ('estado', 'tipo_reunion', 'fecha_reunion')
     search_fields = ('numero_acta', 'titulo', 'desarrollo')
+    inlines = [AnexoActaInline]
 
 @admin.register(Participante)
 class ParticipanteAdmin(admin.ModelAdmin):
@@ -37,3 +47,12 @@ class ArchivoAdjuntoAdmin(admin.ModelAdmin):
     list_filter = ('tipo_archivo', 'fecha_subida')
     search_fields = ('nombre_original', 'acta__numero_acta', 'subido_por__email', 'descripcion')
     readonly_fields = ('tamaño_bytes', 'fecha_subida')
+
+
+@admin.register(AnexoActa)
+class AnexoActaAdmin(admin.ModelAdmin):
+    list_display = ('nombre_archivo', 'acta', 'orden', 'cargado_por', 'fecha_carga')
+    list_filter = ('fecha_carga',)
+    search_fields = ('nombre_archivo', 'acta__numero_acta', 'cargado_por__email')
+    readonly_fields = ('fecha_carga',)
+    ordering = ('acta', 'orden')

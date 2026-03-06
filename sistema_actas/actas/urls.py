@@ -62,6 +62,12 @@ urlpatterns = [
     path('api/auth/solicitar-codigo/', api_views.solicitar_codigo_recuperacion_api, name='api_solicitar_codigo'),
     path('api/auth/verificar-codigo/', api_views.verificar_codigo_recuperacion_api, name='api_verificar_codigo'),
     path('api/auth/resetear-password/', api_views.resetear_password_api, name='api_resetear_password'),
+    path('api/auth/verificar-estado/', api_views.verificar_estado_api, name='api_verificar_estado'),
+
+    # Aprobación de cuentas (admin)
+    path('api/admin/cuentas-pendientes/', api_views.cuentas_pendientes_api, name='api_cuentas_pendientes'),
+    path('api/admin/aprobar-cuenta/', api_views.aprobar_cuenta_api, name='api_aprobar_cuenta'),
+    path('api/admin/rechazar-cuenta/', api_views.rechazar_cuenta_api, name='api_rechazar_cuenta'),
     path('api/firmas/pendientes/', api_views.firmas_pendientes_api, name='api_firmas_pendientes'),
     path('api/perfil/exportar-datos/', api_views.exportar_datos_usuario_api, name='api_exportar_datos'),
     path('api/perfil/importar-datos/', api_views.importar_datos_usuario_api, name='api_importar_datos'),
@@ -85,4 +91,17 @@ urlpatterns = [
     path('api/actas/<int:acta_id>/archivos/', api_views.listar_archivos_acta_api, name='api_listar_archivos'),
     path('api/adjuntos/<int:adjunto_id>/descargar/', api_views.descargar_archivo_adjunto_api, name='api_descargar_adjunto'),
     path('api/adjuntos/<int:adjunto_id>/', api_views.eliminar_archivo_adjunto_api, name='api_eliminar_adjunto'),
+
+    # Anexos PDF de actas
+    path('api/actas/<int:acta_id>/anexos/', api_views.anexos_acta_api, name='api_anexos_acta'),
+    path('api/actas/<int:acta_id>/anexos/<int:anexo_id>/', api_views.eliminar_anexo_api, name='api_eliminar_anexo'),
+    path('api/actas/<int:acta_id>/anexos/orden/', api_views.reordenar_anexos_api, name='api_reordenar_anexos'),
+
+    # Revisión colaborativa de actas
+    path('api/actas/<int:acta_id>/enviar-a-revision/', api_views.enviar_a_revision_api, name='api_enviar_a_revision'),
+    path('api/actas/<int:acta_id>/aprobar/', api_views.aprobar_acta_api, name='api_aprobar_acta'),
+    path('api/actas/<int:acta_id>/rechazar/', api_views.rechazar_acta_api, name='api_rechazar_acta'),
+    path('api/actas/<int:acta_id>/cerrar/', api_views.cerrar_acta_api, name='api_cerrar_acta'),
+    path('api/actas/<int:acta_id>/historial/', api_views.historial_acta_api, name='api_historial_acta'),
+    path('api/actas/<int:acta_id>/participantes-estado/', api_views.participantes_estado_api, name='api_participantes_estado'),
 ]

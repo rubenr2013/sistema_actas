@@ -329,6 +329,36 @@ body {
                                     </div>
                                 </div>
 
+                                <!-- Fila: Tipo de documento y Número de documento -->
+                                <div class="row">
+                                    <div class="col-md-5">
+                                        <div class="form-floating mb-3">
+                                            <select class="form-select {% if form.tipo_documento.errors %}is-invalid{% endif %}"
+                                                    id="tipo_documento" name="tipo_documento" required>
+                                                <option value="">Selecciona...</option>
+                                                <option value="CC" {% if form.tipo_documento.value == 'CC' %}selected{% endif %}>Cédula de Ciudadanía</option>
+                                                <option value="TI" {% if form.tipo_documento.value == 'TI' %}selected{% endif %}>Tarjeta de Identidad</option>
+                                                <option value="CE" {% if form.tipo_documento.value == 'CE' %}selected{% endif %}>Cédula de Extranjería</option>
+                                                <option value="PA" {% if form.tipo_documento.value == 'PA' %}selected{% endif %}>Pasaporte</option>
+                                                <option value="OTRO" {% if form.tipo_documento.value == 'OTRO' %}selected{% endif %}>Otro</option>
+                                            </select>
+                                            <label for="tipo_documento">Tipo de Documento</label>
+                                            <div class="invalid-feedback">{% if form.tipo_documento.errors %}{{ form.tipo_documento.errors.0 }}{% else %}Selecciona el tipo de documento{% endif %}</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-7">
+                                        <div class="form-floating mb-3">
+                                            <input type="text" class="form-control {% if form.numero_documento.errors %}is-invalid{% endif %}"
+                                                   id="numero_documento" name="numero_documento"
+                                                   value="{{ form.numero_documento.value|default:'' }}"
+                                                   inputmode="numeric" placeholder="Número de documento"
+                                                   autocomplete="off" required>
+                                            <label for="numero_documento">Número de Documento</label>
+                                            <div class="invalid-feedback">{% if form.numero_documento.errors %}{{ form.numero_documento.errors.0 }}{% else %}Ingresa tu número de documento{% endif %}</div>
+                                        </div>
+                                    </div>
+                                </div>
+
                                 <div class="alert alert-info">
                                     <i class="fas fa-info-circle me-2"></i>
                                     <strong>Nota:</strong> Tu rol será asignado automáticamente según el dominio de tu correo electrónico:
@@ -368,6 +398,26 @@ body {
                                            autocomplete="off">
                                     <label for="username">Nombre de Usuario</label>
                                     <div class="form-text">Se generará automáticamente desde su nombre</div>
+                                </div>
+
+                                <!-- Ficha de formación: solo visible para @soy.sena.edu.co -->
+                                <div id="ficha-section" style="display: none;">
+                                    <div class="form-floating mb-3">
+                                        <select class="form-select" id="ficha_id" name="ficha_id">
+                                            <option value="">Cargando fichas...</option>
+                                        </select>
+                                        <label for="ficha_id">Ficha de Formación</label>
+                                        <div class="form-text">Selecciona el grupo (ficha) al que perteneces como aprendiz</div>
+                                        <div class="invalid-feedback">Debes seleccionar tu ficha de formación</div>
+                                    </div>
+                                </div>
+
+                                <!-- Aviso para funcionarios/invitados: su cuenta requiere aprobación -->
+                                <div id="aprobacion-info" style="display: none;">
+                                    <div class="alert alert-warning mb-3">
+                                        <i class="fas fa-clock me-2"></i>
+                                        <strong>Nota:</strong> Las cuentas de invitados requieren aprobación del administrador antes de poder ingresar al sistema.
+                                    </div>
                                 </div>
 
                                 <div class="row">
@@ -467,9 +517,13 @@ body {
                                     <button type="button" class="btn btn-outline-secondary" onclick="prevStep(4)">
                                         <i class="fas fa-arrow-left me-1"></i> Anterior
                                     </button>
-                                    <button type="submit" class="btn btn-success btn-lg">
-                                        <i class="fas fa-user-check me-2"></i>
-                                        Crear Cuenta
+                                    <button type="submit" class="btn btn-success btn-lg" id="btn-submit">
+                                        <span id="btn-submit-text">
+                                            <i class="fas fa-user-check me-2"></i>Crear Cuenta
+                                        </span>
+                                        <span id="btn-submit-spinner" style="display:none;">
+                                            <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Creando cuenta...
+                                        </span>
                                     </button>
                                 </div>
                             </div>
@@ -581,6 +635,26 @@ function validateStep(step) {
                 valid = false;
                 if (!firstInvalidField) firstInvalidField = $('#telefono');
             }
+
+            // Validar tipo de documento
+            if (!$('#tipo_documento').val()) {
+                $('#tipo_documento').addClass('is-invalid');
+                valid = false;
+                if (!firstInvalidField) firstInvalidField = $('#tipo_documento');
+            } else {
+                $('#tipo_documento').removeClass('is-invalid');
+            }
+
+            // Validar número de documento
+            const numDoc = $('#numero_documento').val().trim();
+            if (!numDoc) {
+                $('#numero_documento').addClass('is-invalid');
+                $('#numero_documento').siblings('.invalid-feedback').text('El número de documento es obligatorio');
+                valid = false;
+                if (!firstInvalidField) firstInvalidField = $('#numero_documento');
+            } else {
+                $('#numero_documento').removeClass('is-invalid');
+            }
             break;
 
         case 2:
@@ -594,6 +668,18 @@ function validateStep(step) {
                 if (!firstInvalidField) firstInvalidField = $('#email');
             } else {
                 $('#email').removeClass('is-invalid');
+            }
+
+            // Validar ficha si el email es de aprendiz
+            if (email.endsWith('@soy.sena.edu.co')) {
+                const fichaId = $('#ficha_id').val();
+                if (!fichaId) {
+                    $('#ficha_id').addClass('is-invalid');
+                    valid = false;
+                    if (!firstInvalidField) firstInvalidField = $('#ficha_id');
+                } else {
+                    $('#ficha_id').removeClass('is-invalid');
+                }
             }
 
             // Lista de contraseñas comunes
@@ -656,19 +742,42 @@ function generateConfirmation() {
         rolDetectado = 'Instructor';
     }
 
+    // Obtener texto legible del tipo de documento
+    const tipoDocMap = {
+        'CC': 'Cédula de Ciudadanía',
+        'TI': 'Tarjeta de Identidad',
+        'CE': 'Cédula de Extranjería',
+        'PA': 'Pasaporte',
+        'OTRO': 'Otro'
+    };
+    const tipoDoc = $('#tipo_documento').val();
+    const tipoDocTexto = tipoDocMap[tipoDoc] || tipoDoc;
+    const numDoc = $('#numero_documento').val().trim();
+
+    // Obtener ficha seleccionada (si aplica)
+    const fichaOption = $('#ficha_id option:selected');
+    const fichaTexto = fichaOption.val() ? fichaOption.text() : 'No aplica';
+
+    // Firma
+    const firmaTexto = $('#firma_digital')[0].files.length > 0
+        ? '<span class="text-success fw-semibold"><i class="fas fa-check-circle me-1"></i>Cargada</span>'
+        : '<span class="text-danger"><i class="fas fa-times-circle me-1"></i>No cargada</span>';
+
     const data = {
         'Nombres': $('#first_name').val() + ' ' + $('#last_name').val(),
+        'Documento': tipoDocTexto + ': <strong>' + numDoc + '</strong>',
         'Email': $('#email').val(),
         'Rol (auto-detectado)': rolDetectado,
         'Teléfono': $('#telefono').val() || 'No especificado',
-        'Firma Digital': $('#firma_digital')[0].files.length > 0 ? 'Cargada' : 'No cargada'
+        'Ficha': email.endsWith('@soy.sena.edu.co') ? fichaTexto : 'No aplica',
+        'Firma Digital': firmaTexto,
     };
 
     let html = '';
     for (const [key, value] of Object.entries(data)) {
         html += `
             <div class="row mb-2">
-                <div class="col-4 fw-semibold">${key}:</div>
+                <div class="col-4 fw-semibold text-muted">${key}:</div>
                 <div class="col-8">${value}</div>
             </div>
         `;
@@ -690,7 +799,7 @@ $(document).ready(function() {
         };
 
         // Determinar en qué paso está el primer error
-        const step1Fields = ['first_name', 'last_name', 'telefono'];
+        const step1Fields = ['first_name', 'last_name', 'telefono', 'tipo_documento', 'numero_documento'];
         const step2Fields = ['email', 'username', 'password1', 'password2'];
 
         let errorStep = 1;
@@ -843,6 +952,70 @@ $(document).ready(function() {
         }
     });
     
+    // ── Ficha de formación ──────────────────────────────────────────────────
+    // Carga las fichas activas desde la API y llena el select
+    function cargarFichas() {
+        const $select = $('#ficha_id');
+        $select.empty().append('<option value="">Cargando fichas...</option>');
+
+        $.get('/formacion/api/fichas/activas/', function(data) {
+            $select.empty().append('<option value="">Selecciona tu ficha...</option>');
+
+            if (data.fichas && data.fichas.length > 0) {
+                data.fichas.forEach(function(ficha) {
+                    $select.append(
+                        `<option value="${ficha.id}">Ficha ${ficha.numero} — ${ficha.programa_nombre}</option>`
+                    );
+                });
+            } else {
+                $select.append('<option value="" disabled>No hay fichas activas disponibles</option>');
+            }
+        }).fail(function() {
+            $select.empty().append('<option value="">Error al cargar fichas</option>');
+        });
+    }
+
+    // Muestra u oculta la sección de ficha según el dominio del email
+    function actualizarSeccionFicha(email) {
+        if (email.endsWith('@soy.sena.edu.co')) {
+            if ($('#ficha-section').is(':hidden')) {
+                $('#ficha-section').show();
+                cargarFichas();
+            }
+            $('#aprobacion-info').hide();
+        } else {
+            $('#ficha-section').hide();
+            $('#ficha_id').val('');
+            // Mostrar aviso de aprobación solo para correos que no son SENA
+            if (email && email.includes('@') && !email.endsWith('@sena.edu.co')) {
+                $('#aprobacion-info').show();
+            } else {
+                $('#aprobacion-info').hide();
+            }
+        }
+    }
+
+    // Escuchar cambios en el email para mostrar/ocultar la ficha
+    $('#email').on('input blur', function() {
+        actualizarSeccionFicha($(this).val().trim().toLowerCase());
+    });
+
+    // Al cargar la página (en caso de error de formulario, el email ya tiene valor)
+    const emailInicial = $('#email').val().trim().toLowerCase();
+    if (emailInicial) {
+        actualizarSeccionFicha(emailInicial);
+    }
+
+    // ── Spinner en el botón de envío ───────────────────────────────────────
+    $('#registerForm').on('submit', function() {
+        // Solo mostramos el spinner si los campos requeridos están completos
+        if ($('#terms').is(':checked')) {
+            $('#btn-submit-text').hide();
+            $('#btn-submit-spinner').show();
+            $('#btn-submit').prop('disabled', true);
+        }
+    });
+
     // Manejo de carga de firma
     // ✅ Manejo seguro de carga de firma digital (compatible con pasos dinámicos)
     $(document).on('click', '#signature-upload', function () {

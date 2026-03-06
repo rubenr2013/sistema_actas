@@ -17,6 +17,12 @@ class Notification (models.Model):
         ('nueva_acta', 'Nueva Acta '),
         ('acta_finalizada', 'Acta Finalizada'),
         ('sistema', 'Notificación del Sistema'),
+        ('nueva_solicitud_rol', 'Nueva Solicitud de Rol'),
+        # Revisión colaborativa
+        ('revision_pendiente', 'Revisión Pendiente'),
+        ('acta_aprobada_parcial', 'Participante Aprobó Acta'),
+        ('acta_rechazada', 'Participante Rechazó Acta'),
+        ('acta_cerrada', 'Acta Cerrada por Vencimiento'),
     ]
     
     usuario = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notificaciones')
@@ -57,7 +63,12 @@ class Notification (models.Model):
             'silencio_administrativo': 'gavel',
             'nueva_acta': 'file-alt',
             'acta_finalizada': 'check-square',
-            'sistema': 'cog'
+            'sistema': 'cog',
+            'nueva_solicitud_rol': 'user-clock',
+            'revision_pendiente': 'eye',
+            'acta_aprobada_parcial': 'thumbs-up',
+            'acta_rechazada': 'thumbs-down',
+            'acta_cerrada': 'lock',
         }
         return icon_map.get(self.tipo, 'bell')
     
@@ -71,7 +82,12 @@ class Notification (models.Model):
             'silencio_administrativo': 'secondary',
             'nueva_acta': 'primary',
             'acta_finalizada': 'success',
-            'sistema': 'info'
+            'sistema': 'info',
+            'nueva_solicitud_rol': 'warning',
+            'revision_pendiente': 'primary',
+            'acta_aprobada_parcial': 'success',
+            'acta_rechazada': 'danger',
+            'acta_cerrada': 'secondary',
         }
         return color_map.get(self.tipo, 'secondary')
     

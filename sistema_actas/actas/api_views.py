@@ -3,7 +3,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, FileResponse
 from django.utils import timezone
 from django.conf import settings
-from django.db.models import Q, Count, Prefetch
+from django.db.models import Q, Count, Prefetch, Max
 from datetime import timedelta, datetime
 from rest_framework.authtoken.models import Token
 from .models import Acta, Participante, Firma, Compromiso, ComentarioActa, ArchivoAdjunto
@@ -154,13 +154,30 @@ def login_api(request):
                         'email': user.email
                     }, status=403)
 
-                # Verificar si la cuenta está aprobada (no aplica para admin)
-                if not es_admin and not user.cuenta_aprobada:
-                    return JsonResponse({
-                        'success': False,
-                        'error': 'Tu cuenta aún no ha sido aprobada',
-                        'requiere_aprobacion': True
-                    }, status=403)
+                # Verificar el estado de la cuenta (reemplaza el check de cuenta_aprobada)
+                if not es_admin:
+                    estado = getattr(user, 'estado_cuenta', 'activa')
+                    if estado != 'activa':
+                        mensajes_estado = {
+                            'pendiente_aprobacion': (
+                                'Tu cuenta está pendiente de aprobación. '
+                                'Te notificaremos cuando un administrador la revise.'
+                            ),
+                            'rechazada': (
+                                'Tu cuenta fue rechazada. '
+                                'Contacta al administrador si crees que es un error.'
+                            ),
+                            'suspendida': (
+                                'Tu cuenta ha sido suspendida. '
+                                'Contacta al administrador para más información.'
+                            ),
+                        }
+                        return JsonResponse({
+                            'success': False,
+                            'error': mensajes_estado.get(estado, 'Tu cuenta no está activa'),
+                            'codigo_error': f'CUENTA_{estado.upper()}',
+                            'estado_cuenta': estado,
+                        }, status=403)
 
                 # Verificar si la cuenta está activa
                 if not user.activo:
@@ -1468,26 +1485,34 @@ def generar_acta_ia_api(request):
         # Obtener datos del request
         data = json.loads(request.body)
         prompt = data.get('prompt', '')
-        
+        tipo_acta = data.get('tipo_acta', 'reunion_general').strip()
+
         if not prompt:
             return JsonResponse({
                 'success': False,
                 'error': 'El prompt es requerido'
             }, status=400)
-        
-        # ✅ USAR LA MISMA FUNCIÓN QUE DJANGO WEB
+
+        # Validar tipo_acta contra los valores permitidos (fallback seguro)
+        from actas.prompts import TIPOS_ACTA_DICT
+        if tipo_acta not in TIPOS_ACTA_DICT:
+            tipo_acta = 'reunion_general'
+
+        # USAR LA MISMA FUNCIÓN QUE DJANGO WEB, con tipo_acta especializado
         try:
             from core.utils import generar_acta_con_ia
-            
+
             # Esta función devuelve {"orden_dia": "...", "desarrollo": "..."}
-            resultado = generar_acta_con_ia(prompt, user)
-            
+            resultado = generar_acta_con_ia(prompt, user, tipo_acta=tipo_acta)
+
             return JsonResponse({
                 'success': True,
                 'data': {
-                    'orden_dia': resultado['orden_dia'],      # ← SEPARADO
-                    'desarrollo': resultado['desarrollo'],    # ← SEPARADO
+                    'orden_dia': resultado['orden_dia'],
+                    'desarrollo': resultado['desarrollo'],
                     'modelo_usado': 'llama-3.1-8b-instant',
+                    'tipo_acta': tipo_acta,
+                    'tipo_acta_label': TIPOS_ACTA_DICT.get(tipo_acta, 'Reunion General'),
                 }
             })
             
@@ -2172,12 +2197,12 @@ def generar_pdf_api(request, acta_id):
         from django.conf import settings
         from django.http import HttpResponse
         
-        # Crear PDF
-        response = HttpResponse(content_type="application/pdf")
-        response["Content-Disposition"] = f'attachment; filename="ACTA_{acta.numero_acta}.pdf"'
-        
+        # Crear PDF en buffer (para poder fusionar anexos después)
+        import io as _io_pdf
+        pdf_buffer = _io_pdf.BytesIO()
+
         doc = SimpleDocTemplate(
-            response,
+            pdf_buffer,
             pagesize=letter,
             rightMargin=0.5*inch,
             leftMargin=0.5*inch,
@@ -2521,11 +2546,26 @@ def generar_pdf_api(request, acta_id):
         footer = Paragraph("<b>GOR-F-084 V02</b>", footer_style)
         story.append(footer)
 
-        # Construir PDF
+        # Construir PDF en buffer
         doc.build(story)
-        
+        acta_pdf_bytes = pdf_buffer.getvalue()
+
+        # Fusionar con anexos PDF si los hay
+        try:
+            from actas.utils import fusionar_acta_con_anexos
+            pdf_final = fusionar_acta_con_anexos(acta_pdf_bytes, acta)
+        except Exception as e_merge:
+            logger.error(f'Error al fusionar anexos del acta {acta_id}: {e_merge}')
+            pdf_final = acta_pdf_bytes  # Fallback: solo el acta
+
+        tiene_anexos = acta.anexos.exists()
+        filename = f'ACTA_{acta.numero_acta}{"_con_anexos" if tiene_anexos else ""}.pdf'
+
+        response = HttpResponse(pdf_final, content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        response['Content-Length'] = len(pdf_final)
         return response
-        
+
     except User.DoesNotExist:
         return JsonResponse({
             'success': False,
@@ -2536,7 +2576,8 @@ def generar_pdf_api(request, acta_id):
             'success': False,
             'error': handle_error(e)
         }, status=500)
-        
+
+
 @csrf_exempt
 def mis_compromisos_api(request):
     """
@@ -4692,3 +4733,697 @@ def admin_eliminar_usuario_api(request, user_id):
         return JsonResponse({'success': False, 'error': 'Usuario no encontrado.'}, status=404)
     except Exception as e:
         return JsonResponse({'success': False, 'error': handle_error(e)}, status=500)
+
+
+# =============================================================================
+# API: SISTEMA DE ESTADOS DE CUENTA
+# =============================================================================
+
+@csrf_exempt
+def verificar_estado_api(request):
+    """
+    GET /actas/api/auth/verificar-estado/
+
+    Devuelve el estado_cuenta del usuario autenticado por token.
+    El frontend móvil lo usa para mostrar la pantalla apropiada después del login.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    user, error = get_user_from_token(request)
+    if error:
+        return error
+
+    estado = getattr(user, 'estado_cuenta', 'activa')
+    motivo = user.observaciones_aprobacion if estado == 'rechazada' else ''
+
+    return JsonResponse({
+        'success': True,
+        'estado_cuenta': estado,
+        'motivo': motivo,
+    })
+
+
+@csrf_exempt
+def cuentas_pendientes_api(request):
+    """
+    GET /actas/api/admin/cuentas-pendientes/
+
+    Lista de usuarios con estado='pendiente_aprobacion'. Solo para admins.
+    """
+    if request.method != 'GET':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    user, error = get_user_from_token(request)
+    if error:
+        return error
+
+    if user.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Sin permisos de administrador'}, status=403)
+
+    pendientes = User.objects.filter(estado_cuenta='pendiente_aprobacion').order_by('-fecha_registro')
+
+    return JsonResponse({
+        'success': True,
+        'total': pendientes.count(),
+        'usuarios': [
+            {
+                'id': u.id,
+                'nombre': u.get_full_name(),
+                'email': u.email,
+                'tipo_documento': u.tipo_documento,
+                'numero_documento': u.numero_documento or '',
+                'fecha_registro': u.fecha_registro.isoformat(),
+            }
+            for u in pendientes
+        ],
+    })
+
+
+@csrf_exempt
+def aprobar_cuenta_api(request):
+    """
+    POST /actas/api/admin/aprobar-cuenta/
+
+    Body JSON: { "user_id": 5, "nuevo_rol": "instructor", "observaciones": "..." }
+    Solo para admins.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    admin, error = get_user_from_token(request)
+    if error:
+        return error
+
+    if admin.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Sin permisos de administrador'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+    user_id = data.get('user_id')
+    nuevo_rol = data.get('nuevo_rol', '').strip()
+    observaciones = data.get('observaciones', '').strip()
+
+    if not user_id or not nuevo_rol:
+        return JsonResponse({'success': False, 'error': 'user_id y nuevo_rol son requeridos'}, status=400)
+
+    try:
+        user_a_aprobar = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado'}, status=404)
+
+    if user_a_aprobar.estado_cuenta != 'pendiente_aprobacion':
+        return JsonResponse({'success': False, 'error': 'Esta cuenta no está pendiente de aprobación'}, status=400)
+
+    try:
+        from actas.utils import aprobar_cuenta_usuario
+        aprobar_cuenta_usuario(user_a_aprobar, nuevo_rol, admin, observaciones)
+    except ValueError as e:
+        return JsonResponse({'success': False, 'error': str(e)}, status=400)
+
+    return JsonResponse({
+        'success': True,
+        'message': f"Cuenta de {user_a_aprobar.get_full_name()} aprobada con rol '{nuevo_rol}'.",
+    })
+
+
+# =============================================================================
+# API: ANEXOS PDF DE ACTAS
+# =============================================================================
+
+@csrf_exempt
+def anexos_acta_api(request, acta_id):
+    """
+    GET  /actas/api/actas/<id>/anexos/  → Lista los anexos del acta.
+    POST /actas/api/actas/<id>/anexos/  → Sube un nuevo anexo PDF (multipart).
+
+    Permisos POST: creador o participante del acta; acta debe estar en 'borrador'.
+    Límite: máximo 10 anexos por acta.
+    """
+    from .models import AnexoActa, MAX_ANEXOS_POR_ACTA
+    from django.core.exceptions import ValidationError as DjangoValidationError
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    es_creador = acta.creador_id == user.id
+    es_participante = acta.participantes.filter(usuario=user).exists()
+
+    if not (es_creador or es_participante or user.rol == 'admin'):
+        return JsonResponse({'success': False, 'error': 'No tienes acceso a esta acta'}, status=403)
+
+    # ── GET: listar anexos ────────────────────────────────────────────────────
+    if request.method == 'GET':
+        anexos = acta.anexos.select_related('cargado_por').order_by('orden', 'fecha_carga')
+        data = [
+            {
+                'id': a.id,
+                'nombre_archivo': a.nombre_archivo,
+                'orden': a.orden,
+                'fecha_carga': a.fecha_carga.isoformat(),
+                'cargado_por': a.cargado_por.get_full_name() if a.cargado_por else '',
+                'tamaño_bytes': a.archivo.size if a.archivo else 0,
+            }
+            for a in anexos
+        ]
+        return JsonResponse({'success': True, 'total': len(data), 'anexos': data})
+
+    # ── POST: subir nuevo anexo ───────────────────────────────────────────────
+    if request.method == 'POST':
+        if acta.estado != 'borrador':
+            return JsonResponse({
+                'success': False,
+                'error': f'Solo se pueden añadir anexos mientras el acta esté en Borrador (estado actual: {acta.estado})'
+            }, status=400)
+
+        if acta.anexos.count() >= MAX_ANEXOS_POR_ACTA:
+            return JsonResponse({
+                'success': False,
+                'error': f'El acta ya tiene el máximo de {MAX_ANEXOS_POR_ACTA} anexos permitidos'
+            }, status=400)
+
+        archivo = request.FILES.get('archivo')
+        if not archivo:
+            return JsonResponse({'success': False, 'error': 'No se recibió ningún archivo'}, status=400)
+
+        # Sanitizar nombre de archivo
+        import re as _re
+        nombre_seguro = _re.sub(r'[^\w\s.\-]', '_', archivo.name)[:255]
+
+        # Calcular orden automático
+        ultimo_orden = acta.anexos.aggregate(max_orden=Max('orden'))['max_orden']
+        siguiente_orden = (ultimo_orden + 1) if ultimo_orden is not None else 0
+
+        anexo = AnexoActa(
+            acta=acta,
+            archivo=archivo,
+            nombre_archivo=nombre_seguro,
+            orden=siguiente_orden,
+            cargado_por=user,
+        )
+        try:
+            anexo.full_clean()  # Dispara validar_pdf_anexo
+            anexo.save()
+        except DjangoValidationError as ve:
+            msgs = '; '.join(
+                m for field_msgs in ve.message_dict.values() for m in field_msgs
+            ) if hasattr(ve, 'message_dict') else str(ve)
+            return JsonResponse({'success': False, 'error': msgs}, status=400)
+
+        logger.info(f'Usuario {user.email} subió anexo "{nombre_seguro}" al acta {acta.numero_acta}')
+        return JsonResponse({
+            'success': True,
+            'message': 'Anexo subido correctamente',
+            'anexo': {
+                'id': anexo.id,
+                'nombre_archivo': anexo.nombre_archivo,
+                'orden': anexo.orden,
+                'fecha_carga': anexo.fecha_carga.isoformat(),
+            }
+        }, status=201)
+
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def eliminar_anexo_api(request, acta_id, anexo_id):
+    """
+    DELETE /actas/api/actas/<id>/anexos/<anexo_id>/
+
+    Elimina un anexo del acta.
+    Solo el creador puede eliminar; solo si el acta está en 'borrador'.
+    """
+    from .models import AnexoActa
+
+    if request.method != 'DELETE':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    if acta.creador_id != user.id and user.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Solo el creador puede eliminar anexos'}, status=403)
+
+    if acta.estado != 'borrador':
+        return JsonResponse({
+            'success': False,
+            'error': 'Solo se pueden eliminar anexos mientras el acta esté en Borrador'
+        }, status=400)
+
+    try:
+        anexo = AnexoActa.objects.get(id=anexo_id, acta=acta)
+    except AnexoActa.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Anexo no encontrado'}, status=404)
+
+    nombre = anexo.nombre_archivo
+    anexo.delete()  # También elimina el archivo físico
+
+    logger.info(f'Usuario {user.email} eliminó anexo "{nombre}" del acta {acta.numero_acta}')
+    return JsonResponse({'success': True, 'message': f'Anexo "{nombre}" eliminado correctamente'})
+
+
+@csrf_exempt
+def reordenar_anexos_api(request, acta_id):
+    """
+    PUT /actas/api/actas/<id>/anexos/orden/
+
+    Reordena los anexos del acta.
+    Body: {"orden": [<id_anexo_1>, <id_anexo_2>, ...]}
+    Solo creador; solo en estado 'borrador'.
+    """
+    from .models import AnexoActa
+
+    if request.method != 'PUT':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    if acta.creador_id != user.id and user.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Solo el creador puede reordenar anexos'}, status=403)
+
+    if acta.estado != 'borrador':
+        return JsonResponse({
+            'success': False,
+            'error': 'Solo se pueden reordenar anexos mientras el acta esté en Borrador'
+        }, status=400)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+    ids_ordenados = data.get('orden', [])
+    if not isinstance(ids_ordenados, list):
+        return JsonResponse({'success': False, 'error': '"orden" debe ser una lista de IDs'}, status=400)
+
+    # Verificar que todos los IDs pertenecen al acta
+    ids_del_acta = set(acta.anexos.values_list('id', flat=True))
+    if set(ids_ordenados) != ids_del_acta:
+        return JsonResponse({'success': False, 'error': 'La lista debe contener exactamente los IDs de todos los anexos'}, status=400)
+
+    for posicion, anexo_id in enumerate(ids_ordenados):
+        AnexoActa.objects.filter(id=anexo_id, acta=acta).update(orden=posicion)
+
+    return JsonResponse({'success': True, 'message': 'Orden de anexos actualizado correctamente'})
+
+
+# =============================================================================
+# API: REVISIÓN COLABORATIVA DE ACTAS
+# =============================================================================
+
+@csrf_exempt
+def enviar_a_revision_api(request, acta_id):
+    """
+    POST /actas/api/actas/<id>/enviar-a-revision/
+
+    Envía el acta al proceso de revisión colaborativa.
+    Solo el creador puede hacerlo y solo si estado='borrador'.
+
+    Response (éxito):
+        {"success": true, "estado": "en_revision", "fecha_limite_revision": "..."}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    if acta.creador_id != user.id:
+        return JsonResponse({'success': False, 'error': 'Solo el creador puede enviar el acta a revisión'}, status=403)
+
+    if acta.estado != 'borrador':
+        return JsonResponse({
+            'success': False,
+            'error': f'El acta debe estar en estado Borrador para enviarse a revisión (estado actual: {acta.estado})'
+        }, status=400)
+
+    if not acta.participantes.exists():
+        return JsonResponse({'success': False, 'error': 'El acta debe tener al menos un participante'}, status=400)
+
+    try:
+        from actas.utils import enviar_acta_a_revision
+        enviar_acta_a_revision(acta, user)
+        return JsonResponse({
+            'success': True,
+            'message': 'Acta enviada a revisión. Los participantes han sido notificados.',
+            'estado': acta.estado,
+            'ciclo_revision': acta.ciclo_revision,
+            'fecha_limite_revision': acta.fecha_limite_revision.isoformat() if acta.fecha_limite_revision else None,
+        })
+    except Exception as e:
+        logger.error(f'Error al enviar acta {acta_id} a revisión: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': f'Error al enviar a revisión: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+def aprobar_acta_api(request, acta_id):
+    """
+    POST /actas/api/actas/<id>/aprobar/
+
+    El participante aprueba el acta en el ciclo actual.
+    Body (opcional): {"firma_digital": "<base64>"}
+
+    Response (éxito):
+        {"success": true, "estado": "en_revision"|"finalizada", "aprobados": N, "total": N}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    if acta.estado != 'en_revision':
+        return JsonResponse({
+            'success': False,
+            'error': f'Solo se puede aprobar un acta en revisión (estado actual: {acta.estado})'
+        }, status=400)
+
+    if not acta.participantes.filter(usuario=user).exists():
+        return JsonResponse({'success': False, 'error': 'No eres participante de esta acta'}, status=403)
+
+    # Evitar doble aprobación en el mismo ciclo
+    participante_obj = acta.participantes.get(usuario=user)
+    if (participante_obj.estado_aprobacion == 'aprobado'
+            and participante_obj.ciclo_revision == acta.ciclo_revision):
+        return JsonResponse({'success': False, 'error': 'Ya aprobaste esta acta en el ciclo actual'}, status=400)
+
+    try:
+        data = json.loads(request.body) if request.body else {}
+    except json.JSONDecodeError:
+        data = {}
+
+    firma_base64 = data.get('firma_digital') or None
+
+    try:
+        from actas.utils import aprobar_acta_participante
+        nuevo_estado = aprobar_acta_participante(acta, user, firma_base64=firma_base64)
+
+        aprobados = acta.participantes.filter(
+            estado_aprobacion='aprobado', ciclo_revision=acta.ciclo_revision
+        ).count()
+        total = acta.participantes.count()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Has aprobado el acta.' + (' El acta ha sido finalizada.' if nuevo_estado == 'finalizada' else ''),
+            'estado': nuevo_estado,
+            'aprobados': aprobados,
+            'total': total,
+        })
+    except Exception as e:
+        logger.error(f'Error al aprobar acta {acta_id}: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': f'Error al aprobar: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+def rechazar_acta_api(request, acta_id):
+    """
+    POST /actas/api/actas/<id>/rechazar/
+
+    El participante rechaza el acta. El acta vuelve inmediatamente a 'borrador'.
+    Body: {"observaciones": "Texto con mínimo 10 caracteres"}
+
+    Response (éxito):
+        {"success": true, "estado": "borrador", "ciclo_revision": N}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    if acta.estado != 'en_revision':
+        return JsonResponse({
+            'success': False,
+            'error': f'Solo se puede rechazar un acta en revisión (estado actual: {acta.estado})'
+        }, status=400)
+
+    if not acta.participantes.filter(usuario=user).exists():
+        return JsonResponse({'success': False, 'error': 'No eres participante de esta acta'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+    observaciones = data.get('observaciones', '').strip()
+    if len(observaciones) < 10:
+        return JsonResponse({
+            'success': False,
+            'error': 'Las observaciones son obligatorias y deben tener al menos 10 caracteres'
+        }, status=400)
+
+    try:
+        from actas.utils import rechazar_acta_participante
+        acta_actualizada = rechazar_acta_participante(acta, user, observaciones)
+        return JsonResponse({
+            'success': True,
+            'message': 'Has rechazado el acta. El creador ha sido notificado y el acta vuelve a Borrador.',
+            'estado': acta_actualizada.estado,
+            'ciclo_revision': acta_actualizada.ciclo_revision,
+        })
+    except Exception as e:
+        logger.error(f'Error al rechazar acta {acta_id}: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': f'Error al rechazar: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+def cerrar_acta_api(request, acta_id):
+    """
+    POST /actas/api/actas/<id>/cerrar/
+
+    Cierra el acta por vencimiento de plazo sin consenso.
+    Solo admin o creador del acta.
+    Body: {"motivo_cierre": "Texto explicando el cierre"}
+
+    Response (éxito):
+        {"success": true, "estado": "cerrada_por_vencimiento", "fecha_cierre": "..."}
+    """
+    if request.method != 'POST':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    if acta.creador_id != user.id and user.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Solo el creador o un administrador puede cerrar el acta'}, status=403)
+
+    if acta.estado not in ('borrador', 'en_revision'):
+        return JsonResponse({
+            'success': False,
+            'error': f'No se puede cerrar un acta en estado {acta.estado}'
+        }, status=400)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+    motivo = data.get('motivo_cierre', '').strip()
+    if not motivo:
+        return JsonResponse({'success': False, 'error': 'El motivo de cierre es obligatorio'}, status=400)
+
+    try:
+        from actas.utils import cerrar_acta_por_vencimiento
+        acta_actualizada = cerrar_acta_por_vencimiento(acta, user, motivo)
+        return JsonResponse({
+            'success': True,
+            'message': 'Acta cerrada por vencimiento. Los participantes han sido notificados.',
+            'estado': acta_actualizada.estado,
+            'fecha_cierre': acta_actualizada.fecha_cierre.isoformat() if acta_actualizada.fecha_cierre else None,
+            'cerrada_por': user.get_full_name(),
+        })
+    except Exception as e:
+        logger.error(f'Error al cerrar acta {acta_id}: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': f'Error al cerrar acta: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+def historial_acta_api(request, acta_id):
+    """
+    GET /actas/api/actas/<id>/historial/
+
+    Retorna el historial_cambios completo del acta, paginado por ciclo.
+    Accesible para participantes, creador y admin.
+
+    Response (éxito):
+        {"success": true, "historial": [...], "total_eventos": N, "ciclo_actual": N}
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    es_participante = acta.participantes.filter(usuario=user).exists()
+    if acta.creador_id != user.id and user.rol != 'admin' and not es_participante:
+        return JsonResponse({'success': False, 'error': 'No tienes acceso a esta acta'}, status=403)
+
+    historial = acta.historial_cambios or []
+    return JsonResponse({
+        'success': True,
+        'numero_acta': acta.numero_acta,
+        'titulo': acta.titulo,
+        'estado': acta.estado,
+        'ciclo_actual': acta.ciclo_revision,
+        'total_eventos': len(historial),
+        'historial': historial,
+    })
+
+
+@csrf_exempt
+def participantes_estado_api(request, acta_id):
+    """
+    GET /actas/api/actas/<id>/participantes-estado/
+
+    Retorna el estado de aprobación de cada participante en el ciclo actual.
+    Accesible para participantes, creador y admin.
+
+    Response (éxito):
+        {
+          "success": true,
+          "ciclo_actual": N,
+          "resumen": {"pendiente": N, "aprobado": N, "rechazado": N},
+          "participantes": [...]
+        }
+    """
+    if request.method != 'GET':
+        return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+    user, error_response = get_user_from_token(request)
+    if error_response:
+        return error_response
+
+    try:
+        acta = Acta.objects.select_related('creador').get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    es_participante = acta.participantes.filter(usuario=user).exists()
+    if acta.creador_id != user.id and user.rol != 'admin' and not es_participante:
+        return JsonResponse({'success': False, 'error': 'No tienes acceso a esta acta'}, status=403)
+
+    participantes_data = []
+    resumen = {'pendiente': 0, 'aprobado': 0, 'rechazado': 0}
+
+    for p in acta.participantes.select_related('usuario').order_by('fecha_agregado'):
+        estado = p.estado_aprobacion
+        resumen[estado] = resumen.get(estado, 0) + 1
+        participantes_data.append({
+            'id': p.id,
+            'usuario_id': p.usuario_id,
+            'nombre': p.usuario.get_full_name(),
+            'email': p.usuario.email,
+            'rol_en_reunion': p.rol_en_reunion,
+            'obligatorio_firma': p.obligatorio_firma,
+            'estado_aprobacion': estado,
+            'fecha_respuesta': p.fecha_respuesta.isoformat() if p.fecha_respuesta else None,
+            'observaciones': p.observaciones if estado == 'rechazado' else '',
+            'ciclo_revision': p.ciclo_revision,
+        })
+
+    return JsonResponse({
+        'success': True,
+        'numero_acta': acta.numero_acta,
+        'estado': acta.estado,
+        'ciclo_actual': acta.ciclo_revision,
+        'fecha_limite_revision': acta.fecha_limite_revision.isoformat() if acta.fecha_limite_revision else None,
+        'resumen': resumen,
+        'total': len(participantes_data),
+        'participantes': participantes_data,
+    })
+
+
+@csrf_exempt
+def rechazar_cuenta_api(request):
+    """
+    POST /actas/api/admin/rechazar-cuenta/
+
+    Body JSON: { "user_id": 5, "motivo": "No es funcionario verificado." }
+    Solo para admins.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método no permitido'}, status=405)
+
+    admin, error = get_user_from_token(request)
+    if error:
+        return error
+
+    if admin.rol != 'admin':
+        return JsonResponse({'success': False, 'error': 'Sin permisos de administrador'}, status=403)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+    user_id = data.get('user_id')
+    motivo = data.get('motivo', '').strip()
+
+    if not user_id or not motivo:
+        return JsonResponse({'success': False, 'error': 'user_id y motivo son requeridos'}, status=400)
+
+    try:
+        user_a_rechazar = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Usuario no encontrado'}, status=404)
+
+    from actas.utils import rechazar_cuenta_usuario
+    rechazar_cuenta_usuario(user_a_rechazar, motivo, admin)
+
+    return JsonResponse({
+        'success': True,
+        'message': f"Cuenta de {user_a_rechazar.get_full_name()} rechazada.",
+    })

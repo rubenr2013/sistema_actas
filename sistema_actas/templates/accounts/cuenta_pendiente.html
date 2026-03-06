@@ -1,0 +1,142 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Estado de Cuenta - Sistema de Actas SENA{% endblock %}
+
+{% block extra_css %}
+<style>
+body {
+    background: linear-gradient(to top, #e9ecef, #ffffff);
+    background-attachment: fixed;
+}
+.estado-card {
+    max-width: 580px;
+    margin: 60px auto;
+    border-radius: 16px;
+    box-shadow: 0 10px 35px rgba(0,0,0,0.12);
+    overflow: hidden;
+}
+.estado-header {
+    padding: 2rem;
+    text-align: center;
+    color: white;
+}
+.estado-header.pendiente { background: linear-gradient(135deg, #f59e0b, #d97706); }
+.estado-header.rechazada { background: linear-gradient(135deg, #ef4444, #b91c1c); }
+.estado-header.suspendida { background: linear-gradient(135deg, #6b7280, #374151); }
+.estado-icon {
+    font-size: 3.5rem;
+    margin-bottom: 0.8rem;
+}
+.estado-body {
+    padding: 2rem;
+    background: white;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    {% if estado == 'pendiente_aprobacion' %}
+    <!-- Cuenta pendiente de aprobación -->
+    <div class="estado-card">
+        <div class="estado-header pendiente">
+            <div class="estado-icon"><i class="fas fa-hourglass-half"></i></div>
+            <h3 class="mb-1">Cuenta en revisión</h3>
+            <p class="mb-0 opacity-90">Tu solicitud está siendo procesada</p>
+        </div>
+        <div class="estado-body">
+            <p class="lead text-center mb-4">
+                Tu cuenta está <strong>pendiente de aprobación</strong> por el administrador del sistema.
+            </p>
+            <div class="alert alert-warning">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>¿Qué sigue?</strong> Un administrador revisará tu información y te asignará el rol
+                correspondiente. Recibirás un correo electrónico cuando tu cuenta sea aprobada.
+            </div>
+            <p class="text-muted text-center small">
+                Si tienes alguna duda, contacta al administrador del sistema.
+            </p>
+            <div class="d-flex justify-content-center mt-3">
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver al inicio de sesión
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% elif estado == 'rechazada' %}
+    <!-- Cuenta rechazada -->
+    <div class="estado-card">
+        <div class="estado-header rechazada">
+            <div class="estado-icon"><i class="fas fa-times-circle"></i></div>
+            <h3 class="mb-1">Solicitud no aprobada</h3>
+            <p class="mb-0 opacity-90">Tu registro no fue autorizado</p>
+        </div>
+        <div class="estado-body">
+            <p class="lead text-center mb-4">
+                Tu solicitud de registro <strong>no fue aprobada</strong> por el administrador.
+            </p>
+            {% if motivo %}
+            <div class="alert alert-danger">
+                <i class="fas fa-comment-alt me-2"></i>
+                <strong>Motivo:</strong> {{ motivo }}
+            </div>
+            {% endif %}
+            <p class="text-muted text-center small">
+                Si crees que esto es un error, contacta directamente al administrador del sistema.
+            </p>
+            <div class="d-flex justify-content-center mt-3">
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver al inicio de sesión
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% elif estado == 'suspendida' %}
+    <!-- Cuenta suspendida -->
+    <div class="estado-card">
+        <div class="estado-header suspendida">
+            <div class="estado-icon"><i class="fas fa-ban"></i></div>
+            <h3 class="mb-1">Cuenta suspendida</h3>
+            <p class="mb-0 opacity-90">Acceso temporalmente deshabilitado</p>
+        </div>
+        <div class="estado-body">
+            <p class="lead text-center mb-4">
+                Tu cuenta ha sido <strong>suspendida temporalmente</strong>.
+            </p>
+            {% if motivo %}
+            <div class="alert alert-secondary">
+                <i class="fas fa-comment-alt me-2"></i>
+                <strong>Motivo:</strong> {{ motivo }}
+            </div>
+            {% endif %}
+            <p class="text-muted text-center small">
+                Contacta al administrador del sistema para más información.
+            </p>
+            <div class="d-flex justify-content-center mt-3">
+                <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary">
+                    <i class="fas fa-arrow-left me-2"></i>Volver al inicio de sesión
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Estado desconocido (fallback) -->
+    <div class="estado-card">
+        <div class="estado-header suspendida">
+            <div class="estado-icon"><i class="fas fa-exclamation-triangle"></i></div>
+            <h3 class="mb-1">Acceso no disponible</h3>
+        </div>
+        <div class="estado-body text-center">
+            <p>No puedes acceder al sistema en este momento. Contacta al administrador.</p>
+            <a href="{% url 'accounts:login' %}" class="btn btn-outline-secondary mt-3">
+                <i class="fas fa-arrow-left me-2"></i>Volver al login
+            </a>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

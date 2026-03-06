@@ -150,8 +150,9 @@ class Acta(models.Model):
         ('en_revision', 'En Revisión'),
         ('finalizada', 'Finalizada'),
         ('archivada', 'Archivada'),
+        ('cerrada_por_vencimiento', 'Cerrada por Vencimiento'),
     ]
-    
+
     TIPOS_REUNION = [
         ('consejo_academico', 'Consejo Académico'),
         ('comite_evaluacion', 'Comité de Evaluación'),
@@ -160,6 +161,11 @@ class Acta(models.Model):
         ('tecnica', 'Técnica'),
         ('otra', 'Otra'),
     ]
+
+    # Tipos de acta para la generación especializada con IA
+    # (importados desde actas.prompts para mantener una única fuente de verdad)
+    from actas.prompts import TIPOS_ACTA as _TIPOS_ACTA
+    TIPOS_ACTA = _TIPOS_ACTA
     
     # ========================================
     # CAMPOS BÁSICOS (YA EXISTENTES)
@@ -176,7 +182,14 @@ class Acta(models.Model):
     ], default='presencial')
     
     # Estado y control
-    estado = models.CharField(max_length=20, choices=ESTADOS, default='borrador')
+    estado = models.CharField(max_length=25, choices=ESTADOS, default='borrador')
+    # Tipo de acta para prompts IA especializados
+    tipo_acta = models.CharField(
+        max_length=25,
+        choices=_TIPOS_ACTA,
+        default='reunion_general',
+        help_text='Tipo de acta para generación de contenido especializado con IA',
+    )
     creador = models.ForeignKey(User, on_delete=models.CASCADE, related_name='actas_creadas')
     fecha_creacion = models.DateTimeField(auto_now_add=True)
     fecha_modificacion = models.DateTimeField(auto_now=True)
@@ -250,7 +263,57 @@ class Acta(models.Model):
         default=1,
         help_text='Número de versión del acta (incrementa con cada edición)'
     )
-    
+
+    # ========================================
+    # CAMPOS PARA EL PROCESO DE REVISIÓN COLABORATIVA
+    # ========================================
+    # Fecha límite para que los participantes aprueben/rechacen el acta
+    fecha_limite_revision = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Fecha límite para que los participantes respondan en el ciclo actual'
+    )
+
+    # Número de ciclo de revisión (incrementa cada vez que el acta vuelve a borrador)
+    ciclo_revision = models.IntegerField(
+        default=1,
+        help_text='Número de ciclo de revisión (1 = primera vez en revisión)'
+    )
+
+    # Historial de cambios en formato JSON
+    # Formato: [{"ciclo": 1, "fecha": "...", "accion": "...", "usuario": "...", "detalle": "..."}]
+    historial_cambios = models.JSONField(
+        default=list, blank=True,
+        help_text='Historial de cambios y eventos del acta en formato JSON'
+    )
+
+    # Observaciones de los participantes por ciclo en formato JSON
+    # Formato: {"ciclo_1": [{"usuario": "...", "observacion": "...", "fecha": "..."}]}
+    observaciones_participantes = models.JSONField(
+        default=dict, blank=True,
+        help_text='Observaciones de los participantes organizadas por ciclo de revisión'
+    )
+
+    # Quién cerró el acta (por vencimiento u otra causa)
+    cerrada_por = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='actas_cerradas',
+        help_text='Usuario (o sistema) que cerró el acta por vencimiento'
+    )
+
+    # Fecha en que se cerró el acta
+    fecha_cierre = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Fecha en que el acta fue cerrada por vencimiento'
+    )
+
+    # Motivo del cierre
+    motivo_cierre = models.TextField(
+        blank=True,
+        help_text='Motivo del cierre del acta (vencimiento de plazos, etc.)'
+    )
+
     class Meta:
         verbose_name = 'Acta'
         verbose_name_plural = 'Actas'
@@ -381,21 +444,54 @@ class Acta(models.Model):
 
 
 class Participante(models.Model):
+    ESTADO_APROBACION_CHOICES = [
+        ('pendiente', 'Pendiente'),
+        ('aprobado', 'Aprobado'),
+        ('rechazado', 'Rechazado'),
+    ]
+
     acta = models.ForeignKey(Acta, on_delete=models.CASCADE, related_name='participantes')
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)
     rol_en_reunion = models.CharField(max_length=100, blank=True)
     obligatorio_firma = models.BooleanField(default=True)
     fecha_agregado = models.DateTimeField(auto_now_add=True)
-    
+
+    # ── Campos para el proceso de revisión colaborativa ──────────────────────
+    # Estado de aprobación del participante en el ciclo actual
+    estado_aprobacion = models.CharField(
+        max_length=15,
+        choices=ESTADO_APROBACION_CHOICES,
+        default='pendiente',
+        help_text='Respuesta del participante al acta en el ciclo de revisión actual'
+    )
+
+    # Fecha en que el participante respondió (aprobó o rechazó)
+    fecha_respuesta = models.DateTimeField(
+        null=True, blank=True,
+        help_text='Fecha en que el participante aprobó o rechazó el acta'
+    )
+
+    # Observaciones del participante al rechazar o aprobar con comentarios
+    observaciones = models.TextField(
+        blank=True,
+        help_text='Observaciones del participante (motivo del rechazo o comentarios de aprobación)'
+    )
+
+    # Ciclo de revisión en que se registró esta respuesta
+    ciclo_revision = models.IntegerField(
+        default=1,
+        help_text='Ciclo de revisión al que corresponde el estado_aprobacion actual'
+    )
+
     class Meta:
         verbose_name = 'Participante'
         verbose_name_plural = 'Participantes'
         unique_together = ['acta', 'usuario']
-        # NUEVO: Índice para búsquedas frecuentes
         indexes = [
             models.Index(fields=['acta', 'usuario']),
+            models.Index(fields=['acta', 'estado_aprobacion']),
         ]
-    
+
     def __str__(self):
         return f"{self.usuario.get_full_name()} - {self.acta.numero_acta}"
 
@@ -607,3 +703,99 @@ class ArchivoAdjunto(models.Model):
             return f"{self.tamaño_bytes / 1024:.2f} KB"
         else:
             return f"{self.tamaño_bytes / (1024 * 1024):.2f} MB"
+
+
+# =============================================================================
+# ANEXO DE ACTA (PDF únicamente, fusionado al generar el PDF del acta)
+# =============================================================================
+
+MAX_ANEXO_SIZE = 10 * 1024 * 1024   # 10 MB
+MAX_ANEXOS_POR_ACTA = 10
+
+
+def validar_pdf_anexo(archivo):
+    """
+    Valida que el archivo sea un PDF real:
+    1. Extensión .pdf
+    2. Tamaño ≤ 10 MB
+    3. Magic bytes %PDF al inicio
+    """
+    if not archivo:
+        return
+
+    nombre = archivo.name.lower()
+    if not nombre.endswith('.pdf'):
+        raise ValidationError('Solo se permiten archivos PDF como anexos.')
+
+    if archivo.size > MAX_ANEXO_SIZE:
+        mb = archivo.size / (1024 * 1024)
+        raise ValidationError(f'El anexo es demasiado grande ({mb:.2f} MB). Máximo 10 MB.')
+
+    # Verificar magic bytes reales
+    try:
+        pos = archivo.tell()
+        archivo.seek(0)
+        header = archivo.read(5)
+        archivo.seek(pos)
+    except Exception:
+        return
+
+    if not header.startswith(b'%PDF'):
+        raise ValidationError('El archivo no es un PDF válido (contenido incorrecto).')
+
+
+class AnexoActa(models.Model):
+    """
+    Anexos en PDF que se fusionan al generar el PDF del acta.
+    Solo se permiten PDFs; máximo 10 anexos por acta.
+    Solo se pueden agregar/eliminar mientras el acta esté en estado 'borrador'.
+    """
+    acta = models.ForeignKey(
+        'Acta',
+        on_delete=models.CASCADE,
+        related_name='anexos',
+        help_text='Acta a la que pertenece el anexo',
+    )
+    archivo = models.FileField(
+        upload_to='actas/anexos/%Y/%m/',
+        validators=[validar_pdf_anexo],
+        help_text='Archivo PDF del anexo (máx. 10 MB)',
+    )
+    nombre_archivo = models.CharField(
+        max_length=255,
+        help_text='Nombre original del archivo PDF',
+    )
+    orden = models.IntegerField(
+        default=0,
+        help_text='Posición del anexo dentro del PDF consolidado (0 = primero)',
+    )
+    fecha_carga = models.DateTimeField(auto_now_add=True)
+    cargado_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='anexos_cargados',
+        help_text='Usuario que subió el anexo',
+    )
+
+    class Meta:
+        verbose_name = 'Anexo de Acta'
+        verbose_name_plural = 'Anexos de Acta'
+        ordering = ['orden', 'fecha_carga']
+        indexes = [
+            models.Index(fields=['acta', 'orden']),
+        ]
+
+    def __str__(self):
+        return f"Anexo '{self.nombre_archivo}' — Acta {self.acta.numero_acta}"
+
+    def delete(self, *args, **kwargs):
+        """Eliminar el archivo físico al borrar el registro."""
+        if self.archivo:
+            try:
+                path = self.archivo.path
+                if os.path.isfile(path):
+                    os.remove(path)
+            except Exception:
+                pass
+        super().delete(*args, **kwargs)

@@ -22,6 +22,17 @@ urlpatterns = [
     path("usuarios/", views.usuarios, name="usuarios"),
     path('usuarios/editar/<int:user_id>/', views.editar_usuario, name='editar_usuario'),
     path('usuarios/eliminar/<int:user_id>/', views.eliminar_usuario, name='eliminar_usuario'),
+
+    # ── Sistema de aprobación de cuentas ───────────────────────────────────
+    # Página informativa cuando la cuenta no está activa (sin login requerido)
+    path("cuenta-pendiente/", views.cuenta_pendiente_view, name="cuenta_pendiente"),
+
+    # Panel de admin: lista de cuentas pendientes
+    path("cuentas-pendientes/", views.cuentas_pendientes_view, name="cuentas_pendientes"),
+
+    # Acciones de aprobación / rechazo (POST desde el panel)
+    path("aprobar-cuenta/<int:user_id>/", views.aprobar_cuenta_view, name="aprobar_cuenta"),
+    path("rechazar-cuenta/<int:user_id>/", views.rechazar_cuenta_view, name="rechazar_cuenta"),
     
     # ==========================================================
     # FLUJO DE RECUPERACIÓN DE CONTRASEÑA (CORREGIDO)

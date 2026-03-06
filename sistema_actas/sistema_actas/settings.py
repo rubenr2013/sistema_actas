@@ -118,6 +118,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",  # Protección contra CSRF
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "accounts.middleware.EstadoCuentaMiddleware",  # Bloquear cuentas no activas (pendiente, rechazada, suspendida)
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",  # Protección contra Clickjacking
     "sistema_actas.security.SecurityMiddleware",  # Seguridad personalizada (XSS, SQLi detection)

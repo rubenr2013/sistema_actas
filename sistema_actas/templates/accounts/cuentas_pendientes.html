@@ -1,0 +1,215 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Cuentas Pendientes - Sistema de Actas SENA{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1"><i class="fas fa-user-clock me-2 text-warning"></i>Cuentas Pendientes</h2>
+            <p class="text-muted mb-0">Revisa y aprueba o rechaza las solicitudes de registro</p>
+        </div>
+        <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+            {{ pendientes.count }} pendiente{{ pendientes.count|pluralize:"s" }}
+        </span>
+    </div>
+
+    <!-- Mensajes del sistema -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    {% if pendientes %}
+    <!-- Tabla de solicitudes pendientes -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">Usuario</th>
+                            <th>Email</th>
+                            <th>Documento</th>
+                            <th>Fecha de registro</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for usuario in pendientes %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center gap-3">
+                                    <!-- Avatar con iniciales -->
+                                    <div class="rounded-circle bg-warning text-dark d-flex align-items-center justify-content-center fw-bold"
+                                         style="width:40px; height:40px; font-size:.9rem;">
+                                        {{ usuario.first_name|first|upper }}{{ usuario.last_name|first|upper }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-semibold">{{ usuario.get_full_name }}</div>
+                                        <small class="text-muted">ID: {{ usuario.id }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ usuario.email }}</td>
+                            <td>
+                                <span class="badge bg-light text-dark border">{{ usuario.tipo_documento }}</span>
+                                {{ usuario.numero_documento }}
+                            </td>
+                            <td>
+                                <span title="{{ usuario.fecha_registro }}">
+                                    {{ usuario.fecha_registro|date:"d/m/Y H:i" }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <!-- Botón Aprobar -->
+                                <button type="button" class="btn btn-success btn-sm me-1"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalAprobar"
+                                        data-user-id="{{ usuario.id }}"
+                                        data-user-nombre="{{ usuario.get_full_name }}">
+                                    <i class="fas fa-check me-1"></i>Aprobar
+                                </button>
+                                <!-- Botón Rechazar -->
+                                <button type="button" class="btn btn-danger btn-sm"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#modalRechazar"
+                                        data-user-id="{{ usuario.id }}"
+                                        data-user-nombre="{{ usuario.get_full_name }}">
+                                    <i class="fas fa-times me-1"></i>Rechazar
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <!-- Sin pendientes -->
+    <div class="card shadow-sm">
+        <div class="card-body text-center py-5">
+            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+            <h5 class="text-muted">No hay cuentas pendientes de aprobación</h5>
+            <p class="text-muted">Todas las solicitudes han sido procesadas.</p>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+
+<!-- ─── Modal: Aprobar cuenta ─────────────────────────────────────────────── -->
+<div class="modal fade" id="modalAprobar" tabindex="-1" aria-labelledby="modalAprobarLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formAprobar">
+                {% csrf_token %}
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="modalAprobarLabel">
+                        <i class="fas fa-user-check me-2"></i>Aprobar cuenta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Vas a aprobar la cuenta de: <strong id="aprobar-nombre"></strong></p>
+
+                    <div class="mb-3">
+                        <label for="nuevo_rol" class="form-label fw-semibold">
+                            Rol a asignar <span class="text-danger">*</span>
+                        </label>
+                        <select class="form-select" id="nuevo_rol" name="nuevo_rol" required>
+                            <option value="">Selecciona el rol...</option>
+                            <option value="instructor">Instructor</option>
+                            <option value="coordinador">Coordinador</option>
+                            <option value="director">Director</option>
+                            <option value="funcionario">Funcionario / Administrativo</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="observaciones" class="form-label">Observaciones (opcional)</label>
+                        <textarea class="form-control" id="observaciones" name="observaciones"
+                                  rows="2" placeholder="Notas adicionales..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check me-1"></i>Confirmar aprobación
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- ─── Modal: Rechazar cuenta ────────────────────────────────────────────── -->
+<div class="modal fade" id="modalRechazar" tabindex="-1" aria-labelledby="modalRechazarLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formRechazar">
+                {% csrf_token %}
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="modalRechazarLabel">
+                        <i class="fas fa-user-times me-2"></i>Rechazar cuenta
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Vas a rechazar la cuenta de: <strong id="rechazar-nombre"></strong></p>
+
+                    <div class="mb-3">
+                        <label for="motivo" class="form-label fw-semibold">
+                            Motivo del rechazo <span class="text-danger">*</span>
+                        </label>
+                        <textarea class="form-control" id="motivo" name="motivo" rows="3"
+                                  placeholder="Explica por qué se rechaza esta solicitud..." required></textarea>
+                        <div class="form-text">El usuario verá este motivo al intentar iniciar sesión.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="fas fa-times me-1"></i>Confirmar rechazo
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Cuando se abre el modal de Aprobar, cargar el nombre y configurar la acción del form
+document.getElementById('modalAprobar').addEventListener('show.bs.modal', function(event) {
+    const btn = event.relatedTarget;
+    const userId = btn.getAttribute('data-user-id');
+    const nombre = btn.getAttribute('data-user-nombre');
+
+    document.getElementById('aprobar-nombre').textContent = nombre;
+    document.getElementById('formAprobar').action = `/accounts/aprobar-cuenta/${userId}/`;
+});
+
+// Cuando se abre el modal de Rechazar, cargar el nombre y configurar la acción del form
+document.getElementById('modalRechazar').addEventListener('show.bs.modal', function(event) {
+    const btn = event.relatedTarget;
+    const userId = btn.getAttribute('data-user-id');
+    const nombre = btn.getAttribute('data-user-nombre');
+
+    document.getElementById('rechazar-nombre').textContent = nombre;
+    document.getElementById('formRechazar').action = `/accounts/rechazar-cuenta/${userId}/`;
+});
+</script>
+{% endblock %}
