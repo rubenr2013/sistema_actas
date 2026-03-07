@@ -464,6 +464,7 @@ def eliminar_usuario(request, user_id):
 
     usuario.delete()
     messages.success(request, f'Usuario {usuario.get_full_name()} eliminado correctamente.')
+    return redirect('accounts:usuarios')
 
 
 # ============================================================================

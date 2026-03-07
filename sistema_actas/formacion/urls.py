@@ -1,7 +1,19 @@
 from django.urls import path
-from . import api_views
+from . import api_views, views
+
+app_name = 'formacion'
 
 urlpatterns = [
+    # ── Vistas Web (admin) ─────────────────────────────────────────────────
+    path('programas/', views.programas_list, name='programas_list'),
+    path('programas/<int:programa_id>/editar/', views.editar_programa, name='editar_programa'),
+    path('programas/<int:programa_id>/eliminar/', views.eliminar_programa, name='eliminar_programa'),
+
+    path('fichas/', views.fichas_list, name='fichas_list'),
+    path('fichas/<int:ficha_id>/editar/', views.editar_ficha, name='editar_ficha'),
+    path('fichas/<int:ficha_id>/eliminar/', views.eliminar_ficha, name='eliminar_ficha'),
+
+
     # ── Programas ──────────────────────────────────────────────────────────────
     # GET  → lista programas activos
     # POST → crear programa (admin)

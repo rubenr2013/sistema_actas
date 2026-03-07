@@ -1,0 +1,338 @@
+{% extends "base.html" %}
+
+{% block title %}Fichas de Formación{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card {
+        border-radius: 1rem;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+    }
+    .table thead {
+        background-color: var(--sena-green, #39A900);
+        color: white;
+    }
+    .table-hover tbody tr:hover {
+        background-color: #f5f5f5;
+    }
+    .ficha-icon {
+        width: 40px;
+        height: 40px;
+        background-color: #e8f4fd;
+        color: #0d6efd;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        font-weight: 600;
+        flex-shrink: 0;
+    }
+    .header-bar {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .header-bar h2 {
+        font-weight: 600;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="header-bar mb-3">
+        <h2><i class="fas fa-layer-group me-2 text-success"></i>Fichas de Formación</h2>
+        <div class="d-flex gap-2">
+            <a href="{% url 'formacion:programas_list' %}" class="btn btn-outline-success">
+                <i class="fas fa-graduation-cap me-1"></i>Ver Programas
+            </a>
+            <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalCrearFicha">
+                <i class="fas fa-plus me-1"></i>Nueva Ficha
+            </button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <!-- FILTROS -->
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <form method="get" class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label"><i class="fas fa-search me-1"></i>Buscar</label>
+                            <input type="text" class="form-control" name="search"
+                                   value="{{ filtros.search }}"
+                                   placeholder="Número de ficha o programa...">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label"><i class="fas fa-graduation-cap me-1"></i>Programa</label>
+                            <select class="form-select" name="programa">
+                                <option value="">Todos los programas</option>
+                                {% for p in programas %}
+                                <option value="{{ p.id }}" {% if filtros.programa == p.id|stringformat:"s" %}selected{% endif %}>
+                                    {{ p.nombre }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label"><i class="fas fa-toggle-on me-1"></i>Estado</label>
+                            <select class="form-select" name="estado">
+                                <option value="">Todos</option>
+                                <option value="activa" {% if filtros.estado == 'activa' %}selected{% endif %}>Activa</option>
+                                <option value="inactiva" {% if filtros.estado == 'inactiva' %}selected{% endif %}>Inactiva</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 d-flex align-items-end gap-2">
+                            <button type="submit" class="btn btn-primary flex-fill">
+                                <i class="fas fa-filter me-1"></i>Filtrar
+                            </button>
+                            <a href="{% url 'formacion:fichas_list' %}" class="btn btn-outline-secondary">
+                                <i class="fas fa-redo"></i>
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Contador -->
+            {% if page_obj %}
+            <div class="mb-3">
+                <small class="text-muted">
+                    Mostrando {{ page_obj.start_index }} - {{ page_obj.end_index }} de {{ page_obj.paginator.count }} fichas
+                </small>
+            </div>
+            {% endif %}
+
+            <!-- TABLA -->
+            {% if page_obj %}
+            <div class="table-responsive">
+                <table class="table table-hover align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Ficha</th>
+                            <th>Programa</th>
+                            <th>Fecha Inicio</th>
+                            <th>Fecha Fin</th>
+                            <th>Estado</th>
+                            <th>Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for ficha in page_obj %}
+                        <tr>
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="ficha-icon">
+                                        <i class="fas fa-id-card"></i>
+                                    </div>
+                                    <strong>{{ ficha.numero }}</strong>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark border">{{ ficha.programa.nombre }}</span>
+                                <br><small class="text-muted">{{ ficha.programa.codigo }}</small>
+                            </td>
+                            <td>{{ ficha.fecha_inicio|date:"d/m/Y" }}</td>
+                            <td>{{ ficha.fecha_fin|date:"d/m/Y" }}</td>
+                            <td>
+                                {% if ficha.activa %}
+                                    <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Activa</span>
+                                {% else %}
+                                    <span class="badge bg-secondary"><i class="fas fa-times-circle me-1"></i>Inactiva</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-primary"
+                                        title="Editar"
+                                        onclick="abrirEditarFicha(
+                                            {{ ficha.id }},
+                                            '{{ ficha.numero }}',
+                                            {{ ficha.programa.id }},
+                                            '{{ ficha.fecha_inicio|date:'Y-m-d' }}',
+                                            '{{ ficha.fecha_fin|date:'Y-m-d' }}',
+                                            {{ ficha.activa|yesno:'true,false' }}
+                                        )">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger"
+                                        title="Eliminar"
+                                        onclick="confirmarEliminarFicha({{ ficha.id }}, '{{ ficha.numero }}')">
+                                    <i class="fas fa-trash-alt"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- PAGINACIÓN -->
+            <nav>
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1{% if filtros.search %}&search={{ filtros.search }}{% endif %}{% if filtros.programa %}&programa={{ filtros.programa }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}">&laquo; Primera</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if filtros.search %}&search={{ filtros.search }}{% endif %}{% if filtros.programa %}&programa={{ filtros.programa }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}">Anterior</a>
+                    </li>
+                    {% endif %}
+                    <li class="page-item disabled">
+                        <span class="page-link">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if filtros.search %}&search={{ filtros.search }}{% endif %}{% if filtros.programa %}&programa={{ filtros.programa }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}">Siguiente</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% if filtros.search %}&search={{ filtros.search }}{% endif %}{% if filtros.programa %}&programa={{ filtros.programa }}{% endif %}{% if filtros.estado %}&estado={{ filtros.estado }}{% endif %}">Última &raquo;</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% else %}
+            <div class="alert alert-warning text-center mb-0">
+                <i class="fas fa-exclamation-circle me-2"></i>
+                No se encontraron fichas con los filtros aplicados.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CREAR FICHA -->
+<div class="modal fade" id="modalCrearFicha" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" action="{% url 'formacion:fichas_list' %}">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-plus me-2"></i>Nueva Ficha</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Número de ficha <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="numero"
+                               placeholder="Ej: 2898734" pattern="[0-9]+" title="Solo dígitos" required>
+                        <div class="form-text">Solo números, sin letras ni espacios.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Programa <span class="text-danger">*</span></label>
+                        <select class="form-select" name="programa" required>
+                            <option value="">Selecciona un programa...</option>
+                            {% for p in programas %}
+                            <option value="{{ p.id }}">{{ p.nombre }} ({{ p.codigo }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Fecha de inicio <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="fecha_inicio" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Fecha de fin <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" name="fecha_fin" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-save me-1"></i>Crear Ficha</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- MODAL EDITAR FICHA -->
+<div class="modal fade" id="modalEditarFicha" tabindex="-1">
+    <div class="modal-dialog">
+        <form method="post" id="formEditarFicha">
+            {% csrf_token %}
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="fas fa-edit me-2"></i>Editar Ficha</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Número de ficha <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" name="numero" id="editNumero"
+                               pattern="[0-9]+" title="Solo dígitos" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Programa <span class="text-danger">*</span></label>
+                        <select class="form-select" name="programa" id="editPrograma" required>
+                            {% for p in programas %}
+                            <option value="{{ p.id }}">{{ p.nombre }} ({{ p.codigo }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Fecha de inicio</label>
+                            <input type="date" class="form-control" name="fecha_inicio" id="editFechaInicio" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-semibold">Fecha de fin</label>
+                            <input type="date" class="form-control" name="fecha_fin" id="editFechaFin" required>
+                        </div>
+                    </div>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" name="activa" id="editActiva">
+                        <label class="form-check-label" for="editActiva">Ficha activa</label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary"><i class="fas fa-save me-1"></i>Guardar Cambios</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- FORM OCULTO ELIMINAR -->
+<form method="post" id="formEliminarFicha" style="display:none;">
+    {% csrf_token %}
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function abrirEditarFicha(id, numero, programaId, fechaInicio, fechaFin, activa) {
+    document.getElementById('formEditarFicha').action = `/formacion/fichas/${id}/editar/`;
+    document.getElementById('editNumero').value = numero;
+    document.getElementById('editPrograma').value = programaId;
+    document.getElementById('editFechaInicio').value = fechaInicio;
+    document.getElementById('editFechaFin').value = fechaFin;
+    document.getElementById('editActiva').checked = activa;
+    new bootstrap.Modal(document.getElementById('modalEditarFicha')).show();
+}
+
+function confirmarEliminarFicha(id, numero) {
+    Swal.fire({
+        title: '¿Eliminar ficha?',
+        html: `¿Estás seguro de eliminar la ficha <strong>${numero}</strong>?`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar'
+    }).then((result) => {
+        if (result.isConfirmed) {
+            const form = document.getElementById('formEliminarFicha');
+            form.action = `/formacion/fichas/${id}/eliminar/`;
+            form.submit();
+        }
+    });
+}
+</script>
+{% endblock %}
