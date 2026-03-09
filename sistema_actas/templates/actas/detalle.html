@@ -94,6 +94,24 @@
         background: linear-gradient(135deg, #fff3cd 0%, #ffeaa7 100%);
         border: 1px solid #ffc107;
     }
+    /* ── Revisión Colaborativa ── */
+    .revision-panel { border-radius: 12px; margin-bottom: 1.5rem; }
+    .progress-aprobacion { height: 14px; border-radius: 10px; }
+    .participante-estado-row {
+        border-bottom: 1px solid #f0f0f0;
+        padding: 0.65rem 0;
+    }
+    .participante-estado-row:last-child { border-bottom: none; }
+    #canvas-firma {
+        border: 2px dashed #39A900;
+        border-radius: 8px;
+        cursor: crosshair;
+        touch-action: none;
+        background: #fafff8;
+        display: block;
+        width: 100%;
+        height: 180px;
+    }
     @media print {
         .action-buttons, .navbar, .sidebar, .no-print {
             display: none !important;
@@ -171,6 +189,24 @@
                 </button>
             {% endif %}
 
+            {% if puede_aprobar %}
+                <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-aprobar">
+                    <i class="fas fa-check-circle me-1"></i>Aprobar Acta
+                </button>
+            {% endif %}
+
+            {% if puede_rechazar %}
+                <button type="button" class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#modal-rechazar">
+                    <i class="fas fa-times-circle me-1"></i>Rechazar Acta
+                </button>
+            {% endif %}
+
+            {% if puede_cerrar %}
+                <button type="button" class="btn btn-outline-dark" data-bs-toggle="modal" data-bs-target="#modal-cerrar">
+                    <i class="fas fa-lock me-1"></i>Cerrar por Vencimiento
+                </button>
+            {% endif %}
+
             {% if puede_firmar %}
                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-firma">
                     <i class="fas fa-signature me-1"></i>Firmar Acta
@@ -198,6 +234,157 @@
             </button>
         </div>
     </div>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!-- PANEL DE REVISIÓN COLABORATIVA                             -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+
+    {% if acta.estado == 'en_revision' or acta.estado == 'finalizada' or acta.estado == 'cerrada_por_vencimiento' %}
+    <div class="no-print mb-4">
+
+        {# ── CASO B: SOY PARTICIPANTE PENDIENTE ── #}
+        {% if puede_aprobar %}
+        <div class="card revision-panel border-warning">
+            <div class="card-header bg-warning text-dark">
+                <h5 class="mb-0"><i class="fas fa-clock me-2"></i>Tu revisión está pendiente</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">El acta ha sido enviada a revisión. Debes <strong>Aprobar</strong> o <strong>Rechazar</strong> según tu criterio.</p>
+                {% if acta.fecha_limite_revision %}
+                <p class="mb-0 text-muted"><i class="fas fa-calendar-alt me-1"></i>Fecha límite: <strong>{{ acta.fecha_limite_revision|date:"d/m/Y H:i" }}</strong></p>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── MI ESTADO SI YA RESPONDÍ ── #}
+        {% if mi_participante and ya_respondio_en_ciclo %}
+        <div class="card revision-panel {% if mi_participante.estado_aprobacion == 'aprobado' %}border-success{% else %}border-danger{% endif %}">
+            <div class="card-header {% if mi_participante.estado_aprobacion == 'aprobado' %}bg-success text-white{% else %}bg-danger text-white{% endif %}">
+                <h5 class="mb-0">
+                    {% if mi_participante.estado_aprobacion == 'aprobado' %}
+                        <i class="fas fa-check-circle me-2"></i>Has aprobado esta acta
+                    {% else %}
+                        <i class="fas fa-times-circle me-2"></i>Has rechazado esta acta
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if mi_participante.estado_aprobacion == 'aprobado' %}
+                    <p class="mb-1 text-muted">Tu aprobación fue registrada el {{ mi_participante.fecha_respuesta|date:"d/m/Y H:i" }}.</p>
+                {% else %}
+                    <p class="mb-1"><strong>Tus observaciones:</strong></p>
+                    <blockquote class="blockquote border-start border-danger ps-3">
+                        <p class="mb-0">{{ mi_participante.observaciones }}</p>
+                    </blockquote>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── CASO C/D: SOY CREADOR O ADMIN — PROGRESO ── #}
+        {% if es_creador or es_admin %}
+        <div class="card revision-panel border-0 shadow-sm">
+            <div class="card-header bg-light">
+                <h5 class="mb-0"><i class="fas fa-tasks me-2 text-success"></i>Progreso de Revisión — Ciclo {{ acta.ciclo_revision }}</h5>
+            </div>
+            <div class="card-body">
+                <div class="row align-items-center mb-3">
+                    <div class="col-md-8">
+                        <div class="progress progress-aprobacion mb-1">
+                            <div class="progress-bar bg-success" style="width: {{ porcentaje_aprobacion }}%"></div>
+                        </div>
+                        <small class="text-muted">{{ aprobados_count }} de {{ total_participantes }} han aprobado ({{ porcentaje_aprobacion }}%)</small>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <span class="badge bg-success me-1"><i class="fas fa-check me-1"></i>{{ aprobados_count }} Aprobaron</span>
+                        <span class="badge bg-danger me-1"><i class="fas fa-times me-1"></i>{{ rechazados_count }} Rechazaron</span>
+                        <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>{{ pendientes_count }} Pendientes</span>
+                    </div>
+                </div>
+                <!-- Tabla de participantes con estado -->
+                <div class="table-responsive">
+                    <table class="table table-sm align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Participante</th>
+                                <th>Estado</th>
+                                <th>Fecha Respuesta</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for p in participantes %}
+                            <tr>
+                                <td>
+                                    <strong>{{ p.usuario.get_full_name }}</strong>
+                                    <br><small class="text-muted">{{ p.usuario.email }}</small>
+                                </td>
+                                <td>
+                                    {% if p.estado_aprobacion == 'aprobado' and p.ciclo_revision == acta.ciclo_revision %}
+                                        <span class="badge bg-success"><i class="fas fa-check me-1"></i>Aprobó</span>
+                                    {% elif p.estado_aprobacion == 'rechazado' and p.ciclo_revision == acta.ciclo_revision %}
+                                        <span class="badge bg-danger"><i class="fas fa-times me-1"></i>Rechazó</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Pendiente</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if p.fecha_respuesta and p.ciclo_revision == acta.ciclo_revision %}
+                                        <small>{{ p.fecha_respuesta|date:"d/m/Y H:i" }}</small>
+                                    {% else %}
+                                        <small class="text-muted">—</small>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if p.observaciones and p.ciclo_revision == acta.ciclo_revision %}
+                                        <small class="text-danger">{{ p.observaciones|truncatechars:80 }}</small>
+                                    {% else %}
+                                        <small class="text-muted">—</small>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── CASO E: ACTA CERRADA POR VENCIMIENTO ── #}
+        {% if acta.estado == 'cerrada_por_vencimiento' %}
+        <div class="card revision-panel border-dark">
+            <div class="card-header bg-dark text-white">
+                <h5 class="mb-0"><i class="fas fa-lock me-2"></i>Acta Cerrada sin Consenso</h5>
+            </div>
+            <div class="card-body">
+                <p><strong>Motivo de cierre:</strong> {{ acta.motivo_cierre }}</p>
+                <p class="mb-0 text-muted">
+                    Cerrada el {{ acta.fecha_cierre|date:"d/m/Y H:i" }}
+                    {% if acta.cerrada_por %} por {{ acta.cerrada_por.get_full_name }}{% endif %}.
+                </p>
+            </div>
+        </div>
+        {% endif %}
+
+        {# ── ACTA FINALIZADA ── #}
+        {% if acta.estado == 'finalizada' %}
+        <div class="card revision-panel border-success">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0"><i class="fas fa-check-double me-2"></i>Acta Finalizada — Todos aprobaron</h5>
+            </div>
+            <div class="card-body">
+                <p class="mb-2">Todos los participantes aprobaron el acta. Puedes descargar el PDF con las firmas.</p>
+                <a href="{% url 'actas:pdf' acta.id %}" class="btn btn-success" target="_blank">
+                    <i class="fas fa-file-pdf me-1"></i>Descargar PDF con Firmas
+                </a>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+    {% endif %}
     <!-- Contenido del acta -->
     <div class="row">
         <!-- Contenido Principal -->
@@ -343,19 +530,19 @@
                     </h5>
                 </div>
                 <div class="card-body">
-                    {% for firma in firmas %}
-                        <div class="firma-card card mb-3 {% if firma.firmado %}firma-completada{% else %}firma-pendiente{% endif %}">
+                    {% for participante, firma in participantes_con_firma %}
+                        <div class="firma-card card mb-3 {% if firma and firma.firmado %}firma-completada{% elif firma %}firma-pendiente{% else %}firma-pendiente{% endif %}">
                             <div class="card-body py-2">
                                 <div class="d-flex justify-content-between align-items-center">
                                     <div class="flex-grow-1">
-                                        <h6 class="mb-1">{{ firma.usuario.get_full_name }}</h6>
-                                        <small class="text-muted">{{ firma.usuario.email }}</small>
-                                        {% if firma.comentarios %}
+                                        <h6 class="mb-1">{{ participante.usuario.get_full_name }}</h6>
+                                        <small class="text-muted">{{ participante.usuario.email }}</small>
+                                        {% if firma and firma.comentarios %}
                                             <br><small class="text-muted">{{ firma.comentarios|truncatechars:50 }}</small>
                                         {% endif %}
                                     </div>
                                     <div class="text-end">
-                                        {% if firma.firmado %}
+                                        {% if firma and firma.firmado %}
                                             <span class="badge bg-success">
                                                 <i class="fas fa-check-circle me-1"></i>Firmada
                                             </span>
@@ -365,15 +552,21 @@
                                                     <i class="fas fa-clock me-1"></i>Silencio admin.
                                                 </small>
                                             {% endif %}
-                                        {% else %}
+                                        {% elif firma %}
                                             <span class="badge bg-warning">
                                                 <i class="fas fa-clock me-1"></i>Pendiente
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary">
+                                                <i class="fas fa-user me-1"></i>Agregado
                                             </span>
                                         {% endif %}
                                     </div>
                                 </div>
                             </div>
                         </div>
+                    {% empty %}
+                        <p class="text-muted mb-0"><i class="fas fa-info-circle me-1"></i>No hay participantes asignados.</p>
                     {% endfor %}
                 </div>
             </div>
@@ -474,12 +667,9 @@
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-            <form action="{% url 'actas:enviar_revision' acta.id %}" method="post">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-primary">
+            <button type="button" class="btn btn-primary" id="btn-enviar-revision-ajax">
                 <i class="fas fa-paper-plane me-1"></i>Enviar a Revisión
             </button>
-            </form>
         </div>
         </div>
     </div>
@@ -566,6 +756,100 @@
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
                 <button type="button" class="btn btn-warning" id="btn-aplicar-silencio">
                     <i class="fas fa-clock me-1"></i>Confirmar Silencio Administrativo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MODAL: APROBAR ACTA (con canvas firma) ═══ -->
+<div class="modal fade" id="modal-aprobar" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>Aprobar Acta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    Al aprobar, confirmas que estás de acuerdo con el contenido del acta. Dibuja tu firma a continuación.
+                </div>
+                <label class="form-label fw-semibold">Firma digital <span class="text-danger">*</span></label>
+                <div class="firma-canvas-container border rounded mb-2">
+                    <canvas id="canvas-firma" width="600" height="180"></canvas>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted"><i class="fas fa-mouse-pointer me-1"></i>Dibuja con el ratón o el dedo en móvil</small>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="limpiarFirma()">
+                        <i class="fas fa-eraser me-1"></i>Limpiar firma
+                    </button>
+                </div>
+                <div id="error-firma" class="text-danger mt-2 d-none"><i class="fas fa-exclamation-triangle me-1"></i>Debes dibujar tu firma para aprobar.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-success" id="btn-confirmar-aprobar">
+                    <i class="fas fa-check me-1"></i>Confirmar Aprobación
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MODAL: RECHAZAR ACTA ═══ -->
+<div class="modal fade" id="modal-rechazar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="fas fa-times-circle me-2"></i>Rechazar Acta</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    Al rechazar, el acta vuelve a <strong>Borrador</strong> y el creador recibirá tus observaciones para corregirla.
+                </div>
+                <label class="form-label fw-semibold">Motivo del rechazo <span class="text-danger">*</span></label>
+                <textarea class="form-control" id="observaciones-rechazo" rows="4"
+                          placeholder="Explica por qué rechazas esta acta (mínimo 10 caracteres)..."></textarea>
+                <div class="d-flex justify-content-between mt-1">
+                    <div id="error-rechazo" class="text-danger d-none"><i class="fas fa-exclamation-triangle me-1"></i>Mínimo 10 caracteres.</div>
+                    <small class="text-muted ms-auto" id="contador-rechazo">0 caracteres</small>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-danger" id="btn-confirmar-rechazar">
+                    <i class="fas fa-times me-1"></i>Confirmar Rechazo
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ═══ MODAL: CERRAR POR VENCIMIENTO ═══ -->
+<div class="modal fade" id="modal-cerrar" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title"><i class="fas fa-lock me-2"></i>Cerrar por Vencimiento</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-danger">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Acción irreversible.</strong> El acta quedará cerrada sin consenso. No se generarán firmas automáticas.
+                </div>
+                <label class="form-label fw-semibold">Motivo del cierre <span class="text-danger">*</span></label>
+                <textarea class="form-control" id="motivo-cierre" rows="3"
+                          placeholder="Explica por qué se cierra sin consenso..."></textarea>
+                <div id="error-cierre" class="text-danger mt-1 d-none"><i class="fas fa-exclamation-triangle me-1"></i>El motivo es obligatorio.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-dark" id="btn-confirmar-cerrar">
+                    <i class="fas fa-lock me-1"></i>Confirmar Cierre
                 </button>
             </div>
         </div>
@@ -713,6 +997,203 @@ function archivarActaDetalle(actaId) {
         }
     });
 }
+
+// ═══════════════════════════════════════════════════════
+// REVISIÓN COLABORATIVA — Canvas firma + AJAX
+// ═══════════════════════════════════════════════════════
+(function() {
+    const CSRF = () => document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const ACTA_ID = document.getElementById('acta-id')?.value;
+
+    // ── Canvas de firma ──────────────────────────────────
+    let canvas, ctx, dibujando = false, firmaVacia = true;
+
+    function initCanvas() {
+        canvas = document.getElementById('canvas-firma');
+        if (!canvas) return;
+        ctx = canvas.getContext('2d');
+        ctx.strokeStyle = '#1a1a1a';
+        ctx.lineWidth = 2.5;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Desktop
+        canvas.addEventListener('mousedown', e => { dibujando = true; firmaVacia = false; ctx.beginPath(); ctx.moveTo(...pos(e)); });
+        canvas.addEventListener('mousemove', e => { if (!dibujando) return; ctx.lineTo(...pos(e)); ctx.stroke(); });
+        canvas.addEventListener('mouseup', () => dibujando = false);
+        canvas.addEventListener('mouseleave', () => dibujando = false);
+
+        // Touch (móvil/tablet)
+        canvas.addEventListener('touchstart', e => { e.preventDefault(); dibujando = true; firmaVacia = false; ctx.beginPath(); ctx.moveTo(...pos(e.touches[0])); }, {passive: false});
+        canvas.addEventListener('touchmove', e => { e.preventDefault(); if (!dibujando) return; ctx.lineTo(...pos(e.touches[0])); ctx.stroke(); }, {passive: false});
+        canvas.addEventListener('touchend', () => dibujando = false);
+    }
+
+    function pos(e) {
+        const r = canvas.getBoundingClientRect();
+        const scaleX = canvas.width / r.width;
+        const scaleY = canvas.height / r.height;
+        return [(e.clientX - r.left) * scaleX, (e.clientY - r.top) * scaleY];
+    }
+
+    window.limpiarFirma = function() {
+        if (!ctx) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        firmaVacia = true;
+    };
+
+    // Re-inicializar canvas cada vez que se abre el modal
+    document.getElementById('modal-aprobar')?.addEventListener('shown.bs.modal', () => {
+        initCanvas();
+        firmaVacia = true;
+        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
+        document.getElementById('error-firma').classList.add('d-none');
+    });
+
+    // ── APROBAR ─────────────────────────────────────────
+    document.getElementById('btn-confirmar-aprobar')?.addEventListener('click', function() {
+        if (firmaVacia) {
+            document.getElementById('error-firma').classList.remove('d-none');
+            return;
+        }
+        document.getElementById('error-firma').classList.add('d-none');
+        const firma = canvas.toDataURL('image/png');
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Procesando...';
+
+        fetch(`/actas/${ACTA_ID}/web/aprobar/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF() },
+            body: JSON.stringify({ firma_digital: firma })
+        })
+        .then(r => r.json())
+        .then(data => {
+            bootstrap.Modal.getInstance(document.getElementById('modal-aprobar')).hide();
+            if (data.success) {
+                Swal.fire({ icon: 'success', title: '¡Aprobado!', text: data.message, confirmButtonColor: '#28a745' })
+                    .then(() => location.reload());
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo procesar.' });
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirmar Aprobación';
+            }
+        })
+        .catch(() => {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'Verifica tu conexión e intenta de nuevo.' });
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-check me-1"></i>Confirmar Aprobación';
+        });
+    });
+
+    // ── RECHAZAR ─────────────────────────────────────────
+    document.getElementById('observaciones-rechazo')?.addEventListener('input', function() {
+        document.getElementById('contador-rechazo').textContent = this.value.length + ' caracteres';
+        if (this.value.length >= 10) document.getElementById('error-rechazo').classList.add('d-none');
+    });
+
+    document.getElementById('btn-confirmar-rechazar')?.addEventListener('click', function() {
+        const obs = document.getElementById('observaciones-rechazo').value.trim();
+        if (obs.length < 10) {
+            document.getElementById('error-rechazo').classList.remove('d-none');
+            return;
+        }
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Procesando...';
+
+        fetch(`/actas/${ACTA_ID}/web/rechazar/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF() },
+            body: JSON.stringify({ observaciones: obs })
+        })
+        .then(r => r.json())
+        .then(data => {
+            bootstrap.Modal.getInstance(document.getElementById('modal-rechazar')).hide();
+            if (data.success) {
+                Swal.fire({ icon: 'warning', title: 'Acta Rechazada', text: data.message, confirmButtonColor: '#dc3545' })
+                    .then(() => location.reload());
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo procesar.' });
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-times me-1"></i>Confirmar Rechazo';
+            }
+        })
+        .catch(() => {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'Verifica tu conexión e intenta de nuevo.' });
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-times me-1"></i>Confirmar Rechazo';
+        });
+    });
+
+    // ── CERRAR POR VENCIMIENTO ────────────────────────────
+    document.getElementById('btn-confirmar-cerrar')?.addEventListener('click', function() {
+        const motivo = document.getElementById('motivo-cierre').value.trim();
+        if (!motivo) {
+            document.getElementById('error-cierre').classList.remove('d-none');
+            return;
+        }
+        document.getElementById('error-cierre').classList.add('d-none');
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Procesando...';
+
+        fetch(`/actas/${ACTA_ID}/web/cerrar/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF() },
+            body: JSON.stringify({ motivo_cierre: motivo })
+        })
+        .then(r => r.json())
+        .then(data => {
+            bootstrap.Modal.getInstance(document.getElementById('modal-cerrar')).hide();
+            if (data.success) {
+                Swal.fire({ icon: 'info', title: 'Acta Cerrada', text: data.message, confirmButtonColor: '#343a40' })
+                    .then(() => location.reload());
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo cerrar.' });
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-lock me-1"></i>Confirmar Cierre';
+            }
+        })
+        .catch(() => {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'Verifica tu conexión e intenta de nuevo.' });
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-lock me-1"></i>Confirmar Cierre';
+        });
+    });
+
+    // ── ENVIAR A REVISIÓN (reemplaza el form anterior por AJAX) ──
+    document.getElementById('modal-enviar-revision')?.addEventListener('shown.bs.modal', function() {
+        // Solo interceptar si hay botón de envío con data-ajax
+    });
+    document.getElementById('btn-enviar-revision-ajax')?.addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Enviando...';
+
+        fetch(`/actas/${ACTA_ID}/web/enviar-revision/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF() },
+        })
+        .then(r => r.json())
+        .then(data => {
+            bootstrap.Modal.getInstance(document.getElementById('modal-enviar-revision')).hide();
+            if (data.success) {
+                Swal.fire({ icon: 'success', title: 'Enviado a Revisión', text: data.message, confirmButtonColor: '#28a745' })
+                    .then(() => location.reload());
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo enviar.' });
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Enviar a Revisión';
+            }
+        })
+        .catch(() => {
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: 'Verifica tu conexión.' });
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-paper-plane me-1"></i>Enviar a Revisión';
+        });
+    });
+})();
 
 // Función para aplicar silencio administrativo
 $(document).ready(function() {

@@ -400,15 +400,36 @@ body {
                                     <div class="form-text">Se generará automáticamente desde su nombre</div>
                                 </div>
 
-                                <!-- Ficha de formación: solo visible para @soy.sena.edu.co -->
+                                <!-- Ficha de formación (cascada): solo visible para @soy.sena.edu.co -->
                                 <div id="ficha-section" style="display: none;">
+                                    <!-- Paso 1: Programa -->
                                     <div class="form-floating mb-3">
-                                        <select class="form-select" id="ficha_id" name="ficha_id">
-                                            <option value="">Cargando fichas...</option>
+                                        <select class="form-select" id="programa_id">
+                                            <option value="">Selecciona tu programa...</option>
                                         </select>
-                                        <label for="ficha_id">Ficha de Formación</label>
-                                        <div class="form-text">Selecciona el grupo (ficha) al que perteneces como aprendiz</div>
-                                        <div class="invalid-feedback">Debes seleccionar tu ficha de formación</div>
+                                        <label for="programa_id">Programa de Formación <span class="text-danger">*</span></label>
+                                        <div class="form-text">Selecciona primero el programa al que perteneces</div>
+                                        <div class="invalid-feedback">Debes seleccionar tu programa de formación</div>
+                                    </div>
+                                    <!-- Paso 2: Ficha (se muestra solo tras elegir programa) -->
+                                    <div id="ficha-subsection" style="display: none;">
+                                        <div class="form-floating mb-3">
+                                            <select class="form-select" id="ficha_id" name="ficha_id">
+                                                <option value="">Selecciona tu ficha...</option>
+                                            </select>
+                                            <label for="ficha_id">Ficha <span class="text-danger">*</span></label>
+                                            <div class="form-text" id="ficha-help-text">Fichas disponibles del programa seleccionado</div>
+                                            <div class="invalid-feedback">Debes seleccionar tu ficha de formación</div>
+                                        </div>
+                                        <div id="ficha-sin-resultados" class="alert alert-warning py-2 mb-3" style="display:none;">
+                                            <i class="fas fa-exclamation-triangle me-2"></i>
+                                            No hay fichas activas para este programa. Contacta al administrador.
+                                        </div>
+                                    </div>
+                                    <div id="ficha-error-red" class="alert alert-danger py-2 mb-3" style="display:none;">
+                                        <i class="fas fa-wifi me-2"></i>
+                                        Error al cargar los datos.
+                                        <a href="#" id="btn-reintentar-fichas" class="alert-link">Reintentar</a>
                                     </div>
                                 </div>
 
@@ -670,13 +691,21 @@ function validateStep(step) {
                 $('#email').removeClass('is-invalid');
             }
 
-            // Validar ficha si el email es de aprendiz
+            // Validar programa y ficha si el email es de aprendiz
             if (email.endsWith('@soy.sena.edu.co')) {
+                const programaId = $('#programa_id').val();
+                if (!programaId) {
+                    $('#programa_id').addClass('is-invalid');
+                    valid = false;
+                    if (!firstInvalidField) firstInvalidField = $('#programa_id');
+                } else {
+                    $('#programa_id').removeClass('is-invalid');
+                }
                 const fichaId = $('#ficha_id').val();
                 if (!fichaId) {
                     $('#ficha_id').addClass('is-invalid');
                     valid = false;
-                    if (!firstInvalidField) firstInvalidField = $('#ficha_id');
+                    if (!firstInvalidField && programaId) firstInvalidField = $('#ficha_id');
                 } else {
                     $('#ficha_id').removeClass('is-invalid');
                 }
@@ -754,7 +783,9 @@ function generateConfirmation() {
     const tipoDocTexto = tipoDocMap[tipoDoc] || tipoDoc;
     const numDoc = $('#numero_documento').val().trim();
 
-    // Obtener ficha seleccionada (si aplica)
+    // Obtener programa y ficha seleccionados (si aplica)
+    const programaOption = $('#programa_id option:selected');
+    const programaTexto = programaOption.val() ? programaOption.text() : 'No aplica';
     const fichaOption = $('#ficha_id option:selected');
     const fichaTexto = fichaOption.val() ? fichaOption.text() : 'No aplica';
 
@@ -769,6 +800,7 @@ function generateConfirmation() {
         'Email': $('#email').val(),
         'Rol (auto-detectado)': rolDetectado,
         'Teléfono': $('#telefono').val() || 'No especificado',
+        'Programa': email.endsWith('@soy.sena.edu.co') ? programaTexto : 'No aplica',
         'Ficha': email.endsWith('@soy.sena.edu.co') ? fichaTexto : 'No aplica',
         'Firma Digital': firmaTexto,
     };
@@ -952,41 +984,89 @@ $(document).ready(function() {
         }
     });
     
-    // ── Ficha de formación ──────────────────────────────────────────────────
-    // Carga las fichas activas desde la API y llena el select
-    function cargarFichas() {
-        const $select = $('#ficha_id');
-        $select.empty().append('<option value="">Cargando fichas...</option>');
+    // ── Ficha de formación (selector en cascada) ────────────────────────────
 
-        $.get('/formacion/api/fichas/activas/', function(data) {
-            $select.empty().append('<option value="">Selecciona tu ficha...</option>');
+    function cargarProgramas() {
+        const $sel = $('#programa_id');
+        $sel.prop('disabled', true).empty().append('<option value="">Cargando programas...</option>');
+        $('#ficha-error-red').hide();
 
-            if (data.fichas && data.fichas.length > 0) {
-                data.fichas.forEach(function(ficha) {
-                    $select.append(
-                        `<option value="${ficha.id}">Ficha ${ficha.numero} — ${ficha.programa_nombre}</option>`
-                    );
+        $.get('/formacion/api/programas/', function(data) {
+            $sel.empty().append('<option value="">Selecciona tu programa...</option>');
+            const lista = data.programas || data;
+            if (Array.isArray(lista) && lista.length > 0) {
+                lista.forEach(function(p) {
+                    $sel.append(`<option value="${p.id}">${p.nombre} (${p.codigo})</option>`);
                 });
+                $sel.prop('disabled', false);
             } else {
-                $select.append('<option value="" disabled>No hay fichas activas disponibles</option>');
+                $sel.append('<option value="" disabled>No hay programas disponibles</option>');
             }
         }).fail(function() {
-            $select.empty().append('<option value="">Error al cargar fichas</option>');
+            $sel.empty().append('<option value="">Error al cargar</option>');
+            $('#ficha-error-red').show();
         });
     }
 
-    // Muestra u oculta la sección de ficha según el dominio del email
+    function cargarFichasPorPrograma(programaId) {
+        const $sel = $('#ficha_id');
+        const $sub = $('#ficha-subsection');
+        $('#ficha-sin-resultados').hide();
+        $('#ficha-error-red').hide();
+
+        $sub.show();
+        $sel.prop('disabled', true).empty().append('<option value="">Cargando fichas...</option>');
+
+        $.get(`/formacion/api/fichas/?programa=${programaId}`, function(data) {
+            $sel.empty().append('<option value="">Selecciona tu ficha...</option>');
+            const lista = data.fichas || data;
+            if (Array.isArray(lista) && lista.length > 0) {
+                lista.forEach(function(f) {
+                    $sel.append(`<option value="${f.id}">Ficha ${f.numero}</option>`);
+                });
+                $sel.prop('disabled', false);
+            } else {
+                $sel.prop('disabled', true);
+                $('#ficha-subsection').hide();
+                $('#ficha-sin-resultados').show();
+            }
+        }).fail(function() {
+            $sel.empty().append('<option value="">Error al cargar</option>');
+            $sub.hide();
+            $('#ficha-error-red').show();
+        });
+    }
+
+    // Al seleccionar programa → cargar fichas
+    $('#programa_id').on('change', function() {
+        const pid = $(this).val();
+        $('#ficha_id').val('').prop('disabled', true);
+        $('#ficha-subsection').hide();
+        $('#ficha-sin-resultados').hide();
+        $('#ficha-error-red').hide();
+        if (pid) cargarFichasPorPrograma(pid);
+    });
+
+    // Reintentar si falla la carga
+    $('#btn-reintentar-fichas').on('click', function(e) {
+        e.preventDefault();
+        const pid = $('#programa_id').val();
+        if (!pid) cargarProgramas(); else cargarFichasPorPrograma(pid);
+    });
+
+    // Muestra u oculta la sección según el dominio del email
     function actualizarSeccionFicha(email) {
         if (email.endsWith('@soy.sena.edu.co')) {
             if ($('#ficha-section').is(':hidden')) {
                 $('#ficha-section').show();
-                cargarFichas();
+                cargarProgramas();
             }
             $('#aprobacion-info').hide();
         } else {
             $('#ficha-section').hide();
+            $('#ficha-subsection').hide();
+            $('#programa_id').val('');
             $('#ficha_id').val('');
-            // Mostrar aviso de aprobación solo para correos que no son SENA
             if (email && email.includes('@') && !email.endsWith('@sena.edu.co')) {
                 $('#aprobacion-info').show();
             } else {
@@ -995,7 +1075,7 @@ $(document).ready(function() {
         }
     }
 
-    // Escuchar cambios en el email para mostrar/ocultar la ficha
+    // Escuchar cambios en el email
     $('#email').on('input blur', function() {
         actualizarSeccionFicha($(this).val().trim().toLowerCase());
     });

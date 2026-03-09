@@ -50,9 +50,13 @@ def detalle_acta(request, acta_id):
         return redirect("actas:actas_list")
 
     # Obtener información personal
-    participantes = acta.participantes.select_related("usuario").prefetch_related('firmas').all()
+    participantes = acta.participantes.select_related("usuario").all()
     firmas = acta.firmas.select_related("usuario").all()
     compromisos = acta.compromisos.select_related("responsable").all()
+
+    # Mapa usuario_id → firma para el sidebar de participantes
+    firmas_dict = {f.usuario_id: f for f in firmas}
+    participantes_con_firma = [(p, firmas_dict.get(p.usuario_id)) for p in participantes]
 
     # Verificar si el usuario puede firmar
     puede_firmar = (
@@ -63,11 +67,34 @@ def detalle_acta(request, acta_id):
     if request.user.rol in ['aprendiz', 'invitado']:
         compromisos = compromisos.filter(responsable=request.user)
 
+    # ── Revisión colaborativa: estado del usuario actual como participante ──
+    mi_participante = acta.participantes.filter(usuario=request.user).first()
+    ya_respondio_en_ciclo = (
+        mi_participante is not None
+        and mi_participante.ciclo_revision == acta.ciclo_revision
+        and mi_participante.estado_aprobacion in ('aprobado', 'rechazado')
+    )
+
+    # Resumen de aprobaciones para el creador
+    aprobados_count = acta.participantes.filter(
+        estado_aprobacion='aprobado', ciclo_revision=acta.ciclo_revision
+    ).count()
+    rechazados_count = acta.participantes.filter(
+        estado_aprobacion='rechazado', ciclo_revision=acta.ciclo_revision
+    ).count()
+    total_participantes = acta.participantes.count()
+    pendientes_count = total_participantes - aprobados_count - rechazados_count
+
     context = {
         "acta": acta,
         "participantes": participantes,
+        "participantes_con_firma": participantes_con_firma,
         "firmas": firmas,
         "compromisos": compromisos,
+        "es_creador": es_creador,
+        "es_admin": es_admin,
+        "mi_participante": mi_participante,
+        "ya_respondio_en_ciclo": ya_respondio_en_ciclo,
         "puede_firmar": puede_firmar,
         "puede_editar": (
             request.user.rol in ['instructor', 'funcionario', 'coordinador', 'director']
@@ -78,6 +105,21 @@ def detalle_acta(request, acta_id):
             request.user.rol in ['instructor', 'funcionario', 'coordinador', 'director']
             and acta.creador == request.user
             and acta.estado == "borrador"
+            and acta.participantes.exists()
+        ),
+        "puede_aprobar": (
+            mi_participante is not None
+            and acta.estado == 'en_revision'
+            and not ya_respondio_en_ciclo
+        ),
+        "puede_rechazar": (
+            mi_participante is not None
+            and acta.estado == 'en_revision'
+            and not ya_respondio_en_ciclo
+        ),
+        "puede_cerrar": (
+            (es_creador or es_admin)
+            and acta.estado in ('borrador', 'en_revision')
         ),
         "puede_finalizar": (
             request.user.rol in ['instructor', 'funcionario', 'coordinador', 'director']
@@ -90,12 +132,16 @@ def detalle_acta(request, acta_id):
             and acta.estado == "finalizada"
         ),
         'puede_comentar': request.user.rol in ['instructor', 'funcionario', 'coordinador', 'director', 'aprendiz', 'invitado'],
-        # Silencio administrativo: visible si es creador/admin y el acta puede aplicarlo
         "puede_aplicar_silencio": (
             (es_creador or es_admin)
             and acta.puede_aplicar_silencio_administrativo()
         ),
         "fecha_limite_firmas": acta.fecha_limite_firmas,
+        "aprobados_count": aprobados_count,
+        "rechazados_count": rechazados_count,
+        "pendientes_count": pendientes_count,
+        "total_participantes": total_participantes,
+        "porcentaje_aprobacion": int((aprobados_count / total_participantes * 100) if total_participantes > 0 else 0),
     }
     return render(request, "actas/detalle.html", context)
 
@@ -1225,3 +1271,157 @@ def aprendiz_compromisos(request):
         'titulo': "Mis compromisos asignados"
     }
     return render(request, 'actas/aprendiz/compromisos.html', context)
+
+
+# =============================================================================
+# VISTAS WEB: REVISIÓN COLABORATIVA (autenticación por sesión Django)
+# =============================================================================
+
+@login_required
+@require_POST
+def web_enviar_a_revision(request, acta_id):
+    """Envía el acta a revisión colaborativa (sesión Django)."""
+    acta = get_object_or_404(Acta, id=acta_id)
+
+    if acta.creador != request.user:
+        return JsonResponse({'success': False, 'error': 'Solo el creador puede enviar el acta a revisión.'}, status=403)
+    if acta.estado != 'borrador':
+        return JsonResponse({'success': False, 'error': 'El acta debe estar en estado Borrador.'}, status=400)
+    if not acta.participantes.exists():
+        return JsonResponse({'success': False, 'error': 'El acta debe tener al menos un participante.'}, status=400)
+
+    try:
+        from actas.utils import enviar_acta_a_revision
+        enviar_acta_a_revision(acta, request.user)
+        return JsonResponse({
+            'success': True,
+            'message': 'Acta enviada a revisión. Los participantes han sido notificados.',
+            'estado': acta.estado,
+            'ciclo_revision': acta.ciclo_revision,
+            'fecha_limite_revision': acta.fecha_limite_revision.isoformat() if acta.fecha_limite_revision else None,
+        })
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f'Error enviar_a_revision acta {acta_id}: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': 'Error al enviar a revisión.'}, status=500)
+
+
+@login_required
+@require_POST
+def web_aprobar_acta(request, acta_id):
+    """El participante aprueba el acta con firma canvas (sesión Django)."""
+    acta = get_object_or_404(Acta, id=acta_id)
+
+    if acta.estado != 'en_revision':
+        return JsonResponse({'success': False, 'error': 'El acta no está en revisión.'}, status=400)
+
+    mi_participante = acta.participantes.filter(usuario=request.user).first()
+    if not mi_participante:
+        return JsonResponse({'success': False, 'error': 'No eres participante de esta acta.'}, status=403)
+
+    if (mi_participante.estado_aprobacion == 'aprobado'
+            and mi_participante.ciclo_revision == acta.ciclo_revision):
+        return JsonResponse({'success': False, 'error': 'Ya aprobaste esta acta en el ciclo actual.'}, status=400)
+
+    try:
+        import json as json_mod
+        data = json_mod.loads(request.body) if request.body else {}
+    except Exception:
+        data = {}
+
+    firma_base64 = data.get('firma_digital') or None
+    if not firma_base64:
+        return JsonResponse({'success': False, 'error': 'La firma digital es obligatoria para aprobar.'}, status=400)
+
+    try:
+        from actas.utils import aprobar_acta_participante
+        nuevo_estado = aprobar_acta_participante(acta, request.user, firma_base64=firma_base64)
+        aprobados = acta.participantes.filter(estado_aprobacion='aprobado', ciclo_revision=acta.ciclo_revision).count()
+        total = acta.participantes.count()
+        return JsonResponse({
+            'success': True,
+            'message': 'Has aprobado el acta.' + (' ¡Todos han aprobado! El acta ha sido finalizada.' if nuevo_estado == 'finalizada' else ''),
+            'estado': nuevo_estado,
+            'aprobados': aprobados,
+            'total': total,
+        })
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f'Error aprobar acta {acta_id}: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': 'Error al procesar la aprobación.'}, status=500)
+
+
+@login_required
+@require_POST
+def web_rechazar_acta(request, acta_id):
+    """El participante rechaza el acta con observaciones (sesión Django)."""
+    acta = get_object_or_404(Acta, id=acta_id)
+
+    if acta.estado != 'en_revision':
+        return JsonResponse({'success': False, 'error': 'El acta no está en revisión.'}, status=400)
+
+    if not acta.participantes.filter(usuario=request.user).exists():
+        return JsonResponse({'success': False, 'error': 'No eres participante de esta acta.'}, status=403)
+
+    try:
+        import json as json_mod
+        data = json_mod.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'JSON inválido.'}, status=400)
+
+    observaciones = data.get('observaciones', '').strip()
+    if len(observaciones) < 10:
+        return JsonResponse({'success': False, 'error': 'Las observaciones deben tener al menos 10 caracteres.'}, status=400)
+
+    try:
+        from actas.utils import rechazar_acta_participante
+        acta_actualizada = rechazar_acta_participante(acta, request.user, observaciones)
+        return JsonResponse({
+            'success': True,
+            'message': 'Has rechazado el acta. El creador ha sido notificado y el acta vuelve a Borrador.',
+            'estado': acta_actualizada.estado,
+            'ciclo_revision': acta_actualizada.ciclo_revision,
+        })
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f'Error rechazar acta {acta_id}: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': 'Error al procesar el rechazo.'}, status=500)
+
+
+@login_required
+@require_POST
+def web_cerrar_acta(request, acta_id):
+    """Cierra el acta por vencimiento de plazo sin consenso (sesión Django)."""
+    acta = get_object_or_404(Acta, id=acta_id)
+    es_creador = acta.creador == request.user
+    es_admin = request.user.is_staff or request.user.rol == 'admin'
+
+    if not (es_creador or es_admin):
+        return JsonResponse({'success': False, 'error': 'Solo el creador o un administrador puede cerrar el acta.'}, status=403)
+
+    if acta.estado not in ('borrador', 'en_revision'):
+        return JsonResponse({'success': False, 'error': f'No se puede cerrar un acta en estado {acta.estado}.'}, status=400)
+
+    try:
+        import json as json_mod
+        data = json_mod.loads(request.body)
+    except Exception:
+        return JsonResponse({'success': False, 'error': 'JSON inválido.'}, status=400)
+
+    motivo = data.get('motivo_cierre', '').strip()
+    if not motivo:
+        return JsonResponse({'success': False, 'error': 'El motivo de cierre es obligatorio.'}, status=400)
+
+    try:
+        from actas.utils import cerrar_acta_por_vencimiento
+        cerrar_acta_por_vencimiento(acta, request.user, motivo)
+        return JsonResponse({
+            'success': True,
+            'message': 'El acta ha sido cerrada por vencimiento.',
+            'estado': acta.estado,
+            'fecha_cierre': acta.fecha_cierre.isoformat() if acta.fecha_cierre else None,
+        })
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).error(f'Error cerrar acta {acta_id}: {e}', exc_info=True)
+        return JsonResponse({'success': False, 'error': 'Error al cerrar el acta.'}, status=500)
