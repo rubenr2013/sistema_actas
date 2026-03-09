@@ -207,7 +207,7 @@
                 </button>
             {% endif %}
 
-            {% if puede_firmar %}
+            {% if puede_firmar and not puede_aprobar %}
                 <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modal-firma">
                     <i class="fas fa-signature me-1"></i>Firmar Acta
                 </button>
@@ -762,36 +762,88 @@
     </div>
 </div>
 
-<!-- ═══ MODAL: APROBAR ACTA (con canvas firma) ═══ -->
+<!-- ═══ MODAL: APROBAR ACTA (2 pasos) ═══ -->
 <div class="modal fade" id="modal-aprobar" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-success text-white">
-                <h5 class="modal-title"><i class="fas fa-check-circle me-2"></i>Aprobar Acta</h5>
+                <h5 class="modal-title" id="titulo-modal-aprobar">
+                    <i class="fas fa-check-circle me-2"></i>Aprobar Acta
+                </h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div class="alert alert-info">
-                    <i class="fas fa-info-circle me-2"></i>
-                    Al aprobar, confirmas que estás de acuerdo con el contenido del acta. Dibuja tu firma a continuación.
+
+                <!-- ── PASO 1: CONFIRMACIÓN ── -->
+                <div id="paso-confirmacion">
+                    <div class="text-center py-3">
+                        <i class="fas fa-check-circle text-success" style="font-size:3rem;"></i>
+                        <h5 class="mt-3 mb-2">¿Estás seguro de aprobar esta acta?</h5>
+                        <p class="text-muted mb-0">Al aprobar, confirmas que estás de acuerdo con todo el contenido del acta.</p>
+                    </div>
                 </div>
-                <label class="form-label fw-semibold">Firma digital <span class="text-danger">*</span></label>
-                <div class="firma-canvas-container border rounded mb-2">
-                    <canvas id="canvas-firma" width="600" height="180"></canvas>
+
+                <!-- ── PASO 2: FIRMA ── -->
+                <div id="paso-firma" style="display:none;">
+                    <p class="text-muted mb-3"><i class="fas fa-info-circle me-1"></i>Ahora elige cómo deseas firmar el acta.</p>
+
+                    {% if user.firma_digital %}
+                    <!-- Tabs: firma guardada vs dibujar nueva -->
+                    <div class="btn-group w-100 mb-3" role="group">
+                        <input type="radio" class="btn-check" name="modo-firma" id="modo-guardada" value="guardada" checked>
+                        <label class="btn btn-outline-success" for="modo-guardada">
+                            <i class="fas fa-image me-1"></i>Usar firma guardada
+                        </label>
+                        <input type="radio" class="btn-check" name="modo-firma" id="modo-dibujar" value="dibujar">
+                        <label class="btn btn-outline-secondary" for="modo-dibujar">
+                            <i class="fas fa-pen me-1"></i>Dibujar nueva firma
+                        </label>
+                    </div>
+
+                    <!-- Vista: firma guardada -->
+                    <div id="seccion-firma-guardada" class="text-center border rounded p-3 mb-2">
+                        <p class="text-muted mb-2 small">Tu firma registrada:</p>
+                        <img src="{{ user.firma_digital.url }}" alt="Firma guardada" style="max-height:100px; max-width:100%;">
+                    </div>
+
+                    <!-- Vista: dibujar (oculta por defecto) -->
+                    <div id="seccion-canvas-firma" style="display:none;">
+                    {% else %}
+                    <!-- Sin firma guardada: solo canvas -->
+                    <div id="seccion-canvas-firma">
+                    {% endif %}
+                        <label class="form-label fw-semibold">Dibuja tu firma <span class="text-danger">*</span></label>
+                        <div class="firma-canvas-container border rounded mb-2">
+                            <canvas id="canvas-firma" width="600" height="180"></canvas>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted"><i class="fas fa-mouse-pointer me-1"></i>Dibuja con el ratón o el dedo en móvil</small>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="limpiarFirma()">
+                                <i class="fas fa-eraser me-1"></i>Limpiar
+                            </button>
+                        </div>
+                        <div id="error-firma" class="text-danger mt-2 d-none"><i class="fas fa-exclamation-triangle me-1"></i>Debes dibujar tu firma para aprobar.</div>
+                    </div>
                 </div>
-                <div class="d-flex justify-content-between align-items-center">
-                    <small class="text-muted"><i class="fas fa-mouse-pointer me-1"></i>Dibuja con el ratón o el dedo en móvil</small>
-                    <button type="button" class="btn btn-sm btn-outline-secondary" onclick="limpiarFirma()">
-                        <i class="fas fa-eraser me-1"></i>Limpiar firma
-                    </button>
-                </div>
-                <div id="error-firma" class="text-danger mt-2 d-none"><i class="fas fa-exclamation-triangle me-1"></i>Debes dibujar tu firma para aprobar.</div>
+
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                <button type="button" class="btn btn-success" id="btn-confirmar-aprobar">
-                    <i class="fas fa-check me-1"></i>Confirmar Aprobación
-                </button>
+                <!-- Botones paso 1 -->
+                <div id="footer-paso-1" class="d-flex gap-2 w-100 justify-content-end">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-success" id="btn-ir-a-firma">
+                        Sí, Aprobar <i class="fas fa-arrow-right ms-1"></i>
+                    </button>
+                </div>
+                <!-- Botones paso 2 -->
+                <div id="footer-paso-2" class="d-flex gap-2 w-100 justify-content-between d-none">
+                    <button type="button" class="btn btn-outline-secondary" id="btn-volver-confirmacion">
+                        <i class="fas fa-arrow-left me-1"></i>Volver
+                    </button>
+                    <button type="button" class="btn btn-success" id="btn-confirmar-aprobar">
+                        <i class="fas fa-check me-1"></i>Confirmar Aprobación
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -1007,15 +1059,21 @@ function archivarActaDetalle(actaId) {
 
     // ── Canvas de firma ──────────────────────────────────
     let canvas, ctx, dibujando = false, firmaVacia = true;
+    const TIENE_FIRMA_GUARDADA = {{ user.firma_digital|yesno:'true,false' }};
 
     function initCanvas() {
         canvas = document.getElementById('canvas-firma');
         if (!canvas) return;
+        // Evitar añadir listeners duplicados
+        const nuevoCanvas = canvas.cloneNode(true);
+        canvas.parentNode.replaceChild(nuevoCanvas, canvas);
+        canvas = nuevoCanvas;
         ctx = canvas.getContext('2d');
         ctx.strokeStyle = '#1a1a1a';
         ctx.lineWidth = 2.5;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
+        firmaVacia = true;
 
         // Desktop
         canvas.addEventListener('mousedown', e => { dibujando = true; firmaVacia = false; ctx.beginPath(); ctx.moveTo(...pos(e)); });
@@ -1042,22 +1100,66 @@ function archivarActaDetalle(actaId) {
         firmaVacia = true;
     };
 
-    // Re-inicializar canvas cada vez que se abre el modal
-    document.getElementById('modal-aprobar')?.addEventListener('shown.bs.modal', () => {
-        initCanvas();
-        firmaVacia = true;
-        if (ctx) ctx.clearRect(0, 0, canvas.width, canvas.height);
-        document.getElementById('error-firma').classList.add('d-none');
+    // ── Navegación entre pasos del modal de aprobar ──────────────
+    function irAPaso(paso) {
+        const esPaso1 = paso === 1;
+        document.getElementById('paso-confirmacion').style.display = esPaso1 ? '' : 'none';
+        document.getElementById('paso-firma').style.display = esPaso1 ? 'none' : '';
+        document.getElementById('footer-paso-1').classList.toggle('d-none', !esPaso1);
+        document.getElementById('footer-paso-2').classList.toggle('d-none', esPaso1);
+        document.getElementById('titulo-modal-aprobar').innerHTML = esPaso1
+            ? '<i class="fas fa-check-circle me-2"></i>Aprobar Acta'
+            : '<i class="fas fa-signature me-2"></i>Firmar Acta';
+        if (!esPaso1) initCanvas();
+    }
+
+    document.getElementById('btn-ir-a-firma')?.addEventListener('click', () => irAPaso(2));
+    document.getElementById('btn-volver-confirmacion')?.addEventListener('click', () => irAPaso(1));
+
+    // ── Cambio de modo (guardada / dibujar) ──────────────────────
+    document.querySelectorAll('input[name="modo-firma"]').forEach(radio => {
+        radio.addEventListener('change', function() {
+            const esGuardada = this.value === 'guardada';
+            document.getElementById('seccion-firma-guardada').style.display = esGuardada ? '' : 'none';
+            document.getElementById('seccion-canvas-firma').style.display = esGuardada ? 'none' : '';
+            if (!esGuardada) initCanvas();
+            const errorFirma = document.getElementById('error-firma');
+            if (errorFirma) errorFirma.classList.add('d-none');
+        });
     });
 
-    // ── APROBAR ─────────────────────────────────────────
-    document.getElementById('btn-confirmar-aprobar')?.addEventListener('click', function() {
-        if (firmaVacia) {
-            document.getElementById('error-firma').classList.remove('d-none');
-            return;
+    // Resetear modal al cerrarse
+    document.getElementById('modal-aprobar')?.addEventListener('hidden.bs.modal', () => {
+        irAPaso(1);
+        firmaVacia = true;
+        // Restaurar modo guardada si existe
+        const modoGuardada = document.getElementById('modo-guardada');
+        if (modoGuardada) {
+            modoGuardada.checked = true;
+            const secGuardada = document.getElementById('seccion-firma-guardada');
+            const secCanvas = document.getElementById('seccion-canvas-firma');
+            if (secGuardada) secGuardada.style.display = '';
+            if (secCanvas) secCanvas.style.display = 'none';
         }
-        document.getElementById('error-firma').classList.add('d-none');
-        const firma = canvas.toDataURL('image/png');
+    });
+
+    // ── CONFIRMAR APROBACIÓN ─────────────────────────────────────
+    document.getElementById('btn-confirmar-aprobar')?.addEventListener('click', function() {
+        const modoGuardadaEl = document.getElementById('modo-guardada');
+        const usarGuardada = TIENE_FIRMA_GUARDADA && modoGuardadaEl && modoGuardadaEl.checked;
+
+        let payload;
+        if (usarGuardada) {
+            payload = { usar_firma_guardada: true };
+        } else {
+            if (firmaVacia) {
+                document.getElementById('error-firma').classList.remove('d-none');
+                return;
+            }
+            document.getElementById('error-firma').classList.add('d-none');
+            payload = { firma_digital: canvas.toDataURL('image/png') };
+        }
+
         const btn = this;
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Procesando...';
@@ -1065,7 +1167,7 @@ function archivarActaDetalle(actaId) {
         fetch(`/actas/${ACTA_ID}/web/aprobar/`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF() },
-            body: JSON.stringify({ firma_digital: firma })
+            body: JSON.stringify(payload)
         })
         .then(r => r.json())
         .then(data => {

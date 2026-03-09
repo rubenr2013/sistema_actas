@@ -1337,7 +1337,20 @@ def web_aprobar_acta(request, acta_id):
         data = {}
 
     firma_base64 = data.get('firma_digital') or None
-    if not firma_base64:
+    usar_guardada = data.get('usar_firma_guardada', False)
+
+    if usar_guardada:
+        if not request.user.firma_digital:
+            return JsonResponse({'success': False, 'error': 'No tienes firma guardada en tu perfil.'}, status=400)
+        # Marcar la firma usando la imagen ya almacenada
+        from actas.models import Firma as FirmaModel
+        firma_obj, _ = FirmaModel.objects.get_or_create(acta=acta, usuario=request.user)
+        firma_obj.firmado = True
+        firma_obj.fecha_firma = timezone.now()
+        firma_obj.firma_imagen = request.user.firma_digital
+        firma_obj.save()
+        firma_base64 = None  # aprobar_acta_participante no re-guardará la imagen
+    elif not firma_base64:
         return JsonResponse({'success': False, 'error': 'La firma digital es obligatoria para aprobar.'}, status=400)
 
     try:
