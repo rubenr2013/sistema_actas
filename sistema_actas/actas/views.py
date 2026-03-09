@@ -987,10 +987,17 @@ def crear_acta(request):
                         except ValueError:
                             messages.warning(request, f'Fecha inválida para compromiso: {fecha_limite_str}')
             
+            # Emails válidos de participantes para validar responsables
+            emails_participantes = set(participantes_agregados) | {request.user.email}
+
             # Crear los compromisos
             for comp_data in compromisos_data:
                 try:
                     responsable = User.objects.get(email=comp_data['responsable_email'])
+                    # Validar que el responsable es participante del acta
+                    if responsable.email not in emails_participantes:
+                        messages.warning(request, f'El responsable {responsable.get_full_name()} no es participante del acta.')
+                        continue
                     compromiso = Compromiso.objects.create(
                         acta=acta,
                         descripcion=comp_data['descripcion'],

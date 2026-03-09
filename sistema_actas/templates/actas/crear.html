@@ -417,10 +417,13 @@ Ejemplo:
                             <button type="button" class="btn btn-outline-primary" id="btn-agregar-participante">
                                 <i class="fas fa-user-plus me-1"></i>Agregar Participante
                             </button>
+                            <div class="mt-2">
+                                <small class="text-muted"><i class="fas fa-id-card me-1"></i>Busca participantes por su número de documento de identidad</small>
+                            </div>
 
                             <!-- Datos de usuarios para JavaScript -->
                             <script id="usuarios-data" type="application/json">
-                            [{% for u in usuarios %}{"email":"{{ u.email|escapejs }}","nombre":"{{ u.get_full_name|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
+                            [{% for u in usuarios %}{"email":"{{ u.email|escapejs }}","nombre":"{{ u.get_full_name|escapejs }}","documento":"{{ u.numero_documento|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
                             </script>
                         </div>
                     </div>
@@ -569,29 +572,19 @@ $(document).ready(function() {
 
     // Array de participantes actuales del acta (inicia con el creador)
     let participantesActuales = [
-        { email: '{{ user.email|escapejs }}', nombre: '{{ user.get_full_name|escapejs }}' }
+        { email: '{{ user.email|escapejs }}', nombre: '{{ user.get_full_name|escapejs }}', documento: '{{ user.numero_documento|default:''|escapejs }}' }
     ];
 
     // Construye las opciones del select de responsable para compromisos
+    // Solo muestra los participantes del acta (no todos los usuarios del sistema)
     function buildResponsableOptions() {
-        const emailsParticipantes = participantesActuales.map(p => p.email);
         let html = '<option value="">Seleccionar responsable...</option>';
 
         if (participantesActuales.length > 0) {
-            html += '<optgroup label="Participantes del acta">';
             participantesActuales.forEach(p => {
-                html += `<option value="${p.email}">${p.nombre}</option>`;
+                const label = p.documento ? `${p.nombre} — ${p.documento}` : p.nombre;
+                html += `<option value="${p.email}">${label}</option>`;
             });
-            html += '</optgroup>';
-        }
-
-        const otros = todosLosUsuarios.filter(u => !emailsParticipantes.includes(u.email));
-        if (otros.length > 0) {
-            html += '<optgroup label="Otros usuarios">';
-            otros.forEach(u => {
-                html += `<option value="${u.email}">${u.nombre}</option>`;
-            });
-            html += '</optgroup>';
         }
         return html;
     }
@@ -613,10 +606,11 @@ $(document).ready(function() {
 
         // Construir opciones excluyendo ya agregados
         const emailsYaAgregados = participantesActuales.map(p => p.email);
-        let opcionesHtml = '<option value="">Buscar usuario por nombre o email...</option>';
+        let opcionesHtml = '<option value="">Buscar por número de documento...</option>';
         todosLosUsuarios.forEach(u => {
             if (!emailsYaAgregados.includes(u.email)) {
-                opcionesHtml += `<option value="${u.email}">${u.nombre} — ${u.email}</option>`;
+                const label = u.documento ? `${u.nombre} — ${u.documento}` : `${u.nombre} — (sin documento)`;
+                opcionesHtml += `<option value="${u.email}" data-documento="${u.documento || ''}">${label}</option>`;
             }
         });
 
@@ -649,22 +643,39 @@ $(document).ready(function() {
         `;
         $('#participantes-container').append(html);
 
-        // Activar Select2 en el nuevo select
+        // Activar Select2 en el nuevo select con búsqueda por documento
         $(`#select-participante-${participanteCounter}`).select2({
             theme: 'bootstrap-5',
-            placeholder: 'Buscar usuario por nombre o email...',
+            placeholder: 'Buscar por número de documento...',
             allowClear: true,
-            width: '100%'
+            width: '100%',
+            language: {
+                noResults: () => 'No se encontró usuario con ese documento'
+            },
+            matcher: function(params, data) {
+                // Si no hay búsqueda, mostrar todo
+                if (!params.term || params.term.trim() === '') return data;
+                const term = params.term.trim();
+                const doc = $(data.element).data('documento') || '';
+                const nombre = data.text || '';
+                // Primero intenta coincidencia por documento; si no hay, por nombre
+                if (doc.includes(term) || nombre.toLowerCase().includes(term.toLowerCase())) {
+                    return data;
+                }
+                return null;
+            }
         }).on('change', function() {
             const email = $(this).val();
             const pid = $(this).data('pid');
-            const nombre = $(this).find('option:selected').text().split(' — ')[0];
+            const selectedOpt = $(this).find('option:selected');
+            const nombre = selectedOpt.text().split(' — ')[0];
+            const documento = selectedOpt.data('documento') || '';
 
             // Remover entrada anterior de este slot si existía
             participantesActuales = participantesActuales.filter(p => p._pid !== pid);
 
             if (email) {
-                participantesActuales.push({ email, nombre, _pid: pid });
+                participantesActuales.push({ email, nombre, documento, _pid: pid });
             }
             refreshResponsableSelects();
         });
@@ -707,6 +718,7 @@ $(document).ready(function() {
                                 id="select-resp-${compromisoCounter}" required>
                             ${opcionesResponsable}
                         </select>
+                        <small class="text-muted"><i class="fas fa-info-circle me-1"></i>Solo participantes de esta acta</small>
                     </div>
                     <div class="col-md-2 mb-2">
                         <label class="form-label">Fecha Límite</label>
@@ -877,9 +889,8 @@ $(document).ready(function() {
     function validateStep3() {
         let valid = true;
         
-        // Validar que hay al menos un participante
-        const participantesCount = $('input[name="participantes"]').length;
-        if (participantesCount < 1) {
+        // Validar que hay al menos un participante (usando participantesActuales que incluye selects + hidden)
+        if (participantesActuales.length < 1) {
             showAlert('Debe agregar al menos un participante', 'warning');
             valid = false;
         }
@@ -927,13 +938,8 @@ $(document).ready(function() {
         const lugar = $('#lugar_reunion').val();
         const modalidad = $('#modalidad option:selected').text();
         
-        const participantes = [];
-        $('input[name="participantes"]').each(function() {
-            const email = $(this).val().trim();
-            if (email) {
-                participantes.push(email);
-            }
-        });
+        // Usar participantesActuales que contiene todos (hidden input + selects)
+        const participantes = participantesActuales.map(p => p.nombre || p.email);
 
         const compromisos = [];
         $('.compromiso-descripcion').each(function() {
