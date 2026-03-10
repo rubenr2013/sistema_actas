@@ -31,10 +31,9 @@ class Command(BaseCommand):
 
         try:
             user = User.objects.get(email=email)
-            # El usuario existe — actualizar campos y contraseña
-            user.set_password(password)
+            # El usuario ya existe — NO tocar la contraseña para no pisar cambios manuales.
+            # Solo garantizar que tenga los permisos de admin activos.
             User.objects.filter(pk=user.pk).update(
-                password=user.password,
                 is_active=True,
                 is_staff=True,
                 is_superuser=True,
@@ -44,7 +43,7 @@ class Command(BaseCommand):
                 activo=True,
             )
             self.stdout.write(
-                self.style.SUCCESS(f'Admin actualizado correctamente: {email}')
+                self.style.SUCCESS(f'Admin ya existe, permisos verificados: {email}')
             )
 
         except User.DoesNotExist:
