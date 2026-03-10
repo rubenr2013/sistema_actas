@@ -997,6 +997,7 @@ def aprobar_acta_participante(acta, participante_user, firma_base64=None):
             firma_obj, _ = Firma.objects.get_or_create(acta=acta, usuario=participante_user)
             firma_obj.firmado = True
             firma_obj.fecha_firma = timezone.now()
+            firma_obj.firma_datos = firma_base64  # base64 puro, persiste en BD
             firma_obj.firma_imagen.save(
                 f'firma_{participante_user.id}_{acta.id}.png',
                 ContentFile(firma_bytes),

@@ -1702,6 +1702,7 @@ def firmar_acta_api(request):
             
             # Guardar en el modelo
             firma.firma_imagen = firma_file
+            firma.firma_datos = imgstr  # base64 puro, persiste en BD
             firma.firmado = True
             firma.fecha_firma = timezone.now()
             firma.save()
@@ -2476,7 +2477,7 @@ def generar_pdf_api(request, acta_id):
                 # Intentar cargar la imagen de la firma
                 firma_cell = None
 
-                # OPCIÓN 1: Buscar en firma_imagen (campo del modelo Firma)
+                # OPCIÓN 1: Buscar en firma_imagen (archivo en disco)
                 if firma_obj.firma_imagen:
                     try:
                         firma_path = os.path.join(settings.MEDIA_ROOT, str(firma_obj.firma_imagen))
@@ -2485,7 +2486,16 @@ def generar_pdf_api(request, acta_id):
                     except Exception as e:
                         print(f"Error cargando firma_imagen: {e}")
 
-                # OPCIÓN 2: Buscar en firma_digital del usuario (si existe)
+                # OPCIÓN 2: Buscar en firma_datos (base64 en BD)
+                if not firma_cell and firma_obj.firma_datos:
+                    try:
+                        import base64 as _b64, io as _io
+                        firma_bytes = _b64.b64decode(firma_obj.firma_datos)
+                        firma_cell = Image(_io.BytesIO(firma_bytes), width=1.5*inch, height=0.6*inch)
+                    except Exception as e:
+                        print(f"Error cargando firma desde base64: {e}")
+
+                # OPCIÓN 3: Buscar en firma_digital del usuario (archivo en disco)
                 if not firma_cell and hasattr(participante.usuario, 'firma_digital') and participante.usuario.firma_digital:
                     try:
                         firma_path = os.path.join(settings.MEDIA_ROOT, str(participante.usuario.firma_digital))

@@ -276,6 +276,17 @@ def firmar_acta(request, acta_id):
         firma.fecha_firma = timezone.now()
         if request.user.firma_digital:
             firma.firma_imagen = request.user.firma_digital
+            # Guardar también como base64 para persistencia en BD
+            try:
+                import base64
+                request.user.firma_digital.seek(0)
+                firma.firma_datos = base64.b64encode(request.user.firma_digital.read()).decode('utf-8')
+            except Exception:
+                try:
+                    with open(request.user.firma_digital.path, 'rb') as f:
+                        firma.firma_datos = base64.b64encode(f.read()).decode('utf-8')
+                except Exception:
+                    pass
         firma.save()
 
         # Crear notificaciones para el creador del acta
@@ -435,9 +446,12 @@ def obtener_firma_imagen(firma, usuario):
     Intenta obtener la imagen de firma con múltiples fallbacks.
     Retorna un objeto Image de ReportLab o None.
     """
+    import base64
+    import io
     from django.conf import settings
+    from reportlab.platypus import Image as RLImage
 
-    # 1. Intentar desde Firma.firma_imagen
+    # 1. Intentar desde Firma.firma_imagen (archivo en disco)
     if firma and firma.firma_imagen:
         try:
             ruta = os.path.join(settings.MEDIA_ROOT, str(firma.firma_imagen))
@@ -446,7 +460,16 @@ def obtener_firma_imagen(firma, usuario):
         except Exception as e:
             print(f"Error cargando firma desde Firma.firma_imagen: {e}")
 
-    # 2. Intentar desde User.firma_digital
+    # 2. Intentar desde Firma.firma_datos (base64 en BD)
+    if firma and firma.firma_datos:
+        try:
+            firma_bytes = base64.b64decode(firma.firma_datos)
+            img_io = io.BytesIO(firma_bytes)
+            return _escalar_firma(img_io)
+        except Exception as e:
+            print(f"Error cargando firma desde firma_datos base64: {e}")
+
+    # 3. Intentar desde User.firma_digital (archivo en disco)
     if usuario.firma_digital:
         try:
             ruta = os.path.join(settings.MEDIA_ROOT, str(usuario.firma_digital))
@@ -455,7 +478,7 @@ def obtener_firma_imagen(firma, usuario):
         except Exception as e:
             print(f"Error cargando firma desde User.firma_digital: {e}")
 
-    # 3. Si todo falla, retornar None
+    # 4. Si todo falla, retornar None
     return None
 
 @login_required
@@ -1348,6 +1371,13 @@ def web_aprobar_acta(request, acta_id):
         firma_obj.firmado = True
         firma_obj.fecha_firma = timezone.now()
         firma_obj.firma_imagen = request.user.firma_digital
+        # Guardar también como base64 para persistencia en BD
+        try:
+            import base64 as _b64
+            with open(request.user.firma_digital.path, 'rb') as _f:
+                firma_obj.firma_datos = _b64.b64encode(_f.read()).decode('utf-8')
+        except Exception:
+            pass
         firma_obj.save()
         firma_base64 = None  # aprobar_acta_participante no re-guardará la imagen
     elif not firma_base64:

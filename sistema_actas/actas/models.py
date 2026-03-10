@@ -502,6 +502,7 @@ class Firma(models.Model):
     firmado = models.BooleanField(default=False)
     fecha_firma = models.DateTimeField(null=True, blank=True)
     firma_imagen = models.ImageField(upload_to='firmas/', null=True, blank=True)
+    firma_datos = models.TextField(null=True, blank=True)  # base64 de la firma, persiste aunque se pierda el archivo
     firmado_por_silencio = models.BooleanField(default=False)
     comentarios = models.TextField(blank=True)
     ip_address = models.GenericIPAddressField(null=True, blank=True)

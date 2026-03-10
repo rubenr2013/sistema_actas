@@ -297,6 +297,17 @@ def profile(request):
 def settings_view(request):
     user = request.user
 
+    # Si el archivo de firma ya no existe en disco, limpiar la referencia en BD
+    if user.firma_digital:
+        import os
+        try:
+            firma_path = user.firma_digital.path
+            if not os.path.exists(firma_path):
+                user.firma_digital = None
+                User.objects.filter(pk=user.pk).update(firma_digital=None)
+        except (NotImplementedError, ValueError):
+            pass  # Almacenamiento remoto (S3), no verificar
+
     if request.method == 'POST':
         form = ProfileUpdateForm(request.POST, request.FILES, instance=user)
         if form.is_valid():
