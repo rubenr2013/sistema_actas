@@ -29,11 +29,11 @@ class Command(BaseCommand):
             )
             return
 
+        reset_password = os.environ.get('RESET_ADMIN_PASSWORD', '').strip().lower() == 'true'
+
         try:
             user = User.objects.get(email=email)
-            # El usuario ya existe — NO tocar la contraseña para no pisar cambios manuales.
-            # Solo garantizar que tenga los permisos de admin activos.
-            User.objects.filter(pk=user.pk).update(
+            update_fields = dict(
                 is_active=True,
                 is_staff=True,
                 is_superuser=True,
@@ -42,9 +42,13 @@ class Command(BaseCommand):
                 cuenta_aprobada=True,
                 activo=True,
             )
-            self.stdout.write(
-                self.style.SUCCESS(f'Admin ya existe, permisos verificados: {email}')
-            )
+            if reset_password:
+                user.set_password(password)
+                update_fields['password'] = user.password
+                self.stdout.write(self.style.SUCCESS(f'Contraseña reseteada: {email}'))
+            else:
+                self.stdout.write(self.style.SUCCESS(f'Admin ya existe, permisos verificados: {email}'))
+            User.objects.filter(pk=user.pk).update(**update_fields)
 
         except User.DoesNotExist:
             # El usuario no existe — crearlo
