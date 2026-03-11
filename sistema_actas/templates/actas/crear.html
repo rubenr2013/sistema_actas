@@ -575,17 +575,33 @@ $(document).ready(function() {
         { email: '{{ user.email|escapejs }}', nombre: '{{ user.get_full_name|escapejs }}', documento: '{{ user.numero_documento|default:''|escapejs }}' }
     ];
 
+    // Devuelve todos los participantes actuales (creador + seleccionados en DOM)
+    function getParticipantesActuales() {
+        const creator = participantesActuales[0];
+        const fromDOM = [];
+        $('.select2-participante').each(function() {
+            const email = $(this).val();
+            if (email) {
+                const pid = $(this).data('pid');
+                const selectedOpt = $(this).find('option:selected');
+                const nombre = selectedOpt.text().split(' — ')[0];
+                const documento = $(selectedOpt).data('documento') || '';
+                fromDOM.push({ email, nombre, documento, _pid: pid });
+            }
+        });
+        const todos = [creator, ...fromDOM];
+        return todos.filter((p, i, arr) => arr.findIndex(x => x.email === p.email) === i);
+    }
+
     // Construye las opciones del select de responsable para compromisos
     // Solo muestra los participantes del acta (no todos los usuarios del sistema)
     function buildResponsableOptions() {
+        const unicos = getParticipantesActuales();
         let html = '<option value="">Seleccionar responsable...</option>';
-
-        if (participantesActuales.length > 0) {
-            participantesActuales.forEach(p => {
-                const label = p.documento ? `${p.nombre} — ${p.documento}` : p.nombre;
-                html += `<option value="${p.email}">${label}</option>`;
-            });
-        }
+        unicos.forEach(p => {
+            const label = p.documento ? `${p.nombre} — ${p.documento}` : p.nombre;
+            html += `<option value="${p.email}">${label}</option>`;
+        });
         return html;
     }
 
@@ -889,8 +905,8 @@ $(document).ready(function() {
     function validateStep3() {
         let valid = true;
         
-        // Validar que hay al menos un participante (usando participantesActuales que incluye selects + hidden)
-        if (participantesActuales.length < 1) {
+        // Validar que hay al menos un participante
+        if (getParticipantesActuales().length < 1) {
             showAlert('Debe agregar al menos un participante', 'warning');
             valid = false;
         }
@@ -938,8 +954,8 @@ $(document).ready(function() {
         const lugar = $('#lugar_reunion').val();
         const modalidad = $('#modalidad option:selected').text();
         
-        // Usar participantesActuales que contiene todos (hidden input + selects)
-        const participantes = participantesActuales.map(p => p.nombre || p.email);
+        // Leer del DOM para mostrar todos los participantes seleccionados
+        const participantes = getParticipantesActuales().map(p => p.nombre || p.email);
 
         const compromisos = [];
         $('.compromiso-descripcion').each(function() {

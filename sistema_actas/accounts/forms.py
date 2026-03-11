@@ -156,11 +156,13 @@ class ProfileUpdateForm(forms.ModelForm):
 
     def clean_firma_digital(self):
         firma = self.cleaned_data.get("firma_digital")
-        if firma:
-            # Validar tamaño (máximo 2 MB)
+        if not firma:
+            return firma
+        # Solo validar si es un archivo recién subido (tiene método read)
+        if hasattr(firma, 'read'):
             if firma.size > 2 * 1024 * 1024:
                 raise forms.ValidationError("El archivo no debe superar los 2 MB.")
-            # Validar formato permitido
             if not firma.name.lower().endswith((".png", ".jpg", ".jpeg")):
                 raise forms.ValidationError("Solo se permiten imágenes PNG, JPG o JPEG.")
+        # Si es un FieldFile existente no tocamos .size (el archivo puede no estar en disco)
         return firma
