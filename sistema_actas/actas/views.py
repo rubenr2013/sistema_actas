@@ -1,5 +1,8 @@
 import os
+import logging
 from datetime import timedelta, datetime
+
+logger = logging.getLogger(__name__)
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required, permission_required
@@ -369,16 +372,13 @@ def enviar_revision(request, acta_id):
         # Enviar email de solicitud de firma
         try:
             from .email_service import enviar_email_solicitud_firma
-            print(f"🔄 Intentando enviar email a: {participante.usuario.email}")
             resultado = enviar_email_solicitud_firma(acta, participante.usuario)
             if resultado:
-                print(f"✅ Email enviado exitosamente a: {participante.usuario.email}")
+                logger.info('Email de solicitud de firma enviado a %s', participante.usuario.email)
             else:
-                print(f"⚠️ No se pudo enviar email a: {participante.usuario.email} (función retornó False)")
+                logger.warning('No se pudo enviar email a %s', participante.usuario.email)
         except Exception as e:
-            print(f"❌ Error al enviar email a {participante.usuario.email}: {str(e)}")
-            import traceback
-            traceback.print_exc()
+            logger.error('Error al enviar email a %s: %s', participante.usuario.email, str(e), exc_info=True)
 
         participantes_notificados += 1
 
@@ -388,17 +388,14 @@ def enviar_revision(request, acta_id):
         if compromiso.responsable and compromiso.responsable.email:
             try:
                 from .email_service import enviar_email_compromiso_asignado
-                print(f"🔄 Intentando enviar email de compromiso a: {compromiso.responsable.email}")
                 resultado = enviar_email_compromiso_asignado(compromiso, compromiso.responsable)
                 if resultado:
-                    print(f"✅ Email de compromiso enviado exitosamente a: {compromiso.responsable.email}")
+                    logger.info('Email de compromiso enviado a %s', compromiso.responsable.email)
                     compromisos_notificados += 1
                 else:
-                    print(f"⚠️ No se pudo enviar email de compromiso a: {compromiso.responsable.email}")
+                    logger.warning('No se pudo enviar email de compromiso a %s', compromiso.responsable.email)
             except Exception as e:
-                print(f"❌ Error al enviar email de compromiso a {compromiso.responsable.email}: {str(e)}")
-                import traceback
-                traceback.print_exc()
+                logger.error('Error al enviar email de compromiso a %s: %s', compromiso.responsable.email, str(e), exc_info=True)
 
     messages.success(request, f"Acta enviada a revisión. {participantes_notificados} participantes y {compromisos_notificados} responsables de compromisos han sido notificados.")
     return redirect("actas:detalle", acta_id=acta_id)
@@ -458,7 +455,7 @@ def obtener_firma_imagen(firma, usuario):
             if os.path.exists(ruta):
                 return _escalar_firma(ruta)
         except Exception as e:
-            print(f"Error cargando firma desde Firma.firma_imagen: {e}")
+            logger.warning('Error cargando firma desde Firma.firma_imagen: %s', e)
 
     # 2. Intentar desde Firma.firma_datos (base64 en BD)
     if firma and firma.firma_datos:
@@ -467,7 +464,7 @@ def obtener_firma_imagen(firma, usuario):
             img_io = io.BytesIO(firma_bytes)
             return _escalar_firma(img_io)
         except Exception as e:
-            print(f"Error cargando firma desde firma_datos base64: {e}")
+            logger.warning('Error cargando firma desde firma_datos base64: %s', e)
 
     # 3. Intentar desde User.firma_digital (archivo en disco)
     if usuario.firma_digital:
@@ -476,7 +473,7 @@ def obtener_firma_imagen(firma, usuario):
             if os.path.exists(ruta):
                 return _escalar_firma(ruta)
         except Exception as e:
-            print(f"Error cargando firma desde User.firma_digital: {e}")
+            logger.warning('Error cargando firma desde User.firma_digital: %s', e)
 
     # 4. Si todo falla, retornar None
     return None
@@ -846,7 +843,7 @@ def generar_pdf(request, acta_id):
     try:
         doc.build(story)
     except Exception as e:
-        print(f"Error al construir PDF: {e}")
+        logger.error('Error al construir PDF del acta %s: %s', acta_id, e, exc_info=True)
         messages.error(request, "Error al generar el PDF.")
         return redirect("actas:detalle", acta_id=acta.id)
 
@@ -978,7 +975,7 @@ def crear_acta(request):
                                 obligatorio_firma=True
                             )
                             participantes_agregados.add(email)
-                            print(f"✅ Participante creado: {usuario.email}")
+                            logger.info('Participante agregado al acta %s: %s', acta.id, usuario.email)
                         
                     except User.DoesNotExist:
                         messages.warning(request, f'Usuario con email {email} no encontrado.')
@@ -1027,7 +1024,7 @@ def crear_acta(request):
                         responsable=responsable,
                         fecha_limite=comp_data['fecha_limite']  # Ya es un objeto date
                     )
-                    print(f"✅ Compromiso creado para: {responsable.email}")
+                    logger.info('Compromiso creado para: %s', responsable.email)
 
                     # NOTA: Los emails de compromisos se enviarán cuando el acta sea enviada a revisión,
                     # no al momento de crear el acta en borrador

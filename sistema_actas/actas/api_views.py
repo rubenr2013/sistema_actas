@@ -2484,7 +2484,7 @@ def generar_pdf_api(request, acta_id):
                         if os.path.exists(firma_path):
                             firma_cell = Image(firma_path, width=1.5*inch, height=0.6*inch)
                     except Exception as e:
-                        print(f"Error cargando firma_imagen: {e}")
+                        logger.warning('Error cargando firma_imagen en PDF API: %s', e)
 
                 # OPCIÓN 2: Buscar en firma_datos (base64 en BD)
                 if not firma_cell and firma_obj.firma_datos:
@@ -2493,7 +2493,7 @@ def generar_pdf_api(request, acta_id):
                         firma_bytes = _b64.b64decode(firma_obj.firma_datos)
                         firma_cell = Image(_io.BytesIO(firma_bytes), width=1.5*inch, height=0.6*inch)
                     except Exception as e:
-                        print(f"Error cargando firma desde base64: {e}")
+                        logger.warning('Error cargando firma desde base64 en PDF API: %s', e)
 
                 # OPCIÓN 3: Buscar en firma_digital del usuario (archivo en disco)
                 if not firma_cell and hasattr(participante.usuario, 'firma_digital') and participante.usuario.firma_digital:
@@ -2502,7 +2502,7 @@ def generar_pdf_api(request, acta_id):
                         if os.path.exists(firma_path):
                             firma_cell = Image(firma_path, width=1.5*inch, height=0.6*inch)
                     except Exception as e:
-                        print(f"Error cargando firma_digital: {e}")
+                        logger.warning('Error cargando firma_digital en PDF API: %s', e)
 
                 # Si no se pudo cargar imagen, usar texto
                 if not firma_cell:

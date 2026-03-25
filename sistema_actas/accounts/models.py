@@ -4,7 +4,20 @@ from django.core.validators import validate_email # Validar emails de Django
 from django.contrib.auth.validators import UnicodeUsernameValidator
 from PIL import Image #Libreria pillow para trabajar con imagenes (Para firma digital)
 import os
+import logging
 from django.core.exceptions import ValidationError
+
+logger = logging.getLogger(__name__)
+
+
+def validar_firma_digital(archivo):
+    """Valida que la firma digital sea una imagen válida (JPG/PNG/WEBP) de máximo 2MB."""
+    extensiones_permitidas = ['jpg', 'jpeg', 'png', 'webp']
+    ext = os.path.splitext(archivo.name)[1].lower().lstrip('.')
+    if ext not in extensiones_permitidas:
+        raise ValidationError(f'Solo se permiten imágenes JPG, PNG o WEBP. Formato recibido: {ext}')
+    if archivo.size > 2 * 1024 * 1024:
+        raise ValidationError('La imagen de firma no puede superar 2 MB.')
 
 
 class UsernameValidator(UnicodeUsernameValidator):
@@ -84,7 +97,7 @@ class User (AbstractUser) :
     rol = models.CharField (max_length=20, choices=ROLES, default='invitado')
     centro = models.CharField(max_length=100, default='Centro Minero')
     telefono = models.CharField (max_length=15, blank=True)
-    firma_digital = models.ImageField(upload_to='firmas/', blank=True, null=True)
+    firma_digital = models.ImageField(upload_to='firmas/', blank=True, null=True, validators=[validar_firma_digital])
     fecha_registro = models.DateTimeField(auto_now_add=True) #Fecha de creacion automatica
     activo = models.BooleanField (default=True) #Estado del usuario activo/inactivo
 
@@ -161,6 +174,9 @@ class User (AbstractUser) :
         verbose_name = 'Usuario' #Nombre singular del admin
         verbose_name_plural = 'Usuarios' #Nombre plural en el admin
         ordering = ['first_name', 'last_name'] #Orden por nombre y apellido
+        indexes = [
+            models.Index(fields=['rol'], name='accounts_user_rol_idx'),
+        ]
 
     #Validaciones personalizadas segun el rol
     def clean(self):

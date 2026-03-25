@@ -38,15 +38,16 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Quick-start development settings - unsuitable for production
 # See https://docs.com/en/5.2/howto/deployment/checklist/
 
-# Clave secreta para seguridad de Django(lee desde .env)
+# Clave secreta para seguridad de Django (lee desde .env — NUNCA usar el default en producción)
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-me-in-production")
-# Modo de depuarcion, True en desarrollo,False en produccion
-DEBUG = config("DEBUG", default=True, cast=bool)
-# Lista de hosts permitidos para acceder al proyecto
-# En producción, especificar dominios exactos separados por coma en .env
+
+# Modo de depuración: False por defecto para evitar exponer info sensible si falta la variable
+DEBUG = config("DEBUG", default=False, cast=bool)
+
+# Hosts permitidos — en producción se leen desde .env (dominios exactos, sin wildcards)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
-# En modo DEBUG, agregar dominios de ngrok automáticamente
+# En desarrollo local, permitir ngrok y localhost
 if DEBUG:
     ALLOWED_HOSTS += [
         '.ngrok.io',
@@ -57,27 +58,10 @@ if DEBUG:
         '127.0.0.1',
     ]
 
-# Railway y otros servicios de hosting
+# AWS Elastic Beanstalk — solo el dominio exacto del entorno
 ALLOWED_HOSTS += [
-    '.railway.app',
-    '.up.railway.app',
+    'sistema-actas-env.eba-yjpjmjq2.us-east-2.elasticbeanstalk.com',
 ]
-
-# AWS Elastic Beanstalk
-ALLOWED_HOSTS += [
-    '.elasticbeanstalk.com',
-    '.us-east-2.elasticbeanstalk.com',
-    'sistema-actas-env.eba-yjpjmjq2.us-east-2.elasticbeanstalk.com',  # Dominio explícito
-]
-
-# AWS CloudFront
-ALLOWED_HOSTS += [
-    '.cloudfront.net',
-]
-
-# Si hay RAILWAY_STATIC_URL, estamos en Railway
-if os.environ.get('RAILWAY_STATIC_URL'):
-    ALLOWED_HOSTS.append(os.environ.get('RAILWAY_STATIC_URL', '').replace('https://', '').replace('http://', '').split('/')[0])
 
 
 # Application definition
@@ -456,7 +440,7 @@ SITE_DOMAIN = config("SITE_DOMAIN", default="127.0.0.1:8000")
 # CONFIGURACIÓN GROQ 
 # ========================================
 GROQ_API_KEY = config("GROQ_API_KEY", default="")
-GROQ_MODEL = config("GROQ_MODEL", default="llama3-70b-8192")
+GROQ_MODEL = config("GROQ_MODEL", default="llama-3.1-8b-instant")
 GROQ_TIMEOUT = config("GROQ_TIMEOUT", default=30, cast=int)
 
 # Habilitar IA

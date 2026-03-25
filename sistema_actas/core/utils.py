@@ -128,7 +128,7 @@ Generate the JSON now:"""
         # ⚡ GENERAR CON CONFIGURACIÓN MEJORADA
         contenido_json_str = servicio_groq.generar_texto(
             prompt=prompt_content,
-            modelo="llama-3.1-8b-instant",
+            modelo=getattr(settings, 'GROQ_MODEL', 'llama-3.1-8b-instant'),
             max_tokens=2500,        # ✅ AUMENTADO para desarrollo extenso
             temperature=0.7         # ✅ Balance entre creatividad y coherencia
         )
@@ -174,4 +174,4 @@ def enviar_notificacion_participantes(participantes, asunto, mensaje):
                 fail_silently=True,
             )
     except Exception as e:
-        print(f"Error al enviar notificación: {e}")
+        logger.error('Error al enviar notificacion por email: %s', e, exc_info=True)
