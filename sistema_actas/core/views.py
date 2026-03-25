@@ -71,7 +71,8 @@ def dashboard(request):
         # ===== DASHBOARD PERSONAL (todos los roles + admin en modo personal) =====
         stats = {
             'total_actas': Acta.objects.filter(
-                Q(creador=user) | Q(participantes__usuario=user)
+                Q(creador=user) |
+                (Q(participantes__usuario=user) & ~Q(estado='borrador'))
             ).distinct().count(),
             'actas_pendientes_firma': Firma.objects.filter(
                 usuario=user, firmado=False, acta__estado='en_revision'
@@ -85,7 +86,8 @@ def dashboard(request):
         }
 
         actas_recientes = Acta.objects.filter(
-            Q(creador=user) | Q(participantes__usuario=user)
+            Q(creador=user) |
+            (Q(participantes__usuario=user) & ~Q(estado='borrador'))
         ).distinct().order_by('-fecha_creacion')[:5]
 
         compromisos_proximos = Compromiso.objects.filter(

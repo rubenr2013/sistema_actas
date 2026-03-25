@@ -951,32 +951,30 @@ def crear_acta(request):
             # ========================================
             participantes_emails = request.POST.getlist('participantes')
             participantes_agregados = set()  # Para evitar duplicados
-            
-            for email in participantes_emails:
+
+            # participantes_emails[0] = creador, [1..N] = dinámicos (pid=1,2,3...)
+            for idx, email in enumerate(participantes_emails):
                 email = email.strip()
-                if email and email not in participantes_agregados:  # ← Validar duplicados
+                if email and email not in participantes_agregados:
                     try:
                         usuario = User.objects.get(email=email)
-                        
-                        # Verificar si ya existe
+
                         if not Participante.objects.filter(acta=acta, usuario=usuario).exists():
-                            # Buscar el rol de este participante
-                            rol = ''
-                            for key in request.POST.keys():
-                                if key.startswith('rol_participante_') or key.startswith(f'rol_{email}'):
-                                    rol = request.POST.get(key, '')
-                                    break
-                            
-                            # Crear participante
+                            # El creador (idx=0) tiene su propio rol; los demás usan rol_participante_{idx}
+                            if idx == 0:
+                                rol = request.POST.get('rol_creador', 'Creador del Acta').strip() or 'Creador del Acta'
+                            else:
+                                rol = request.POST.get(f'rol_participante_{idx}', '').strip() or 'Participante'
+
                             Participante.objects.create(
                                 acta=acta,
                                 usuario=usuario,
-                                rol_en_reunion=rol if rol else 'Participante',
+                                rol_en_reunion=rol,
                                 obligatorio_firma=True
                             )
                             participantes_agregados.add(email)
                             logger.info('Participante agregado al acta %s: %s', acta.id, usuario.email)
-                        
+
                     except User.DoesNotExist:
                         messages.warning(request, f'Usuario con email {email} no encontrado.')
             
