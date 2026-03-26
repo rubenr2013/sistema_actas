@@ -1293,6 +1293,9 @@
                 <a class="nav-link" href="{% url 'accounts:usuarios' %}">
                     <i class="fas fa-users"></i>Usuarios
                 </a>
+                <a class="nav-link {% if 'plantillas' in request.path %}active{% endif %}" href="{% url 'actas:plantillas_list' %}">
+                    <i class="fas fa-file-word"></i>Plantillas de Acta
+                </a>
                 <a class="nav-link" href="{% url 'formacion:programas_list' %}">
                     <i class="fas fa-graduation-cap"></i>Programas
                 </a>

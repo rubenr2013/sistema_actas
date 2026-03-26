@@ -1,0 +1,121 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Plantillas de Acta{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="row">
+    <div class="col-12">
+      <div class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h5 class="mb-0">
+            <i class="fas fa-file-word text-primary me-2"></i>Plantillas de Acta
+          </h5>
+          <a href="{% url 'actas:plantilla_crear' %}" class="btn btn-sm btn-primary">
+            <i class="fas fa-plus me-1"></i>Nueva Plantilla
+          </a>
+        </div>
+        <div class="card-body">
+
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            <strong>¿Cómo funciona?</strong> Sube un archivo <code>.docx</code> con
+            <code>&#123;&#123;marcadores&#125;&#125;</code> para cada tipo de reunión.
+            Cuando se descargue el PDF de un acta, el sistema rellena la plantilla automáticamente.
+            Si no hay plantilla para un tipo, se usa el formato predeterminado del sistema.
+          </div>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Tipo de reunión</th>
+                  <th>Nombre</th>
+                  <th>Estado</th>
+                  <th>Creada por</th>
+                  <th>Última modificación</th>
+                  <th class="text-end">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for plantilla in plantillas %}
+                <tr>
+                  <td>
+                    <span class="badge bg-secondary">{{ plantilla.get_tipo_reunion_display }}</span>
+                  </td>
+                  <td>{{ plantilla.nombre }}</td>
+                  <td>
+                    {% if plantilla.activa %}
+                      <span class="badge bg-success">Activa</span>
+                    {% else %}
+                      <span class="badge bg-danger">Inactiva</span>
+                    {% endif %}
+                  </td>
+                  <td>{{ plantilla.creada_por.get_full_name|default:"—" }}</td>
+                  <td>{{ plantilla.fecha_modificacion|date:"d/m/Y H:i" }}</td>
+                  <td class="text-end">
+                    <a href="{{ plantilla.archivo.url }}" class="btn btn-sm btn-outline-secondary" download title="Descargar plantilla">
+                      <i class="fas fa-download"></i>
+                    </a>
+                    <a href="{% url 'actas:plantilla_editar' plantilla.pk %}" class="btn btn-sm btn-outline-primary" title="Editar">
+                      <i class="fas fa-edit"></i>
+                    </a>
+                    <a href="{% url 'actas:plantilla_eliminar' plantilla.pk %}" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                      <i class="fas fa-trash"></i>
+                    </a>
+                  </td>
+                </tr>
+                {% empty %}
+                <tr>
+                  <td colspan="6" class="text-center text-muted py-4">
+                    <i class="fas fa-file-word fa-2x mb-2 d-block"></i>
+                    No hay plantillas configuradas aún.
+                    <br>
+                    <a href="{% url 'actas:plantilla_crear' %}" class="btn btn-sm btn-primary mt-2">
+                      <i class="fas fa-plus me-1"></i>Crear primera plantilla
+                    </a>
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+
+          <hr>
+          <h6 class="text-muted mb-2"><i class="fas fa-tags me-1"></i>Marcadores disponibles</h6>
+          <div class="d-flex flex-wrap gap-2">
+            {% for marcador in marcadores_disponibles %}
+            <code class="bg-light border rounded px-2 py-1">&#123;&#123;{{ marcador }}&#125;&#125;</code>
+            {% empty %}
+            <code>&#123;&#123;numero_acta&#125;&#125;</code>
+            <code>&#123;&#123;titulo&#125;&#125;</code>
+            <code>&#123;&#123;tipo_reunion&#125;&#125;</code>
+            <code>&#123;&#123;fecha_reunion&#125;&#125;</code>
+            <code>&#123;&#123;lugar&#125;&#125;</code>
+            <code>&#123;&#123;objetivo&#125;&#125;</code>
+            <code>&#123;&#123;orden_dia&#125;&#125;</code>
+            <code>&#123;&#123;desarrollo&#125;&#125;</code>
+            <code>&#123;&#123;conclusiones&#125;&#125;</code>
+            <code>&#123;&#123;creador_nombre&#125;&#125;</code>
+            <code>&#123;&#123;creador_cargo&#125;&#125;</code>
+            <code>&#123;&#123;fecha_generacion&#125;&#125;</code>
+            <code>&#123;&#123;participantes_tabla&#125;&#125;</code>
+            <code>&#123;&#123;compromisos_tabla&#125;&#125;</code>
+            {% endfor %}
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

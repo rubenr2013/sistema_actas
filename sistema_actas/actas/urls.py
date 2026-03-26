@@ -97,6 +97,12 @@ urlpatterns = [
     path('api/actas/<int:acta_id>/anexos/<int:anexo_id>/', api_views.eliminar_anexo_api, name='api_eliminar_anexo'),
     path('api/actas/<int:acta_id>/anexos/orden/', api_views.reordenar_anexos_api, name='api_reordenar_anexos'),
 
+    # Plantillas de acta (admin)
+    path('plantillas/', views.plantillas_list, name='plantillas_list'),
+    path('plantillas/crear/', views.plantilla_crear, name='plantilla_crear'),
+    path('plantillas/<int:plantilla_id>/editar/', views.plantilla_editar, name='plantilla_editar'),
+    path('plantillas/<int:plantilla_id>/eliminar/', views.plantilla_eliminar, name='plantilla_eliminar'),
+
     # Revisión colaborativa - Vistas web (sesión Django)
     path('<int:acta_id>/web/enviar-revision/', views.web_enviar_a_revision, name='web_enviar_revision'),
     path('<int:acta_id>/web/aprobar/', views.web_aprobar_acta, name='web_aprobar_acta'),

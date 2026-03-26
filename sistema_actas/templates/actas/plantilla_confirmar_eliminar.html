@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}Eliminar Plantilla{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 500px;">
+  <div class="card border-danger">
+    <div class="card-header bg-danger text-white">
+      <h5 class="mb-0"><i class="fas fa-exclamation-triangle me-2"></i>Confirmar eliminación</h5>
+    </div>
+    <div class="card-body">
+      <p>¿Estás seguro de que deseas eliminar la plantilla <strong>"{{ plantilla.nombre }}"</strong>?</p>
+      <p class="text-muted small">
+        Tipo: {{ plantilla.get_tipo_reunion_display }}<br>
+        Esta acción no se puede deshacer. Si hay actas de este tipo, se usará el formato predeterminado del sistema.
+      </p>
+      <form method="post">
+        {% csrf_token %}
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-danger">
+            <i class="fas fa-trash me-1"></i>Sí, eliminar
+          </button>
+          <a href="{% url 'actas:plantillas_list' %}" class="btn btn-outline-secondary">
+            Cancelar
+          </a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

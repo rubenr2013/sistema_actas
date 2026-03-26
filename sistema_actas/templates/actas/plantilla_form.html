@@ -1,0 +1,130 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}{{ accion }} Plantilla{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 700px;">
+  <div class="card">
+    <div class="card-header">
+      <h5 class="mb-0">
+        <i class="fas fa-file-word text-primary me-2"></i>{{ accion }} Plantilla de Acta
+      </h5>
+    </div>
+    <div class="card-body">
+
+      {% if messages %}
+        {% for message in messages %}
+          <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post" enctype="multipart/form-data" novalidate>
+        {% csrf_token %}
+
+        <!-- Tipo de reunión (solo en creación) -->
+        {% if not plantilla %}
+        <div class="mb-3">
+          <label for="tipo_reunion" class="form-label fw-semibold">Tipo de reunión <span class="text-danger">*</span></label>
+          <select name="tipo_reunion" id="tipo_reunion" class="form-select" required>
+            <option value="">— Selecciona —</option>
+            {% for value, label in tipos_reunion %}
+              <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <div class="form-text">Solo puede haber una plantilla por tipo de reunión.</div>
+        </div>
+        {% else %}
+        <div class="mb-3">
+          <label class="form-label fw-semibold">Tipo de reunión</label>
+          <input type="text" class="form-control" value="{{ plantilla.get_tipo_reunion_display }}" disabled>
+        </div>
+        {% endif %}
+
+        <!-- Nombre -->
+        <div class="mb-3">
+          <label for="nombre" class="form-label fw-semibold">Nombre <span class="text-danger">*</span></label>
+          <input type="text" name="nombre" id="nombre" class="form-control"
+                 value="{{ plantilla.nombre|default:'' }}" placeholder="Ej: Formato Consejo Académico v2" required>
+        </div>
+
+        <!-- Descripción -->
+        <div class="mb-3">
+          <label for="descripcion" class="form-label fw-semibold">Descripción</label>
+          <textarea name="descripcion" id="descripcion" class="form-control" rows="2"
+                    placeholder="Notas opcionales sobre esta plantilla">{{ plantilla.descripcion|default:'' }}</textarea>
+        </div>
+
+        <!-- Archivo -->
+        <div class="mb-3">
+          <label for="archivo" class="form-label fw-semibold">
+            Archivo Word (.docx)
+            {% if not plantilla %}<span class="text-danger">*</span>{% endif %}
+          </label>
+          {% if plantilla and plantilla.archivo %}
+            <div class="alert alert-light border mb-2 py-2">
+              <i class="fas fa-file-word text-primary me-1"></i>
+              Plantilla actual:
+              <a href="{{ plantilla.archivo.url }}" download class="fw-semibold">{{ plantilla.archivo.name|default:"archivo.docx" }}</a>
+              <br><small class="text-muted">Sube un nuevo archivo solo si quieres reemplazarla.</small>
+            </div>
+          {% endif %}
+          <input type="file" name="archivo" id="archivo" class="form-control"
+                 accept=".docx" {% if not plantilla %}required{% endif %}>
+          <div class="form-text">
+            Máximo 5 MB. El archivo debe ser <code>.docx</code> con los
+            <code>&#123;&#123;marcadores&#125;&#125;</code> en las posiciones deseadas.
+          </div>
+        </div>
+
+        <!-- Activa -->
+        <div class="mb-4 form-check form-switch">
+          <input class="form-check-input" type="checkbox" name="activa" id="activa"
+                 {% if plantilla.activa or not plantilla %}checked{% endif %}>
+          <label class="form-check-label" for="activa">
+            Plantilla activa (se usará al generar PDFs)
+          </label>
+        </div>
+
+        <!-- Marcadores disponibles -->
+        <div class="mb-4">
+          <p class="text-muted small mb-1"><i class="fas fa-tags me-1"></i><strong>Marcadores disponibles</strong> — cópialos en tu documento Word:</p>
+          <div class="d-flex flex-wrap gap-1">
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;numero_acta&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;titulo&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;tipo_reunion&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;fecha_reunion&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;lugar&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;objetivo&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;orden_dia&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;desarrollo&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;conclusiones&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;creador_nombre&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;creador_cargo&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;fecha_generacion&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;participantes_tabla&#125;&#125;</code>
+            <code class="bg-light border rounded px-2 py-1 small">&#123;&#123;compromisos_tabla&#125;&#125;</code>
+          </div>
+          <div class="mt-2 text-muted small">
+            <i class="fas fa-info-circle me-1"></i>
+            <code>&#123;&#123;participantes_tabla&#125;&#125;</code> y
+            <code>&#123;&#123;compromisos_tabla&#125;&#125;</code> se reemplazan por tablas completas.
+          </div>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="submit" class="btn btn-primary">
+            <i class="fas fa-save me-1"></i>{{ accion }} plantilla
+          </button>
+          <a href="{% url 'actas:plantillas_list' %}" class="btn btn-outline-secondary">
+            Cancelar
+          </a>
+        </div>
+      </form>
+
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -142,6 +142,65 @@ def validar_tamaño_archivo(archivo):
             f'Tamaño máximo permitido: {max_mb:.0f} MB'
         )
 
+
+# Tamaño máximo para plantillas Word (5 MB)
+MAX_PLANTILLA_SIZE = 5 * 1024 * 1024
+
+
+def validar_plantilla_docx(archivo):
+    """
+    Valida que el archivo subido sea un .docx válido y no exceda 5 MB.
+    Comprueba: extensión, tamaño, magic bytes (PK = ZIP) y que python-docx pueda abrirlo.
+    """
+    if not archivo:
+        return
+
+    nombre = archivo.name.lower()
+    extension = nombre.rsplit('.', 1)[-1] if '.' in nombre else ''
+
+    if extension != 'docx':
+        raise ValidationError(
+            'Solo se permiten archivos Word (.docx). '
+            f'El archivo proporcionado tiene extensión .{extension}.'
+        )
+
+    if archivo.size > MAX_PLANTILLA_SIZE:
+        actual_mb = archivo.size / (1024 * 1024)
+        raise ValidationError(
+            f'El archivo es demasiado grande ({actual_mb:.2f} MB). '
+            'El tamaño máximo para plantillas es 5 MB.'
+        )
+
+    # Verificar magic bytes PK (ZIP) — todos los .docx son ZIP internamente
+    try:
+        pos = archivo.tell()
+        archivo.seek(0)
+        header = archivo.read(4)
+        archivo.seek(pos)
+    except Exception:
+        return
+
+    if not header.startswith(b'PK\x03\x04'):
+        raise ValidationError(
+            'El archivo no parece ser un .docx válido. '
+            'Asegúrese de guardar el archivo desde Microsoft Word o LibreOffice.'
+        )
+
+    # Intentar abrirlo con python-docx para confirmar que es un Word real
+    try:
+        from docx import Document as DocxDocument
+        import io
+        pos = archivo.tell()
+        archivo.seek(0)
+        contenido = archivo.read()
+        archivo.seek(pos)
+        DocxDocument(io.BytesIO(contenido))
+    except Exception:
+        raise ValidationError(
+            'El archivo .docx está corrupto o no se puede leer. '
+            'Verifique que el archivo esté en buen estado.'
+        )
+
 User = get_user_model()
 
 class Acta(models.Model):
@@ -789,6 +848,92 @@ class AnexoActa(models.Model):
 
     def __str__(self):
         return f"Anexo '{self.nombre_archivo}' — Acta {self.acta.numero_acta}"
+
+    def delete(self, *args, **kwargs):
+        """Eliminar el archivo físico al borrar el registro."""
+        if self.archivo:
+            try:
+                path = self.archivo.path
+                if os.path.isfile(path):
+                    os.remove(path)
+            except Exception:
+                pass
+        super().delete(*args, **kwargs)
+
+
+# =============================================================================
+# PLANTILLAS DE ACTA (sistema de formatos Word por tipo de reunión)
+# =============================================================================
+
+class PlantillaActa(models.Model):
+    """
+    Plantilla Word (.docx) para un tipo de reunión específico.
+    El sistema rellena los {{marcadores}} con los datos del acta y genera el PDF.
+    Si no hay plantilla para un tipo, se usa el generador ReportLab como fallback.
+
+    Marcadores soportados en el documento Word:
+        {{numero_acta}}, {{titulo}}, {{tipo_reunion}}, {{fecha_reunion}},
+        {{lugar}}, {{objetivo}}, {{orden_dia}}, {{desarrollo}}, {{conclusiones}},
+        {{compromisos_tabla}}, {{participantes_tabla}},
+        {{creador_nombre}}, {{creador_cargo}}, {{fecha_generacion}}
+    """
+
+    TIPOS_REUNION = [
+        ('consejo_academico', 'Consejo Académico'),
+        ('comite_evaluacion', 'Comité de Evaluación'),
+        ('coordinacion', 'Coordinación'),
+        ('administrativa', 'Administrativa'),
+        ('tecnica', 'Técnica'),
+        ('otra', 'Otra'),
+    ]
+
+    tipo_reunion = models.CharField(
+        max_length=30,
+        choices=TIPOS_REUNION,
+        unique=True,
+        verbose_name='Tipo de reunión',
+        help_text='Solo puede haber una plantilla activa por tipo de reunión.',
+    )
+    nombre = models.CharField(
+        max_length=200,
+        verbose_name='Nombre de la plantilla',
+        help_text='Nombre descriptivo para identificar la plantilla (ej: "Formato Consejo v2").',
+    )
+    archivo = models.FileField(
+        upload_to='plantillas_actas/%Y/%m/',
+        validators=[validar_plantilla_docx],
+        verbose_name='Archivo Word (.docx)',
+        help_text='Suba un archivo .docx con los {{marcadores}} en las posiciones deseadas.',
+    )
+    activa = models.BooleanField(
+        default=True,
+        verbose_name='Activa',
+        help_text='Solo las plantillas activas se usan para generar PDFs.',
+    )
+    descripcion = models.TextField(
+        blank=True,
+        verbose_name='Descripción',
+        help_text='Notas sobre esta plantilla (opcional).',
+    )
+    creada_por = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='plantillas_creadas',
+        verbose_name='Creada por',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True, verbose_name='Fecha de creación')
+    fecha_modificacion = models.DateTimeField(auto_now=True, verbose_name='Última modificación')
+
+    class Meta:
+        verbose_name = 'Plantilla de Acta'
+        verbose_name_plural = 'Plantillas de Acta'
+        ordering = ['tipo_reunion']
+
+    def __str__(self):
+        estado = 'activa' if self.activa else 'inactiva'
+        return f"{self.get_tipo_reunion_display()} — {self.nombre} ({estado})"
 
     def delete(self, *args, **kwargs):
         """Eliminar el archivo físico al borrar el registro."""

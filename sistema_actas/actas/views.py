@@ -494,6 +494,22 @@ def generar_pdf(request, acta_id):
         messages.error(request, "No tienes permiso para descargar esta acta.")
         return redirect("actas:actas_list")
 
+    # ── Intento con plantilla Word ──────────────────────────────────────────
+    try:
+        from actas.services.plantilla_service import generar_documento_desde_plantilla
+        resultado = generar_documento_desde_plantilla(acta)
+        if resultado:
+            content_type = 'application/pdf' if resultado['tipo'] == 'pdf' else (
+                'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+            )
+            resp = HttpResponse(resultado['bytes'], content_type=content_type)
+            resp['Content-Disposition'] = f'attachment; filename="{resultado["nombre"]}"'
+            return resp
+    except Exception as e:
+        import logging as _log
+        _log.getLogger(__name__).error('generar_pdf: error con plantilla Word, usando ReportLab: %s', e)
+    # ── Fallback ReportLab ──────────────────────────────────────────────────
+
     # Crear PDF
     response = HttpResponse(content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="ACTA_{acta.numero_acta}.pdf"'
@@ -1470,3 +1486,165 @@ def web_cerrar_acta(request, acta_id):
         import logging
         logging.getLogger(__name__).error(f'Error cerrar acta {acta_id}: {e}', exc_info=True)
         return JsonResponse({'success': False, 'error': 'Error al cerrar el acta.'}, status=500)
+
+
+# =============================================================================
+# GESTIÓN DE PLANTILLAS DE ACTA (solo admin)
+# =============================================================================
+
+@login_required
+def plantillas_list(request):
+    """Lista todas las plantillas de acta. Solo accesible para admin."""
+    if not (request.user.is_staff or getattr(request.user, 'rol', None) == 'admin'):
+        messages.error(request, "No tienes permiso para acceder a esta sección.")
+        return redirect('actas:actas_list')
+
+    from .models import PlantillaActa
+    plantillas = PlantillaActa.objects.select_related('creada_por').order_by('tipo_reunion')
+    marcadores = [
+        'numero_acta', 'titulo', 'tipo_reunion', 'fecha_reunion', 'lugar',
+        'objetivo', 'orden_dia', 'desarrollo', 'conclusiones',
+        'creador_nombre', 'creador_cargo', 'fecha_generacion',
+        'participantes_tabla', 'compromisos_tabla',
+    ]
+    return render(request, 'actas/plantillas_list.html', {
+        'plantillas': plantillas,
+        'marcadores_disponibles': marcadores,
+    })
+
+
+@login_required
+def plantilla_crear(request):
+    """Crea una nueva plantilla de acta. Solo admin."""
+    if not (request.user.is_staff or getattr(request.user, 'rol', None) == 'admin'):
+        messages.error(request, "No tienes permiso para realizar esta acción.")
+        return redirect('actas:actas_list')
+
+    from .models import PlantillaActa
+
+    if request.method == 'POST':
+        tipo_reunion = request.POST.get('tipo_reunion', '').strip()
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion', '').strip()
+        activa = request.POST.get('activa') == 'on'
+        archivo = request.FILES.get('archivo')
+
+        errores = []
+        if not tipo_reunion:
+            errores.append("Debes seleccionar el tipo de reunión.")
+        if not nombre:
+            errores.append("El nombre es obligatorio.")
+        if not archivo:
+            errores.append("Debes subir un archivo .docx.")
+
+        if not errores:
+            # Validar archivo con el validador del modelo
+            from django.core.exceptions import ValidationError
+            from .models import validar_plantilla_docx
+            try:
+                validar_plantilla_docx(archivo)
+            except ValidationError as e:
+                errores.append(str(e.message))
+
+        if not errores:
+            plantilla = PlantillaActa(
+                tipo_reunion=tipo_reunion,
+                nombre=nombre,
+                descripcion=descripcion,
+                activa=activa,
+                archivo=archivo,
+                creada_por=request.user,
+            )
+            try:
+                plantilla.save()
+                messages.success(request, f'Plantilla "{nombre}" creada correctamente.')
+                return redirect('actas:plantillas_list')
+            except Exception as e:
+                errores.append(f"Error al guardar: {e}")
+
+        for error in errores:
+            messages.error(request, error)
+
+    tipos = PlantillaActa.TIPOS_REUNION
+    return render(request, 'actas/plantilla_form.html', {
+        'tipos_reunion': tipos,
+        'accion': 'Crear',
+    })
+
+
+@login_required
+def plantilla_editar(request, plantilla_id):
+    """Edita una plantilla existente. Solo admin."""
+    if not (request.user.is_staff or getattr(request.user, 'rol', None) == 'admin'):
+        messages.error(request, "No tienes permiso para realizar esta acción.")
+        return redirect('actas:actas_list')
+
+    from .models import PlantillaActa
+    plantilla = get_object_or_404(PlantillaActa, pk=plantilla_id)
+
+    if request.method == 'POST':
+        nombre = request.POST.get('nombre', '').strip()
+        descripcion = request.POST.get('descripcion', '').strip()
+        activa = request.POST.get('activa') == 'on'
+        archivo = request.FILES.get('archivo')
+
+        errores = []
+        if not nombre:
+            errores.append("El nombre es obligatorio.")
+
+        if archivo:
+            from django.core.exceptions import ValidationError
+            from .models import validar_plantilla_docx
+            try:
+                validar_plantilla_docx(archivo)
+            except ValidationError as e:
+                errores.append(str(e.message))
+
+        if not errores:
+            plantilla.nombre = nombre
+            plantilla.descripcion = descripcion
+            plantilla.activa = activa
+            if archivo:
+                # Eliminar archivo anterior
+                try:
+                    old_path = plantilla.archivo.path
+                    if os.path.isfile(old_path):
+                        os.remove(old_path)
+                except Exception:
+                    pass
+                plantilla.archivo = archivo
+            try:
+                plantilla.save()
+                messages.success(request, f'Plantilla "{nombre}" actualizada correctamente.')
+                return redirect('actas:plantillas_list')
+            except Exception as e:
+                errores.append(f"Error al guardar: {e}")
+
+        for error in errores:
+            messages.error(request, error)
+
+    tipos = PlantillaActa.TIPOS_REUNION
+    return render(request, 'actas/plantilla_form.html', {
+        'plantilla': plantilla,
+        'tipos_reunion': tipos,
+        'accion': 'Editar',
+    })
+
+
+@login_required
+def plantilla_eliminar(request, plantilla_id):
+    """Elimina una plantilla. Solo admin. Requiere POST."""
+    if not (request.user.is_staff or getattr(request.user, 'rol', None) == 'admin'):
+        messages.error(request, "No tienes permiso para realizar esta acción.")
+        return redirect('actas:actas_list')
+
+    from .models import PlantillaActa
+    plantilla = get_object_or_404(PlantillaActa, pk=plantilla_id)
+
+    if request.method == 'POST':
+        nombre = plantilla.nombre
+        plantilla.delete()
+        messages.success(request, f'Plantilla "{nombre}" eliminada.')
+        return redirect('actas:plantillas_list')
+
+    return render(request, 'actas/plantilla_confirmar_eliminar.html', {'plantilla': plantilla})

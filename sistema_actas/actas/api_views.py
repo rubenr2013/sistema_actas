@@ -2186,6 +2186,21 @@ def generar_pdf_api(request, acta_id):
                 'error': 'No tienes permiso para descargar esta acta'
             }, status=403)
         
+        # ── Intento con plantilla Word ──────────────────────────────────────
+        try:
+            from actas.services.plantilla_service import generar_documento_desde_plantilla
+            resultado = generar_documento_desde_plantilla(acta)
+            if resultado:
+                content_type = 'application/pdf' if resultado['tipo'] == 'pdf' else (
+                    'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+                )
+                resp = HttpResponse(resultado['bytes'], content_type=content_type)
+                resp['Content-Disposition'] = f'attachment; filename="{resultado["nombre"]}"'
+                return resp
+        except Exception as _e:
+            logger.error('generar_pdf_api: error con plantilla Word, usando ReportLab: %s', _e)
+        # ── Fallback ReportLab ──────────────────────────────────────────────
+
         # === GENERAR PDF (mismo código que views.generar_pdf) ===
         from reportlab.lib.pagesizes import letter
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
@@ -2197,7 +2212,7 @@ def generar_pdf_api(request, acta_id):
         import os
         from django.conf import settings
         from django.http import HttpResponse
-        
+
         # Crear PDF en buffer (para poder fusionar anexos después)
         import io as _io_pdf
         pdf_buffer = _io_pdf.BytesIO()
