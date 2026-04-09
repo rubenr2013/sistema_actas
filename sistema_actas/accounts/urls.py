@@ -3,6 +3,7 @@
 from django.urls import path, reverse_lazy
 from django.contrib.auth import views as auth_views
 from . import views
+from . import views_roles
 
 # Define el namespace (espacio de nombres) para esta aplicación. CRÍTICO.
 app_name = "accounts"
@@ -22,6 +23,13 @@ urlpatterns = [
     path("usuarios/", views.usuarios, name="usuarios"),
     path('usuarios/editar/<int:user_id>/', views.editar_usuario, name='editar_usuario'),
     path('usuarios/eliminar/<int:user_id>/', views.eliminar_usuario, name='eliminar_usuario'),
+
+    # Gestión de roles
+    path('roles/', views_roles.roles_list, name='roles_list'),
+    path('roles/crear/', views_roles.rol_crear, name='rol_crear'),
+    path('roles/<int:rol_id>/', views_roles.rol_detail, name='rol_detail'),
+    path('roles/<int:rol_id>/editar/', views_roles.rol_editar, name='rol_editar'),
+    path('roles/<int:rol_id>/eliminar/', views_roles.rol_eliminar, name='rol_eliminar'),
 
     # ── Sistema de aprobación de cuentas ───────────────────────────────────
     # Página informativa cuando la cuenta no está activa (sin login requerido)

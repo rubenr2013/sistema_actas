@@ -1,0 +1,34 @@
+{% extends "emails/base_email.html" %}
+
+{% block content %}
+<h2>Estimado/a {{ nombre_completo }},</h2>
+
+<p>
+    Por medio del presente correo le informamos que usted ha sido registrado/a como
+    participante en el siguiente acta de reunión del
+    <strong>SENA – Servicio Nacional de Aprendizaje</strong>:
+</p>
+
+<div class="info-box">
+    <p><strong>📄 Título:</strong> {{ titulo_acta }}</p>
+    <p><strong>🏷️ Número de Acta:</strong> {{ numero_acta }}</p>
+    <p><strong>📋 Tipo de reunión:</strong> {{ tipo_reunion }}</p>
+    <p><strong>📅 Fecha:</strong> {{ fecha_reunion }}</p>
+    <p><strong>📍 Lugar:</strong> {{ lugar }}</p>
+    {% if cargo_rol %}
+    <p><strong>👤 Su rol en la reunión:</strong> {{ cargo_rol }}</p>
+    {% endif %}
+</div>
+
+<p>
+    Adjunto a este correo encontrará el documento completo del acta en formato PDF.
+    Este documento es de carácter oficial e informativo.
+</p>
+
+<p style="color: #666; font-size: 13px; margin-top: 20px; border-top: 1px solid #eee; padding-top: 15px;">
+    <em>
+        Este es un mensaje automático generado por el Sistema de Gestión de Actas del SENA.
+        Por favor no responda a este correo.
+    </em>
+</p>
+{% endblock %}

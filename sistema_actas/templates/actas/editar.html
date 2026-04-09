@@ -153,7 +153,15 @@
                     </div>
                     <div class="card-body">
                         <div class="row g-3">
-                            <div class="col-md-6">
+                            <div class="col-md-4">
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="numero_acta" name="numero_acta"
+                                           placeholder="Nº de acta" value="{{ acta.numero_acta }}" required>
+                                    <label for="numero_acta">Número de Acta <span class="text-danger">*</span></label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-8">
                                 <div class="form-floating">
                                     <input type="text" class="form-control" id="titulo" name="titulo"
                                             placeholder="Título del acta" value="{{ acta.titulo }}" required>
@@ -170,6 +178,15 @@
                                         {% endfor %}
                                     </select>
                                     <label for="tipo_reunion">Tipo de Reunión</label>
+                                </div>
+                            </div>
+
+                            <div class="col-md-6" id="tipo_reunion_otro_div" {% if acta.tipo_reunion != 'otra' %}style="display:none"{% endif %}>
+                                <div class="form-floating">
+                                    <input type="text" class="form-control" id="tipo_reunion_otro"
+                                           name="tipo_reunion_otro" placeholder="Especifica el tipo"
+                                           value="{{ acta.tipo_reunion_otro }}">
+                                    <label for="tipo_reunion_otro">Especifica el tipo de reunión</label>
                                 </div>
                             </div>
 
@@ -344,6 +361,55 @@
                     </div>
                 </div>
 
+                <!-- Participantes No Registrados -->
+                <div class="card hover-lift mb-4 border-warning">
+                    <div class="card-header bg-warning bg-opacity-10">
+                        <h5 class="card-title mb-0">
+                            <i class="fas fa-user-clock text-warning me-2"></i>
+                            Participantes No Registrados
+                            <small class="text-muted fw-normal ms-2">(Recibirán el acta por email)</small>
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <!-- Existentes -->
+                        {% for nr in acta.participantes_no_registrados.all %}
+                        <div class="d-flex align-items-center gap-2 mb-2 p-2 border rounded bg-light">
+                            <i class="fas fa-user-clock text-warning"></i>
+                            <span class="flex-grow-1">
+                                <strong>{{ nr.nombre_completo }}</strong>
+                                <span class="text-muted ms-1">&lt;{{ nr.email }}&gt;</span>
+                                {% if nr.cargo_rol %}<span class="badge bg-secondary ms-1">{{ nr.cargo_rol }}</span>{% endif %}
+                                {% if nr.pdf_enviado %}<span class="badge bg-success ms-1"><i class="fas fa-check me-1"></i>PDF enviado</span>{% endif %}
+                            </span>
+                            <span class="badge bg-info text-dark">Ya registrado</span>
+                        </div>
+                        {% endfor %}
+                        <!-- Nuevos a agregar -->
+                        <div id="nr-lista-edit"></div>
+                        <div class="row g-2 mt-2">
+                            <div class="col-md-4">
+                                <input type="text" class="form-control form-control-sm" id="nr-nombre-edit" placeholder="Nombre completo *">
+                            </div>
+                            <div class="col-md-4">
+                                <input type="email" class="form-control form-control-sm" id="nr-email-edit" placeholder="Email *">
+                            </div>
+                            <div class="col-md-3">
+                                <input type="text" class="form-control form-control-sm" id="nr-cargo-edit" placeholder="Cargo / Rol">
+                            </div>
+                            <div class="col-md-1">
+                                <button type="button" class="btn btn-warning btn-sm w-100" id="btn-agregar-nr-edit" title="Agregar">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="nr-edit-error" class="text-danger small mt-1 d-none"></div>
+                        <small class="text-muted mt-2 d-block">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Los participantes existentes no se modifican aquí. Solo puedes agregar nuevos.
+                        </small>
+                    </div>
+                </div>
+
                 <!-- Botones -->
                 <div class="text-end">
                     <a href="{% url 'actas:detalle' acta.id %}" class="btn btn-outline-secondary me-2">
@@ -362,6 +428,20 @@
 
 {% block extra_js %}
 <script>
+    // Mostrar/ocultar tipo_reunion_otro
+    (function() {
+        const sel = document.getElementById('tipo_reunion');
+        const div = document.getElementById('tipo_reunion_otro_div');
+        const inp = document.getElementById('tipo_reunion_otro');
+        if (sel && div) {
+            sel.addEventListener('change', function() {
+                const show = this.value === 'otra';
+                div.style.display = show ? '' : 'none';
+                if (!show) inp.value = '';
+            });
+        }
+    })();
+
     let participanteCounter = {{ participantes.count|default:0 }};
     let compromisoCounter = {{ compromisos.count|default:0 }};
 
@@ -429,6 +509,48 @@
         `;
         container.insertAdjacentHTML('beforeend', html);
     }
+
+    // ── Participantes No Registrados (nuevos) ─────────────────────────────
+    (function() {
+        const nrListaEdit = [];
+        function renderNrEdit() {
+            const container = document.getElementById('nr-lista-edit');
+            if (!nrListaEdit.length) { container.innerHTML = ''; return; }
+            container.innerHTML = nrListaEdit.map((p, i) => `
+                <div class="d-flex align-items-center gap-2 mb-1 p-2 border rounded bg-light">
+                    <i class="fas fa-user-clock text-warning"></i>
+                    <span class="flex-grow-1">
+                        <strong>${p.nombre}</strong>
+                        <span class="text-muted ms-1">&lt;${p.email}&gt;</span>
+                        ${p.cargo ? `<span class="badge bg-secondary ms-1">${p.cargo}</span>` : ''}
+                    </span>
+                    <input type="hidden" name="nr_nombre[]" value="${p.nombre}">
+                    <input type="hidden" name="nr_email[]" value="${p.email}">
+                    <input type="hidden" name="nr_cargo[]" value="${p.cargo}">
+                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarNrEdit(${i})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>`).join('');
+        }
+        window.eliminarNrEdit = function(idx) { nrListaEdit.splice(idx, 1); renderNrEdit(); };
+        document.getElementById('btn-agregar-nr-edit').addEventListener('click', function() {
+            const nombre = document.getElementById('nr-nombre-edit').value.trim();
+            const email  = document.getElementById('nr-email-edit').value.trim();
+            const cargo  = document.getElementById('nr-cargo-edit').value.trim();
+            const errorDiv = document.getElementById('nr-edit-error');
+            errorDiv.classList.add('d-none');
+            if (!nombre) { errorDiv.textContent = 'Ingresa el nombre.'; errorDiv.classList.remove('d-none'); return; }
+            if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { errorDiv.textContent = 'Email inválido.'; errorDiv.classList.remove('d-none'); return; }
+            if (nrListaEdit.some(p => p.email.toLowerCase() === email.toLowerCase())) {
+                errorDiv.textContent = 'Email ya agregado.'; errorDiv.classList.remove('d-none'); return;
+            }
+            nrListaEdit.push({ nombre, email, cargo });
+            renderNrEdit();
+            document.getElementById('nr-nombre-edit').value = '';
+            document.getElementById('nr-email-edit').value = '';
+            document.getElementById('nr-cargo-edit').value = '';
+        });
+    })();
 
     // CKEditor
     document.addEventListener("DOMContentLoaded", function () {

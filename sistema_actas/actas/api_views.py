@@ -6,7 +6,7 @@ from django.conf import settings
 from django.db.models import Q, Count, Prefetch, Max
 from datetime import timedelta, datetime
 from rest_framework.authtoken.models import Token
-from .models import Acta, Participante, Firma, Compromiso, ComentarioActa, ArchivoAdjunto
+from .models import Acta, Participante, Firma, Compromiso, ComentarioActa, ArchivoAdjunto, ParticipanteNoRegistrado
 import json
 import logging
 import os
@@ -2535,6 +2535,15 @@ def generar_pdf_api(request, acta_id):
                 Paragraph(participante.rol_en_reunion or "Participante", styles['Normal']),
                 Paragraph("SÍ" if firma_obj and firma_obj.firmado else "NO", styles['Normal']),
                 firma_cell
+            ])
+
+        # Participantes no registrados
+        for nr in acta.participantes_no_registrados.all():
+            asistentes_data.append([
+                Paragraph(nr.nombre_completo, styles['Normal']),
+                Paragraph(nr.cargo_rol or 'Participante', styles['Normal']),
+                Paragraph("N/A", styles['Normal']),
+                Paragraph("(No aplica)", styles['Normal']),
             ])
 
         asistentes_table = Table(asistentes_data, colWidths=[1.8*inch, 1.8*inch, 1.2*inch, 2.2*inch])
@@ -5452,3 +5461,137 @@ def rechazar_cuenta_api(request):
         'success': True,
         'message': f"Cuenta de {user_a_rechazar.get_full_name()} rechazada.",
     })
+
+# ============================================================
+# API - Participantes No Registrados
+# ============================================================
+
+@csrf_exempt
+def participantes_nr_list_api(request, acta_id):
+    """
+    GET  /api/actas/<id>/participantes-nr/  — lista participantes no registrados del acta
+    POST /api/actas/<id>/participantes-nr/  — agrega uno nuevo
+    """
+    user, error = get_user_from_token(request)
+    if error:
+        return error
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    # Solo creador, participantes o admin
+    es_participante = acta.participantes.filter(usuario=user).exists()
+    if not (acta.creador == user or es_participante or user.rol == 'admin'):
+        return JsonResponse({'success': False, 'error': 'Sin permiso'}, status=403)
+
+    if request.method == 'GET':
+        data = list(acta.participantes_no_registrados.values(
+            'id', 'nombre_completo', 'email', 'cargo_rol',
+            'pdf_enviado', 'fecha_envio', 'email_rebotado'
+        ))
+        return JsonResponse({'success': True, 'participantes': data})
+
+    if request.method == 'POST':
+        # Solo el creador o admin puede agregar
+        if not (acta.creador == user or user.rol == 'admin'):
+            return JsonResponse({'success': False, 'error': 'Sin permiso'}, status=403)
+
+        try:
+            body = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'success': False, 'error': 'JSON inválido'}, status=400)
+
+        nombre = (body.get('nombre_completo') or '').strip()
+        email = (body.get('email') or '').strip().lower()
+        cargo = (body.get('cargo_rol') or '').strip()
+
+        if not nombre or not email:
+            return JsonResponse({'success': False, 'error': 'nombre_completo y email son requeridos'}, status=400)
+
+        if ParticipanteNoRegistrado.objects.filter(acta=acta, email=email).exists():
+            return JsonResponse({'success': False, 'error': 'Ya existe un participante con ese email en esta acta'}, status=400)
+
+        nr = ParticipanteNoRegistrado.objects.create(
+            acta=acta,
+            nombre_completo=nombre,
+            email=email,
+            cargo_rol=cargo,
+        )
+        return JsonResponse({
+            'success': True,
+            'participante': {
+                'id': nr.id,
+                'nombre_completo': nr.nombre_completo,
+                'email': nr.email,
+                'cargo_rol': nr.cargo_rol,
+                'pdf_enviado': nr.pdf_enviado,
+                'fecha_envio': None,
+                'email_rebotado': nr.email_rebotado,
+            }
+        }, status=201)
+
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def participante_nr_detalle_api(request, acta_id, nr_id):
+    """
+    DELETE /api/actas/<id>/participantes-nr/<nr_id>/  — elimina participante no registrado
+    """
+    user, error = get_user_from_token(request)
+    if error:
+        return error
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+    except Acta.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Acta no encontrada'}, status=404)
+
+    if not (acta.creador == user or user.rol == 'admin'):
+        return JsonResponse({'success': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        nr = ParticipanteNoRegistrado.objects.get(id=nr_id, acta=acta)
+    except ParticipanteNoRegistrado.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Participante no encontrado'}, status=404)
+
+    if request.method == 'DELETE':
+        nr.delete()
+        return JsonResponse({'success': True, 'message': 'Participante eliminado'})
+
+    return JsonResponse({'success': False, 'error': 'Método no permitido'}, status=405)
+
+
+@csrf_exempt
+def reenviar_pdf_nr_api(request, acta_id, nr_id):
+    """
+    POST /api/actas/<id>/participantes-nr/<nr_id>/reenviar/  — reenvía PDF al participante
+    """
+    user, error = get_user_from_token(request)
+    if error:
+        return error
+
+    if user.rol not in ('admin', 'coordinador', 'director'):
+        return JsonResponse({'success': False, 'error': 'Sin permiso'}, status=403)
+
+    try:
+        acta = Acta.objects.get(id=acta_id)
+        nr = ParticipanteNoRegistrado.objects.get(id=nr_id, acta=acta)
+    except (Acta.DoesNotExist, ParticipanteNoRegistrado.DoesNotExist):
+        return JsonResponse({'success': False, 'error': 'No encontrado'}, status=404)
+
+    try:
+        from actas.email_service import enviar_pdfs_a_no_registrados
+        nr.pdf_enviado = False  # forzar reenvío
+        nr.email_rebotado = False
+        nr.save(update_fields=['pdf_enviado', 'email_rebotado'])
+        enviados, fallidos = enviar_pdfs_a_no_registrados(acta)
+        if enviados > 0:
+            return JsonResponse({'success': True, 'message': 'PDF reenviado correctamente'})
+        else:
+            return JsonResponse({'success': False, 'error': 'No se pudo enviar el PDF'}, status=500)
+    except Exception as e:
+        logger.error('reenviar_pdf_nr_api error: %s', e, exc_info=True)
+        return JsonResponse({'success': False, 'error': 'Error al reenviar PDF'}, status=500)

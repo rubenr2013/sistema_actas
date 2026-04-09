@@ -270,11 +270,21 @@
                             <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" id="titulo" name="titulo" 
+                                        <input type="text" class="form-control" id="numero_acta" name="numero_acta"
+                                               placeholder="Ej: ACT-2026-001" required maxlength="50">
+                                        <label for="numero_acta">Número de Acta <span class="text-danger">*</span></label>
+                                    </div>
+                                    <div class="form-text text-muted"><i class="fas fa-info-circle me-1"></i>Número oficial asignado por la subdirección.</div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="titulo" name="titulo"
                                                 placeholder="Título del acta" required>
                                         <label for="titulo">Título del Acta</label>
                                     </div>
                                 </div>
+                            </div>
+                            <div class="row">
                                 <div class="col-md-6 mb-3">
                                     <div class="form-floating">
                                         <select class="form-select" id="tipo_reunion" name="tipo_reunion" required>
@@ -284,6 +294,14 @@
                                             {% endfor %}
                                         </select>
                                         <label for="tipo_reunion">Tipo de Reunión</label>
+                                    </div>
+                                    <div id="campo-tipo-otro" class="mt-2 d-none">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="tipo_reunion_otro"
+                                                   name="tipo_reunion_otro" placeholder="Especifique el tipo"
+                                                   maxlength="100">
+                                            <label for="tipo_reunion_otro">Especifique el tipo <span class="text-danger">*</span></label>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -451,6 +469,46 @@ Ejemplo:
                             <script id="usuarios-data" type="application/json">
                             [{% for u in usuarios %}{"email":"{{ u.email|escapejs }}","nombre":"{{ u.get_full_name|escapejs }}","documento":"{{ u.numero_documento|default:''|escapejs }}"}{% if not forloop.last %},{% endif %}{% endfor %}]
                             </script>
+                        </div>
+                    </div>
+
+                    <!-- Participantes No Registrados -->
+                    <div class="card hover-lift mt-4 border-warning">
+                        <div class="card-header bg-warning bg-opacity-10">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-user-clock text-warning me-2"></i>
+                                Participantes No Registrados
+                                <small class="text-muted fw-normal ms-2">(Recibirán el acta por email)</small>
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small mb-3">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Agrega personas que participaron en la reunión pero <strong>no tienen cuenta</strong> en el sistema
+                                (aprendices, invitados externos, etc.). Recibirán el PDF del acta automáticamente cuando se finalice.
+                            </p>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-5">
+                                    <input type="text" class="form-control form-control-sm" id="nr-nombre"
+                                           placeholder="Nombre completo *" maxlength="200">
+                                </div>
+                                <div class="col-md-4">
+                                    <input type="email" class="form-control form-control-sm" id="nr-email"
+                                           placeholder="Email *">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" class="form-control form-control-sm" id="nr-cargo"
+                                           placeholder="Cargo (opcional)" maxlength="100">
+                                </div>
+                                <div class="col-md-1">
+                                    <button type="button" class="btn btn-warning btn-sm w-100" id="btn-agregar-nr"
+                                            title="Agregar">
+                                        <i class="fas fa-plus"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="nr-error" class="text-danger small d-none mb-2"></div>
+                            <div id="nr-lista"></div>
                         </div>
                     </div>
 
@@ -633,6 +691,62 @@ $(document).ready(function() {
     // ========================================
     // AGREGAR PARTICIPANTE (buscador por documento)
     // ========================================
+    // ── PARTICIPANTES NO REGISTRADOS ─────────────────────────────────────────
+    const nrLista = [];  // {nombre, email, cargo}
+
+    function renderNrLista() {
+        const container = document.getElementById('nr-lista');
+        if (!nrLista.length) { container.innerHTML = ''; return; }
+        container.innerHTML = nrLista.map((p, i) => `
+            <div class="d-flex align-items-center gap-2 mb-1 p-2 border rounded bg-light">
+                <i class="fas fa-user-clock text-warning"></i>
+                <span class="flex-grow-1">
+                    <strong>${p.nombre}</strong>
+                    <span class="text-muted ms-1">&lt;${p.email}&gt;</span>
+                    ${p.cargo ? `<span class="badge bg-secondary ms-1">${p.cargo}</span>` : ''}
+                </span>
+                <input type="hidden" name="nr_nombre[]" value="${p.nombre}">
+                <input type="hidden" name="nr_email[]" value="${p.email}">
+                <input type="hidden" name="nr_cargo[]" value="${p.cargo}">
+                <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarNr(${i})">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+        `).join('');
+    }
+
+    window.eliminarNr = function(idx) {
+        nrLista.splice(idx, 1);
+        renderNrLista();
+    };
+
+    document.getElementById('btn-agregar-nr').addEventListener('click', function() {
+        const nombre = document.getElementById('nr-nombre').value.trim();
+        const email = document.getElementById('nr-email').value.trim();
+        const cargo = document.getElementById('nr-cargo').value.trim();
+        const errorDiv = document.getElementById('nr-error');
+
+        errorDiv.classList.add('d-none');
+
+        if (!nombre) { errorDiv.textContent = 'El nombre es obligatorio.'; errorDiv.classList.remove('d-none'); return; }
+        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            errorDiv.textContent = 'Ingresa un email válido.'; errorDiv.classList.remove('d-none'); return;
+        }
+        if (nrLista.some(p => p.email.toLowerCase() === email.toLowerCase())) {
+            errorDiv.textContent = 'Este email ya fue agregado.'; errorDiv.classList.remove('d-none'); return;
+        }
+        if (nrLista.length >= 20) {
+            errorDiv.textContent = 'Máximo 20 participantes no registrados por acta.'; errorDiv.classList.remove('d-none'); return;
+        }
+
+        nrLista.push({ nombre, email, cargo });
+        renderNrLista();
+        document.getElementById('nr-nombre').value = '';
+        document.getElementById('nr-email').value = '';
+        document.getElementById('nr-cargo').value = '';
+    });
+    // ─────────────────────────────────────────────────────────────────────────
+
     $('#btn-agregar-participante').click(function() {
         participanteCounter++;
         const pid = participanteCounter;
@@ -979,10 +1093,21 @@ $(document).ready(function() {
     // ========================================
     // VALIDACIONES
     // ========================================
+    // Mostrar/ocultar campo "tipo otro" al cambiar el selector
+    $('#tipo_reunion').on('change', function() {
+        if ($(this).val() === 'otra') {
+            $('#campo-tipo-otro').removeClass('d-none');
+            $('#tipo_reunion_otro').attr('required', true);
+        } else {
+            $('#campo-tipo-otro').addClass('d-none');
+            $('#tipo_reunion_otro').removeAttr('required').val('');
+        }
+    });
+
     function validateStep1() {
         let valid = true;
-        const requiredFields = ['#titulo', '#tipo_reunion', '#fecha_reunion', '#lugar_reunion'];
-        
+        const requiredFields = ['#numero_acta', '#titulo', '#tipo_reunion', '#fecha_reunion', '#lugar_reunion'];
+
         requiredFields.forEach(field => {
             if (!$(field).val().trim()) {
                 $(field).addClass('is-invalid');
@@ -991,6 +1116,14 @@ $(document).ready(function() {
                 $(field).removeClass('is-invalid');
             }
         });
+
+        // Validar campo "otro" si aplica
+        if ($('#tipo_reunion').val() === 'otra' && !$('#tipo_reunion_otro').val().trim()) {
+            $('#tipo_reunion_otro').addClass('is-invalid');
+            valid = false;
+        } else {
+            $('#tipo_reunion_otro').removeClass('is-invalid');
+        }
 
         if (!valid) {
             showAlert('Por favor complete todos los campos requeridos', 'warning');
@@ -1046,6 +1179,7 @@ $(document).ready(function() {
     // GENERAR RESUMEN
     // ========================================
     function generateResumen() {
+        const numeroActa = $('#numero_acta').val();
         const titulo = $('#titulo').val();
         const tipo = $('#tipo_reunion option:selected').text();
         const fecha = new Date($('#fecha_reunion').val()).toLocaleDateString('es-CO');
@@ -1068,6 +1202,7 @@ $(document).ready(function() {
                 <div class="col-md-6">
                     <h6 class="text-primary"><i class="fas fa-info-circle me-2"></i>Información General</h6>
                     <table class="table table-sm table-striped">
+                        <tr><td><strong>N° Acta:</strong></td><td>${numeroActa}</td></tr>
                         <tr><td><strong>Título:</strong></td><td>${titulo}</td></tr>
                         <tr><td><strong>Tipo:</strong></td><td>${tipo}</td></tr>
                         <tr><td><strong>Fecha:</strong></td><td>${fecha}</td></tr>

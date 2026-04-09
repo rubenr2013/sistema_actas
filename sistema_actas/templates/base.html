@@ -1293,6 +1293,9 @@
                 <a class="nav-link" href="{% url 'accounts:usuarios' %}">
                     <i class="fas fa-users"></i>Usuarios
                 </a>
+                <a class="nav-link {% if 'roles' in request.path %}active{% endif %}" href="{% url 'accounts:roles_list' %}">
+                    <i class="fas fa-shield-alt"></i>Roles y Permisos
+                </a>
                 <a class="nav-link {% if 'plantillas' in request.path %}active{% endif %}" href="{% url 'actas:plantillas_list' %}">
                     <i class="fas fa-file-word"></i>Plantillas de Acta
                 </a>

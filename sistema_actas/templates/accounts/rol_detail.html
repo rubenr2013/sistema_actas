@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Rol: {{ rol.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card { border-radius: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
+    .perm-asignado { color: #198754; }
+    .perm-no-asignado { color: #adb5bd; }
+    .usuario-item {
+        padding: .4rem .75rem;
+        border-radius: .5rem;
+        border: 1px solid #e9ecef;
+        background: #f8f9fa;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'accounts:roles_list' %}">Roles</a></li>
+                    <li class="breadcrumb-item active">{{ rol.name }}</li>
+                </ol>
+            </nav>
+            <h2 class="fw-bold mb-0">
+                <i class="fas fa-user-tag text-success me-2"></i>{{ rol.name }}
+                {% if es_protegido %}
+                <span class="badge bg-secondary ms-2" style="font-size:.65rem;">Sistema</span>
+                {% endif %}
+            </h2>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'accounts:rol_editar' rol.pk %}" class="btn btn-primary">
+                <i class="fas fa-edit me-1"></i>Editar
+            </a>
+            {% if not es_protegido %}
+            <a href="{% url 'accounts:rol_eliminar' rol.pk %}" class="btn btn-outline-danger">
+                <i class="fas fa-trash me-1"></i>Eliminar
+            </a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row g-4">
+
+        <!-- Permisos -->
+        <div class="col-lg-7">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-key me-2"></i>
+                    Permisos asignados
+                    <span class="badge bg-white text-success ms-1">
+                        {% with total=0 %}
+                        {% for g in grupos %}{% for p in g.permisos %}{% if p.asignado %}{{ forloop.counter }}{% endif %}{% endfor %}{% endfor %}
+                        {% endwith %}
+                    </span>
+                </div>
+                <div class="card-body">
+                    {% for grupo in grupos %}
+                    <div class="mb-4">
+                        <h6 class="text-muted fw-semibold mb-2">
+                            <i class="fas fa-{% if grupo.modulo == 'Actas' %}file-alt{% elif grupo.modulo == 'Compromisos' %}tasks{% elif grupo.modulo == 'Plantillas' %}file-word{% else %}users{% endif %} me-1"></i>
+                            {{ grupo.modulo }}
+                        </h6>
+                        {% for perm in grupo.permisos %}
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            {% if perm.asignado %}
+                            <i class="fas fa-check-circle perm-asignado"></i>
+                            <span class="perm-asignado fw-semibold">{{ perm.label }}</span>
+                            {% else %}
+                            <i class="fas fa-times-circle perm-no-asignado"></i>
+                            <span class="perm-no-asignado">{{ perm.label }}</span>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Usuarios -->
+        <div class="col-lg-5">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white">
+                    <i class="fas fa-users me-2"></i>
+                    Usuarios con este rol
+                    <span class="badge bg-white text-success ms-1">{{ usuarios.count }}</span>
+                </div>
+                <div class="card-body">
+                    {% if usuarios %}
+                    <div class="d-flex flex-column gap-2">
+                        {% for u in usuarios %}
+                        <div class="usuario-item d-flex align-items-center gap-2">
+                            <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center"
+                                 style="width:32px;height:32px;flex-shrink:0;">
+                                <i class="fas fa-user text-success" style="font-size:.8rem;"></i>
+                            </div>
+                            <div>
+                                <div class="fw-semibold small">{{ u.get_full_name|default:u.username }}</div>
+                                <div class="text-muted" style="font-size:.75rem;">{{ u.email }}</div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="fas fa-user-slash fa-2x mb-2 d-block opacity-25"></i>
+                        <small>Ningún usuario tiene este rol.</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

@@ -139,6 +139,7 @@ def detalle_acta(request, acta_id):
             (es_creador or es_admin)
             and acta.puede_aplicar_silencio_administrativo()
         ),
+        "participantes_no_registrados": acta.participantes_no_registrados.all(),
         "fecha_limite_firmas": acta.fecha_limite_firmas,
         "aprobados_count": aprobados_count,
         "rechazados_count": rechazados_count,
@@ -162,8 +163,21 @@ def editar_acta(request, acta_id):
 
     if request.method == "POST":
         # Actualizar campos básicos (con sanitización para prevenir XSS)
+        nuevo_numero = request.POST.get("numero_acta", "").strip()
+        if not nuevo_numero:
+            messages.error(request, "El número de acta es obligatorio.")
+            return redirect("actas:editar", acta_id=acta_id)
+        if Acta.objects.filter(numero_acta=nuevo_numero).exclude(pk=acta.pk).exists():
+            messages.error(request, f"Ya existe otra acta con el número '{nuevo_numero}'.")
+            return redirect("actas:editar", acta_id=acta_id)
+        acta.numero_acta = nuevo_numero
+
         acta.titulo = sanitizar_texto_plano(request.POST.get("titulo", ""))
         acta.tipo_reunion = request.POST.get("tipo_reunion")
+        if acta.tipo_reunion == 'otra':
+            acta.tipo_reunion_otro = sanitizar_texto_plano(request.POST.get("tipo_reunion_otro", "")).strip()
+        else:
+            acta.tipo_reunion_otro = ''
         acta.fecha_reunion = request.POST.get("fecha_reunion")
         acta.lugar_reunion = sanitizar_texto_plano(request.POST.get("lugar_reunion", ""))
         acta.modalidad = request.POST.get("modalidad")
@@ -230,6 +244,23 @@ def editar_acta(request, acta_id):
                 )
             except User.DoesNotExist:
                 messages.warning(request, f'Responsable {comp_data["responsable_email"]} no encontrado.')
+
+        # Agregar nuevos participantes no registrados
+        from .models import ParticipanteNoRegistrado
+        nr_nombres = request.POST.getlist('nr_nombre[]')
+        nr_emails  = request.POST.getlist('nr_email[]')
+        nr_cargos  = request.POST.getlist('nr_cargo[]')
+        emails_vistos = set(acta.participantes_no_registrados.values_list('email', flat=True))
+        for nombre_nr, email_nr, cargo_nr in zip(nr_nombres, nr_emails, nr_cargos):
+            nombre_nr = nombre_nr.strip()
+            email_nr  = email_nr.strip().lower()
+            if nombre_nr and email_nr and email_nr not in emails_vistos:
+                ParticipanteNoRegistrado.objects.get_or_create(
+                    acta=acta,
+                    email=email_nr,
+                    defaults={'nombre_completo': nombre_nr, 'cargo_rol': cargo_nr.strip()},
+                )
+                emails_vistos.add(email_nr)
 
         messages.success(request, "Acta actualizada exitosamente.")
         return redirect("actas:detalle", acta_id=acta.id)
@@ -478,6 +509,297 @@ def obtener_firma_imagen(firma, usuario):
     # 4. Si todo falla, retornar None
     return None
 
+
+def _generar_pdf_bytes(acta):
+    """
+    Genera los bytes del PDF con formato ReportLab para el acta dada.
+    Retorna bytes o None si falla.
+    """
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        rightMargin=0.5*inch,
+        leftMargin=0.5*inch,
+        topMargin=0.5*inch,
+        bottomMargin=0.5*inch
+    )
+    styles = getSampleStyleSheet()
+    story = []
+
+    try:
+        logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo-sena.png')
+        if os.path.exists(logo_path):
+            logo = Image(logo_path, width=1*inch, height=1*inch)
+            story.append(logo)
+    except Exception:
+        pass
+
+    story.append(Spacer(1, 10))
+
+    acta_header = Table(
+        [[Paragraph(f"<b>ACTA No. {acta.numero_acta}</b>", styles['Title'])]],
+        colWidths=[7*inch]
+    )
+    acta_header.setStyle(TableStyle([
+        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
+    ]))
+    story.append(acta_header)
+
+    comite_table = Table(
+        [
+            [Paragraph("<b>NOMBRE DEL COMITÉ O DE LA REUNIÓN:</b>", styles['Normal'])],
+            [Paragraph(acta.titulo, styles['Normal'])]
+        ],
+        colWidths=[7*inch],
+        rowHeights=[0.3*inch, None]
+    )
+    comite_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(comite_table)
+
+    fecha_str = acta.fecha_reunion.strftime("%d/%m/%Y")
+    hora_inicio = acta.fecha_reunion.strftime("%H:%M")
+    hora_fin = (acta.fecha_reunion + timedelta(hours=2)).strftime("%H:%M")
+
+    info_table = Table(
+        [[
+            Paragraph("<b>CIUDAD Y FECHA:</b>", styles['Normal']),
+            Paragraph(f"{acta.lugar_reunion}, {fecha_str}", styles['Normal']),
+            Paragraph("<b>HORA INICIO:</b>", styles['Normal']),
+            Paragraph(hora_inicio, styles['Normal']),
+            Paragraph("<b>HORA FIN:</b>", styles['Normal']),
+            Paragraph(hora_fin, styles['Normal']),
+        ]],
+        colWidths=[1.2*inch, 2*inch, 1*inch, 0.8*inch, 1*inch, 1*inch]
+    )
+    info_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(info_table)
+
+    lugar_table = Table(
+        [[
+            Paragraph("<b>LUGAR Y/O ENLACE:</b>", styles['Normal']),
+            Paragraph(acta.lugar_reunion, styles['Normal']),
+            Paragraph("<b>DIRECCIÓN / REGIONAL / CENTRO:</b>", styles['Normal']),
+            Paragraph("Centro Minero SENA", styles['Normal']),
+        ]],
+        colWidths=[1.5*inch, 2*inch, 2*inch, 1.5*inch]
+    )
+    lugar_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(lugar_table)
+
+    agenda_content = sanitizar_texto_plano(acta.orden_dia) if acta.orden_dia else "No especificada"
+    agenda_table = Table(
+        [
+            [Paragraph("<b>AGENDA O PUNTOS PARA DESARROLLAR:</b>", styles['Normal'])],
+            [Paragraph(agenda_content.replace('\n', '<br/>'), styles['Normal'])]
+        ],
+        colWidths=[7*inch], splitByRow=1
+    )
+    agenda_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(agenda_table)
+
+    objetivo = f"Reunión de tipo {acta.get_tipo_reunion_display()}"
+    if acta.generada_con_ia:
+        objetivo += " (Generada con IA)"
+    objetivo_table = Table(
+        [
+            [Paragraph("<b>OBJETIVO(S) DE LA REUNIÓN:</b>", styles['Normal'])],
+            [Paragraph(sanitizar_texto_plano(objetivo), styles['Normal'])]
+        ],
+        colWidths=[7*inch]
+    )
+    objetivo_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(objetivo_table)
+
+    desarrollo_content = sanitizar_texto_plano(acta.desarrollo) if acta.desarrollo else "No especificado"
+    desarrollo_table = Table(
+        [
+            [Paragraph("<b>DESARROLLO DE LA REUNIÓN</b>", styles['Normal'])],
+            [Paragraph(desarrollo_content.replace('\n', '<br/>'), styles['Normal'])]
+        ],
+        colWidths=[7*inch], splitByRow=1
+    )
+    desarrollo_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(desarrollo_table)
+
+    conclusiones = acta.observaciones if acta.observaciones else "Sin observaciones adicionales"
+    conclusiones_table = Table(
+        [
+            [Paragraph("<b>CONCLUSIONES</b>", styles['Normal'])],
+            [Paragraph(conclusiones.replace('\n', '<br/>'), styles['Normal'])]
+        ],
+        colWidths=[7*inch], splitByRow=1
+    )
+    conclusiones_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    story.append(conclusiones_table)
+
+    compromisos_data = [[
+        Paragraph("<b>ACTIVIDAD/DECISIÓN</b>", styles['Normal']),
+        Paragraph("<b>FECHA</b>", styles['Normal']),
+        Paragraph("<b>RESPONSABLE</b>", styles['Normal']),
+        Paragraph("<b>FIRMA</b>", styles['Normal']),
+    ]]
+    if acta.compromisos.exists():
+        for comp in acta.compromisos.all():
+            compromisos_data.append([
+                Paragraph(comp.descripcion, styles['Normal']),
+                Paragraph(comp.fecha_limite.strftime("%d/%m/%Y"), styles['Normal']),
+                Paragraph(comp.responsable.get_full_name(), styles['Normal']),
+                Paragraph("", styles['Normal']),
+            ])
+    else:
+        compromisos_data.append([Paragraph("No se registraron compromisos", styles['Normal']), "", "", ""])
+
+    compromisos_table = Table(compromisos_data, colWidths=[2.5*inch, 1.2*inch, 1.8*inch, 1.5*inch])
+    compromisos_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(compromisos_table)
+
+    story.append(Spacer(1, 10))
+    asistentes_data = [[
+        Paragraph("<b>NOMBRE</b>", styles['Normal']),
+        Paragraph("<b>DEPENDENCIA/EMPRESA</b>", styles['Normal']),
+        Paragraph("<b>APRUEBA (SI/NO)</b>", styles['Normal']),
+        Paragraph("<b>FIRMA O PARTICIPACIÓN VIRTUAL</b>", styles['Normal']),
+    ]]
+
+    for participante in acta.participantes.select_related('usuario').all():
+        firma_obj = acta.firmas.filter(usuario=participante.usuario).first()
+        if firma_obj and firma_obj.firmado:
+            firma_imagen = obtener_firma_imagen(firma_obj, participante.usuario)
+            if firma_imagen:
+                firma_cell = firma_imagen
+            else:
+                nombre = participante.usuario.get_full_name() or participante.usuario.username
+                prefijo = "<font color='grey' size=7>[Silencio Adm.]</font><br/>" if getattr(firma_obj, 'firmado_por_silencio', False) else ""
+                firma_cell = Paragraph(
+                    f"{prefijo}<b>{nombre}</b><br/><font size=6>{firma_obj.fecha_firma.strftime('%d/%m/%Y') if firma_obj.fecha_firma else 'N/A'}</font>",
+                    styles['Normal']
+                )
+        else:
+            firma_cell = Paragraph("<font color='red'>Pendiente</font>", styles['Normal'])
+
+        asistentes_data.append([
+            Paragraph(participante.usuario.get_full_name(), styles['Normal']),
+            Paragraph(participante.rol_en_reunion or "Participante", styles['Normal']),
+            Paragraph("SÍ" if firma_obj and firma_obj.firmado else "NO", styles['Normal']),
+            firma_cell
+        ])
+
+    for nr in acta.participantes_no_registrados.all():
+        asistentes_data.append([
+            Paragraph(nr.nombre_completo, styles['Normal']),
+            Paragraph(nr.cargo_rol or 'Participante', styles['Normal']),
+            Paragraph("N/A", styles['Normal']),
+            Paragraph("(No aplica)", styles['Normal']),
+        ])
+
+    asistentes_table = Table(asistentes_data, colWidths=[1.8*inch, 1.8*inch, 1.2*inch, 2.2*inch])
+    asistentes_table.setStyle(TableStyle([
+        ('BOX', (0, 0), (-1, -1), 1, colors.black),
+        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    story.append(asistentes_table)
+
+    story.append(Spacer(1, 10))
+    nota_legal = Paragraph(
+        "<font size=7>De acuerdo con La Ley 1581 de 2012, Protección de Datos Personales, el Servicio Nacional de Aprendizaje SENA, "
+        "se compromete a garantizar la seguridad y protección de los datos personales que se encuentran almacenados en este "
+        "documento, y les dará el tratamiento correspondiente en cumplimiento de lo establecido legalmente.</font>",
+        styles['Normal']
+    )
+    story.append(nota_legal)
+
+    story.append(Spacer(1, 20))
+    footer_style = ParagraphStyle(
+        'CenteredFooter',
+        parent=styles['Normal'],
+        alignment=TA_CENTER,
+        fontSize=8,
+    )
+    story.append(Paragraph("<b>GOR-F-084 V02</b>", footer_style))
+
+    try:
+        doc.build(story)
+        return buffer.getvalue()
+    except Exception as e:
+        logger.error('_generar_pdf_bytes: error construyendo PDF del acta %s: %s', acta.id, e, exc_info=True)
+        return None
+
+
 @login_required
 def generar_pdf(request, acta_id):
     """
@@ -506,363 +828,16 @@ def generar_pdf(request, acta_id):
             resp['Content-Disposition'] = f'attachment; filename="{resultado["nombre"]}"'
             return resp
     except Exception as e:
-        import logging as _log
-        _log.getLogger(__name__).error('generar_pdf: error con plantilla Word, usando ReportLab: %s', e)
+        logger.error('generar_pdf: error con plantilla Word, usando ReportLab: %s', e)
     # ── Fallback ReportLab ──────────────────────────────────────────────────
 
-    # Crear PDF
-    response = HttpResponse(content_type="application/pdf")
-    response["Content-Disposition"] = f'attachment; filename="ACTA_{acta.numero_acta}.pdf"'
-
-    # Configurar documento
-    doc = SimpleDocTemplate(
-        response,
-        pagesize=letter,
-        rightMargin=0.5*inch,
-        leftMargin=0.5*inch,
-        topMargin=0.5*inch,
-        bottomMargin=0.5*inch
-    )
-    
-    styles = getSampleStyleSheet()
-    story = []
-
-    # ==========================================
-    # ENCABEZADO CON LOGO SENA
-    # ==========================================
-    # Intentar cargar logo (ajusta la ruta según tu proyecto)
-    try:
-        logo_path = os.path.join(settings.BASE_DIR, 'static', 'img', 'logo-sena.png')
-        if os.path.exists(logo_path):
-            logo = Image(logo_path, width=1*inch, height=1*inch)
-            story.append(logo)
-    except:
-        pass  # Si no hay logo, continuar sin él
-
-    story.append(Spacer(1, 10))
-
-    # ==========================================
-    # TABLA PRINCIPAL: ACTA No.
-    # ==========================================
-    acta_header = Table(
-        [[Paragraph(f"<b>ACTA No. {acta.numero_acta}</b>", styles['Title'])]],
-        colWidths=[7*inch]
-    )
-    acta_header.setStyle(TableStyle([
-        ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('BACKGROUND', (0, 0), (-1, -1), colors.lightgrey),
-    ]))
-    story.append(acta_header)
-
-    # ==========================================
-    # NOMBRE DEL COMITÉ
-    # ==========================================
-    comite_table = Table(
-        [
-            [Paragraph("<b>NOMBRE DEL COMITÉ O DE LA REUNIÓN:</b>", styles['Normal'])],
-            [Paragraph(acta.titulo, styles['Normal'])]
-        ],
-        colWidths=[7*inch],
-        rowHeights=[0.3*inch, None]  # Altura mínima para primera fila
-    )
-    comite_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    story.append(comite_table)
-
-    # ==========================================
-    # FILA: CIUDAD/FECHA y HORA INICIO/FIN
-    # ==========================================
-    fecha_str = acta.fecha_reunion.strftime("%d/%m/%Y")
-    hora_inicio = acta.fecha_reunion.strftime("%H:%M")
-    hora_fin = (acta.fecha_reunion + timedelta(hours=2)).strftime("%H:%M")  # Estimado
-
-    info_table = Table(
-        [
-            [
-                Paragraph("<b>CIUDAD Y FECHA:</b>", styles['Normal']),
-                Paragraph(f"{acta.lugar_reunion}, {fecha_str}", styles['Normal']),
-                Paragraph("<b>HORA INICIO:</b>", styles['Normal']),
-                Paragraph(hora_inicio, styles['Normal']),
-                Paragraph("<b>HORA FIN:</b>", styles['Normal']),
-                Paragraph(hora_fin, styles['Normal']),
-            ]
-        ],
-        colWidths=[1.2*inch, 2*inch, 1*inch, 0.8*inch, 1*inch, 1*inch]  # Total = 7 pulgadas
-    )
-    info_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-    ]))
-    story.append(info_table)
-
-    # ==========================================
-    # FILA: LUGAR/ENLACE y DIRECCIÓN/REGIONAL
-    # ==========================================
-    lugar_table = Table(
-        [
-            [
-                Paragraph("<b>LUGAR Y/O ENLACE:</b>", styles['Normal']),
-                Paragraph(acta.lugar_reunion, styles['Normal']),
-                Paragraph("<b>DIRECCIÓN / REGIONAL / CENTRO:</b>", styles['Normal']),
-                Paragraph("Centro Minero SENA", styles['Normal']),
-            ]
-        ],
-        colWidths=[1.5*inch, 2*inch, 2*inch, 1.5*inch]
-    )
-    lugar_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-    ]))
-    story.append(lugar_table)
-
-    # ==========================================
-    # AGENDA O PUNTOS PARA DESARROLLAR
-    # ==========================================
-    # Sanitizar contenido para prevenir XSS
-    agenda_content = sanitizar_texto_plano(acta.orden_dia) if acta.orden_dia else "No especificada"
-    agenda_table = Table(
-        [
-            [Paragraph("<b>AGENDA O PUNTOS PARA DESARROLLAR:</b>", styles['Normal'])],
-            [Paragraph(agenda_content.replace('\n', '<br/>'), styles['Normal'])]
-        ],
-        colWidths=[7*inch],
-        splitByRow=1
-    )
-    agenda_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    story.append(agenda_table)
-
-    # ==========================================
-    # OBJETIVO(S) DE LA REUNIÓN
-    # ==========================================
-    objetivo = f"Reunión de tipo {acta.get_tipo_reunion_display()}"
-    if acta.generada_con_ia:
-        objetivo += " (Generada con IA)"
-
-    objetivo_table = Table(
-        [
-            [Paragraph("<b>OBJETIVO(S) DE LA REUNIÓN:</b>", styles['Normal'])],
-            [Paragraph(sanitizar_texto_plano(objetivo), styles['Normal'])]
-        ],
-        colWidths=[7*inch]
-    )
-    objetivo_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    story.append(objetivo_table)
-
-    # ==========================================
-    # DESARROLLO DE LA REUNIÓN
-    # ==========================================
-    # Sanitizar contenido para prevenir XSS
-    desarrollo_content = sanitizar_texto_plano(acta.desarrollo) if acta.desarrollo else "No especificado"
-    desarrollo_table = Table(
-        [
-            [Paragraph("<b>DESARROLLO DE LA REUNIÓN</b>", styles['Normal'])],
-            [Paragraph(desarrollo_content.replace('\n', '<br/>'), styles['Normal'])]
-        ],
-        colWidths=[7*inch],
-        splitByRow=1
-    )
-    desarrollo_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    story.append(desarrollo_table)
-
-    # ==========================================
-    # CONCLUSIONES
-    # ==========================================
-    conclusiones = acta.observaciones if acta.observaciones else "Sin observaciones adicionales"
-    conclusiones_table = Table(
-        [
-            [Paragraph("<b>CONCLUSIONES</b>", styles['Normal'])],
-            [Paragraph(conclusiones.replace('\n', '<br/>'), styles['Normal'])]
-        ],
-        colWidths=[7*inch],
-        splitByRow=1
-    )
-    conclusiones_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 6),
-    ]))
-    story.append(conclusiones_table)
-
-    # ==========================================
-    # COMPROMISOS
-    # ==========================================
-    compromisos_data = [
-        [
-            Paragraph("<b>ACTIVIDAD/DECISIÓN</b>", styles['Normal']),
-            Paragraph("<b>FECHA</b>", styles['Normal']),
-            Paragraph("<b>RESPONSABLE</b>", styles['Normal']),
-            Paragraph("<b>FIRMA</b>", styles['Normal']),
-        ]
-    ]
-
-    if acta.compromisos.exists():
-        for comp in acta.compromisos.all():
-            compromisos_data.append([
-                Paragraph(comp.descripcion, styles['Normal']),
-                Paragraph(comp.fecha_limite.strftime("%d/%m/%Y"), styles['Normal']),
-                Paragraph(comp.responsable.get_full_name(), styles['Normal']),
-                Paragraph("", styles['Normal']),  # Espacio para firma
-            ])
-    else:
-        compromisos_data.append([
-            Paragraph("No se registraron compromisos", styles['Normal']),
-            "", "", ""
-        ])
-
-    compromisos_table = Table(compromisos_data, colWidths=[2.5*inch, 1.2*inch, 1.8*inch, 1.5*inch])
-    compromisos_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-    ]))
-    story.append(compromisos_table)
-
-    # ==========================================
-    # ASISTENTES Y APROBACIÓN
-    # ==========================================
-    story.append(Spacer(1, 10))
-
-    asistentes_data = [
-        [
-            Paragraph("<b>NOMBRE</b>", styles['Normal']),
-            Paragraph("<b>DEPENDENCIA/EMPRESA</b>", styles['Normal']),
-            Paragraph("<b>APRUEBA (SI/NO)</b>", styles['Normal']),
-            Paragraph("<b>FIRMA O PARTICIPACIÓN VIRTUAL</b>", styles['Normal']),
-        ]
-    ]
-
-    # Agregar participantes con sus firmas
-    for participante in acta.participantes.select_related('usuario').all():
-        firma_obj = acta.firmas.filter(usuario=participante.usuario).first()
-
-        # Preparar celda de firma con múltiples fallbacks
-        if firma_obj and firma_obj.firmado:
-            # Intentar obtener imagen de firma
-            firma_imagen = obtener_firma_imagen(firma_obj, participante.usuario)
-
-            if firma_imagen:
-                # ✅ Se encontró la imagen de firma
-                firma_cell = firma_imagen
-            else:
-                # Sin imagen: mostrar nombre del usuario (silencio administrativo u otro caso)
-                nombre = participante.usuario.get_full_name() or participante.usuario.username
-                prefijo = "<font color='grey' size=7>[Silencio Adm.]</font><br/>" if getattr(firma_obj, 'firmado_por_silencio', False) else ""
-                firma_cell = Paragraph(
-                    f"{prefijo}<b>{nombre}</b><br/><font size=6>{firma_obj.fecha_firma.strftime('%d/%m/%Y') if firma_obj.fecha_firma else 'N/A'}</font>",
-                    styles['Normal']
-                )
-        else:
-            # ❌ No firmado
-            firma_cell = Paragraph(
-                "<font color='red'>Pendiente</font>",
-                styles['Normal']
-            )
-
-        asistentes_data.append([
-            Paragraph(participante.usuario.get_full_name(), styles['Normal']),
-            Paragraph(participante.rol_en_reunion or "Participante", styles['Normal']),
-            Paragraph("SÍ" if firma_obj and firma_obj.firmado else "NO", styles['Normal']),
-            firma_cell
-        ])
-
-    asistentes_table = Table(asistentes_data, colWidths=[1.8*inch, 1.8*inch, 1.2*inch, 2.2*inch])
-    asistentes_table.setStyle(TableStyle([
-        ('BOX', (0, 0), (-1, -1), 1, colors.black),
-        ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
-        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-        ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 4),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
-    ]))
-    story.append(asistentes_table)
-
-    # ==========================================
-    # NOTA LEGAL
-    # ==========================================
-    story.append(Spacer(1, 10))
-    nota_legal = Paragraph(
-        "<font size=7>De acuerdo con La Ley 1581 de 2012, Protección de Datos Personales, el Servicio Nacional de Aprendizaje SENA, "
-        "se compromete a garantizar la seguridad y protección de los datos personales que se encuentran almacenados en este "
-        "documento, y les dará el tratamiento correspondiente en cumplimiento de lo establecido legalmente.</font>",
-        styles['Normal']
-    )
-    story.append(nota_legal)
-
-    # ==========================================
-    # PIE DE PÁGINA
-    # ==========================================
-    story.append(Spacer(1, 20))
-    footer_style = ParagraphStyle(
-        'CenteredFooter',
-        parent=styles['Normal'],
-        alignment=TA_CENTER,
-        fontSize=8,
-    )
-    footer = Paragraph("<b>GOR-F-084 V02</b>", footer_style)
-    story.append(footer)
-
-    # Construir PDF
-    try:
-        doc.build(story)
-    except Exception as e:
-        logger.error('Error al construir PDF del acta %s: %s', acta_id, e, exc_info=True)
+    pdf_bytes = _generar_pdf_bytes(acta)
+    if not pdf_bytes:
         messages.error(request, "Error al generar el PDF.")
         return redirect("actas:detalle", acta_id=acta.id)
 
+    response = HttpResponse(pdf_bytes, content_type="application/pdf")
+    response["Content-Disposition"] = f'attachment; filename="ACTA_{acta.numero_acta}.pdf"'
     return response
 
 @login_required
@@ -948,10 +923,28 @@ def crear_acta(request):
                 orden_dia = request.POST.get('orden_dia', '')
                 desarrollo = request.POST.get('desarrollo', '')
             
+            # Validar número de acta
+            numero_acta = request.POST.get('numero_acta', '').strip()
+            if not numero_acta:
+                messages.error(request, 'El número de acta es obligatorio.')
+                return redirect('actas:crear')
+            if Acta.objects.filter(numero_acta=numero_acta).exists():
+                messages.error(request, f'El número de acta "{numero_acta}" ya está en uso. Verifica con la subdirección.')
+                return redirect('actas:crear')
+
+            # Validar tipo "otra"
+            tipo_reunion = request.POST.get('tipo_reunion', '')
+            tipo_reunion_otro = request.POST.get('tipo_reunion_otro', '').strip()
+            if tipo_reunion == 'otra' and not tipo_reunion_otro:
+                messages.error(request, 'Debes especificar el tipo de reunión cuando seleccionas "Otra".')
+                return redirect('actas:crear')
+
             # Crear el acta
             acta = Acta.objects.create(
+                numero_acta=numero_acta,
                 titulo=request.POST.get('titulo'),
-                tipo_reunion=request.POST.get('tipo_reunion'),
+                tipo_reunion=tipo_reunion,
+                tipo_reunion_otro=tipo_reunion_otro if tipo_reunion == 'otra' else '',
                 fecha_reunion=request.POST.get('fecha_reunion'),
                 lugar_reunion=request.POST.get('lugar_reunion'),
                 modalidad=request.POST.get('modalidad'),
@@ -1046,6 +1039,22 @@ def crear_acta(request):
                 except User.DoesNotExist:
                     messages.warning(request, f'Responsable {comp_data["responsable_email"]} no encontrado.')
             
+            # Guardar participantes no registrados
+            from .models import ParticipanteNoRegistrado
+            nr_nombres = request.POST.getlist('nr_nombre[]')
+            nr_emails = request.POST.getlist('nr_email[]')
+            nr_cargos = request.POST.getlist('nr_cargo[]')
+            emails_nr_vistos = set()
+            for nombre_nr, email_nr, cargo_nr in zip(nr_nombres, nr_emails, nr_cargos):
+                nombre_nr = nombre_nr.strip()
+                email_nr = email_nr.strip().lower()
+                if nombre_nr and email_nr and email_nr not in emails_nr_vistos:
+                    ParticipanteNoRegistrado.objects.get_or_create(
+                        acta=acta, email=email_nr,
+                        defaults={'nombre_completo': nombre_nr, 'cargo_rol': cargo_nr.strip()},
+                    )
+                    emails_nr_vistos.add(email_nr)
+
             # Mensaje de éxito
             messages.success(request, f'Acta {acta.numero_acta} creada exitosamente con {participantes_agregados.__len__()} participantes.')
             return redirect('actas:detalle', acta_id=acta.id)
@@ -1102,6 +1111,17 @@ def finalizar_acta(request, acta_id):
     acta.estado = "finalizada"
     acta.fecha_modificacion = timezone.now()
     acta.save()
+
+    # Enviar PDF a participantes no registrados
+    try:
+        from actas.email_service import enviar_pdfs_a_no_registrados
+        enviados, fallidos = enviar_pdfs_a_no_registrados(acta)
+        if enviados:
+            messages.info(request, f"Se envió el acta por email a {enviados} participante(s) no registrado(s).")
+        if fallidos:
+            messages.warning(request, f"No se pudo enviar el email a {fallidos} participante(s). El admin puede reenviar desde el detalle del acta.")
+    except Exception as e:
+        logger.error('finalizar_acta: error enviando PDFs a no registrados: %s', e)
 
     messages.success(request, "El acta ha sido finalizada con éxito.")
     return redirect("actas:detalle", acta_id=acta.id)
@@ -1397,6 +1417,16 @@ def web_aprobar_acta(request, acta_id):
     try:
         from actas.utils import aprobar_acta_participante
         nuevo_estado = aprobar_acta_participante(acta, request.user, firma_base64=firma_base64)
+
+        # Si se finalizó automáticamente, enviar PDFs a no registrados
+        if nuevo_estado == 'finalizada':
+            try:
+                from actas.email_service import enviar_pdfs_a_no_registrados
+                acta.refresh_from_db()
+                enviar_pdfs_a_no_registrados(acta)
+            except Exception as _e:
+                logger.error('web_aprobar_acta: error enviando PDFs a no registrados: %s', _e)
+
         aprobados = acta.participantes.filter(estado_aprobacion='aprobado', ciclo_revision=acta.ciclo_revision).count()
         total = acta.participantes.count()
         return JsonResponse({
@@ -1547,6 +1577,26 @@ def plantilla_crear(request):
                 errores.append(str(e.message))
 
         if not errores:
+            # Validar variables del documento
+            try:
+                from .services.plantilla_validator import validar_variables
+                resultado_val = validar_variables(archivo)
+                if resultado_val['variables_invalidas']:
+                    invalidas = resultado_val['variables_invalidas']
+                    lineas = []
+                    for iv in invalidas:
+                        sug = f" → ¿quisiste decir <strong>{{{{{iv['sugerencia']}}}}}</strong>?" if iv['sugerencia'] else ''
+                        lineas.append(f"<strong>{{{{{iv['variable']}}}}}</strong>{sug}")
+                    messages.warning(
+                        request,
+                        f"La plantilla se guardó, pero se detectaron {len(invalidas)} variable(s) "
+                        f"no reconocida(s) que NO serán reemplazadas: " + ', '.join(
+                            iv['variable'] for iv in invalidas
+                        ) + ". Revisa la guía de variables."
+                    )
+            except Exception:
+                pass  # No bloquear si el validador falla
+
             plantilla = PlantillaActa(
                 tipo_reunion=tipo_reunion,
                 nombre=nombre,
@@ -1557,7 +1607,8 @@ def plantilla_crear(request):
             )
             try:
                 plantilla.save()
-                messages.success(request, f'Plantilla "{nombre}" creada correctamente.')
+                if not any(m.level_tag == 'warning' for m in messages.get_messages(request)):
+                    messages.success(request, f'Plantilla "{nombre}" creada correctamente.')
                 return redirect('actas:plantillas_list')
             except Exception as e:
                 errores.append(f"Error al guardar: {e}")
@@ -1605,6 +1656,20 @@ def plantilla_editar(request, plantilla_id):
             plantilla.descripcion = descripcion
             plantilla.activa = activa
             if archivo:
+                # Validar variables del nuevo archivo
+                try:
+                    from .services.plantilla_validator import validar_variables
+                    resultado_val = validar_variables(archivo)
+                    if resultado_val['variables_invalidas']:
+                        invalidas = resultado_val['variables_invalidas']
+                        messages.warning(
+                            request,
+                            f"La plantilla se actualizó, pero tiene {len(invalidas)} variable(s) no reconocida(s) "
+                            f"que NO serán reemplazadas: " + ', '.join(iv['variable'] for iv in invalidas) +
+                            ". Revisa la guía de variables."
+                        )
+                except Exception:
+                    pass
                 # Eliminar archivo anterior
                 try:
                     old_path = plantilla.archivo.path
@@ -1615,7 +1680,8 @@ def plantilla_editar(request, plantilla_id):
                 plantilla.archivo = archivo
             try:
                 plantilla.save()
-                messages.success(request, f'Plantilla "{nombre}" actualizada correctamente.')
+                if not any(m.level_tag == 'warning' for m in messages.get_messages(request)):
+                    messages.success(request, f'Plantilla "{nombre}" actualizada correctamente.')
                 return redirect('actas:plantillas_list')
             except Exception as e:
                 errores.append(f"Error al guardar: {e}")
@@ -1648,3 +1714,336 @@ def plantilla_eliminar(request, plantilla_id):
         return redirect('actas:plantillas_list')
 
     return render(request, 'actas/plantilla_confirmar_eliminar.html', {'plantilla': plantilla})
+
+@login_required
+@require_POST
+def reenviar_pdf_nr(request, acta_id, nr_id):
+    """Reenvía el PDF a un participante no registrado cuyo email falló. Solo admin."""
+    if not (request.user.is_staff or getattr(request.user, 'rol', None) == 'admin'):
+        messages.error(request, "No tienes permiso para esta acción.")
+        return redirect('actas:detalle', acta_id=acta_id)
+
+    from .models import ParticipanteNoRegistrado
+    acta = get_object_or_404(Acta, id=acta_id)
+    nr = get_object_or_404(ParticipanteNoRegistrado, id=nr_id, acta=acta)
+
+    # Generar PDF
+    pdf_bytes = None
+    try:
+        from actas.services.plantilla_service import generar_documento_desde_plantilla
+        resultado = generar_documento_desde_plantilla(acta)
+        if resultado and resultado['tipo'] == 'pdf':
+            pdf_bytes = resultado['bytes']
+    except Exception:
+        pass
+
+    if not pdf_bytes:
+        messages.error(request, "No se pudo generar el PDF para el reenvío.")
+        return redirect('actas:detalle', acta_id=acta_id)
+
+    from actas.email_service import enviar_pdf_participante_no_registrado
+    nr.pdf_enviado = False  # Forzar reenvío
+    nr.save(update_fields=['pdf_enviado'])
+
+    if enviar_pdf_participante_no_registrado(nr, pdf_bytes):
+        messages.success(request, f"PDF reenviado exitosamente a {nr.email}.")
+    else:
+        messages.error(request, f"No se pudo reenviar el PDF a {nr.email}. Verifica los logs.")
+
+    return redirect('actas:detalle', acta_id=acta_id)
+
+
+# =============================================================================
+# GUÍA DE VARIABLES PARA PLANTILLAS
+# =============================================================================
+
+_GUIA_VARIABLES = [
+    {
+        'modulo': 'Información básica del acta',
+        'items': [
+            ('numero_acta',   'Número oficial del acta',              'ACT-2026-001'),
+            ('titulo',        'Título del acta',                      'Reunión de coordinación'),
+            ('tipo_reunion',  'Tipo de reunión',                      'Coordinación'),
+            ('fecha_reunion', 'Fecha y hora de la reunión',           '08/04/2026 10:00'),
+            ('lugar',         'Lugar donde se realizó la reunión',    'Sala de juntas'),
+        ],
+    },
+    {
+        'modulo': 'Contenido del acta',
+        'items': [
+            ('objetivo',     'Objetivo de la reunión',     ''),
+            ('orden_dia',    'Agenda / Puntos a tratar',   ''),
+            ('desarrollo',   'Desarrollo de la reunión',   ''),
+            ('conclusiones', 'Conclusiones',               ''),
+        ],
+    },
+    {
+        'modulo': 'Información del creador',
+        'items': [
+            ('creador_nombre', 'Nombre de quien creó el acta', 'Juan Pérez García'),
+            ('creador_cargo',  'Cargo/rol del creador',        'Instructor'),
+        ],
+    },
+    {
+        'modulo': 'Sistema',
+        'items': [
+            ('fecha_generacion', 'Fecha y hora de descarga del documento', '08/04/2026 14:35'),
+        ],
+    },
+    {
+        'modulo': 'Tablas especiales (deben ir en un párrafo propio)',
+        'items': [
+            ('participantes_tabla', 'Tabla completa con participantes y firmas',    ''),
+            ('compromisos_tabla',   'Tabla completa con compromisos y responsables', ''),
+        ],
+    },
+]
+
+
+@login_required
+def guia_plantillas_pdf(request):
+    """Genera y descarga la guía de variables en formato PDF."""
+    import io as _io
+    from reportlab.lib.pagesizes import letter
+    from reportlab.lib.units import inch
+    from reportlab.lib import colors as rl_colors
+    from reportlab.lib.enums import TA_CENTER
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer,
+        Table, TableStyle as RLTableStyle,
+    )
+
+    buf = _io.BytesIO()
+    doc_rl = SimpleDocTemplate(
+        buf, pagesize=letter,
+        rightMargin=0.75*inch, leftMargin=0.75*inch,
+        topMargin=0.75*inch, bottomMargin=0.75*inch,
+    )
+    st = getSampleStyleSheet()
+
+    verde = rl_colors.HexColor('#1a5f1a')
+    azul  = rl_colors.HexColor('#0d6efd')
+    gris  = rl_colors.HexColor('#6c757d')
+
+    s_titulo = ParagraphStyle('sT', parent=st['Title'],    fontSize=18, textColor=verde, spaceAfter=4)
+    s_sub    = ParagraphStyle('sS', parent=st['Normal'],   fontSize=11, textColor=gris,  spaceAfter=12)
+    s_h2     = ParagraphStyle('sH', parent=st['Heading2'], fontSize=12, textColor=verde, spaceBefore=14, spaceAfter=4)
+    s_body   = ParagraphStyle('sB', parent=st['Normal'],   fontSize=10, leading=14)
+    s_small  = ParagraphStyle('sm', parent=st['Normal'],   fontSize=8,  textColor=gris)
+    s_grupo  = ParagraphStyle('sg', parent=s_body, fontName='Helvetica-Bold',
+                              textColor=rl_colors.HexColor('#495057'), spaceBefore=8, spaceAfter=3)
+
+    story = []
+    story.append(Spacer(1, 0.1*inch))
+    story.append(Paragraph('GUÍA DE VARIABLES', s_titulo))
+    story.append(Paragraph('Plantillas de Acta — Sistema de Gestión SENA', s_sub))
+
+    story.append(Paragraph('¿Qué es una variable?', s_h2))
+    story.append(Paragraph(
+        'Una <b>variable</b> es un marcador que colocas en tu documento Word. '
+        'Al descargar el PDF, el sistema lo reemplaza con la información real del acta. '
+        'Ejemplo: <font name="Courier" color="#0d6efd">{{titulo}}</font> '
+        'se reemplaza por el título real de la reunión.', s_body))
+
+    story.append(Paragraph('Reglas importantes', s_h2))
+    ej_data = [
+        [Paragraph('<font color="#198754"><b>CORRECTO</b></font>', s_body),
+         Paragraph('<font name="Courier" color="#198754">{{titulo}}</font>', s_body)],
+        [Paragraph('<font color="#dc3545"><b>INCORRECTO</b></font>', s_body),
+         Paragraph('<font name="Courier" color="#dc3545">{ {titulo} }</font>  (espacios dentro de las llaves)', s_body)],
+        [Paragraph('<font color="#dc3545"><b>INCORRECTO</b></font>', s_body),
+         Paragraph('<font name="Courier" color="#dc3545">{{Titulo}}</font>  (mayúscula en el nombre)', s_body)],
+        [Paragraph('<font color="#dc3545"><b>INCORRECTO</b></font>', s_body),
+         Paragraph('<font name="Courier" color="#dc3545">{{ titulo }}</font>  (espacios alrededor del nombre)', s_body)],
+    ]
+    ej_tbl = Table(ej_data, colWidths=[1.5*inch, 5*inch])
+    ej_tbl.setStyle(RLTableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), rl_colors.HexColor('#f8f9fa')),
+        ('BOX', (0, 0), (-1, -1), 0.5, rl_colors.lightgrey),
+        ('INNERGRID', (0, 0), (-1, -1), 0.3, rl_colors.HexColor('#dee2e6')),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING', (0, 0), (-1, -1), 8),
+        ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+    ]))
+    story.append(ej_tbl)
+
+    story.append(Paragraph('Lista completa de variables', s_h2))
+    for grupo in _GUIA_VARIABLES:
+        story.append(Paragraph(grupo['modulo'], s_grupo))
+        hdr = [Paragraph('<b>Variable</b>', s_small),
+               Paragraph('<b>Descripción</b>', s_small),
+               Paragraph('<b>Ejemplo de salida</b>', s_small)]
+        rows = [hdr]
+        for codename, desc, ej in grupo['items']:
+            rows.append([
+                Paragraph(f'<font name="Courier" color="#0d6efd">{{{{ {codename} }}}}</font>', s_body),
+                Paragraph(desc, s_body),
+                Paragraph(f'<i>{ej}</i>' if ej else '<i>(contenido del acta)</i>',
+                          ParagraphStyle('ei', parent=s_body, textColor=gris)),
+            ])
+        vtbl = Table(rows, colWidths=[1.8*inch, 2.8*inch, 1.9*inch])
+        vtbl.setStyle(RLTableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), rl_colors.HexColor('#e8f5e9')),
+            ('BOX', (0, 0), (-1, -1), 0.5, rl_colors.HexColor('#a5d6a7')),
+            ('INNERGRID', (0, 0), (-1, -1), 0.3, rl_colors.HexColor('#c8e6c9')),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+            ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ]))
+        story.append(vtbl)
+        story.append(Spacer(1, 4))
+
+    story.append(Paragraph('Consejos', s_h2))
+    for c in [
+        'Escribe las variables sin interrumpir el formato (sin cambiar fuente a mitad).',
+        'Si tienes dudas, copia y pega desde esta guía al documento Word.',
+        'Prueba con un acta de ejemplo antes de activar la plantilla.',
+        'Si una variable no se reemplaza, verifica que esté escrita exactamente como aquí.',
+        '<b>{{participantes_tabla}}</b> y <b>{{compromisos_tabla}}</b> deben estar en un párrafo propio.',
+    ]:
+        story.append(Paragraph(f'• {c}', s_body))
+
+    story.append(Paragraph('Preguntas frecuentes', s_h2))
+    for pregunta, respuesta in [
+        ('¿Puedo usar mayúsculas?', 'No. {{Titulo}} NO funciona, debe ser {{titulo}}.'),
+        ('¿Y si el campo está vacío?', 'Aparecerá un guion (—).'),
+        ('¿Puedo crear mis propias variables?', 'No. Solo funcionan las de esta lista.'),
+        ('¿Dónde pongo las tablas?', 'En un párrafo propio, sin texto adicional en esa línea.'),
+    ]:
+        story.append(Paragraph(f'<b>P: {pregunta}</b>', s_body))
+        story.append(Paragraph(f'R: {respuesta}',
+                               ParagraphStyle('rp', parent=s_body, leftIndent=12,
+                                              textColor=rl_colors.HexColor('#495057'), spaceAfter=6)))
+
+    story.append(Spacer(1, 12))
+    story.append(Paragraph('Sistema de Gestión de Actas — SENA Centro Minero',
+                           ParagraphStyle('foot', parent=s_small, alignment=TA_CENTER)))
+
+    doc_rl.build(story)
+    buf.seek(0)
+    resp = HttpResponse(buf.read(), content_type='application/pdf')
+    resp['Content-Disposition'] = 'attachment; filename="Guia_Variables_Plantillas.pdf"'
+    return resp
+
+
+@login_required
+def guia_plantillas_docx(request):
+    """Genera y descarga la guía de variables en formato Word (.docx)."""
+    try:
+        import io as _io
+        from docx import Document as WDocument
+        from docx.shared import Pt, RGBColor
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+
+        wdoc = WDocument()
+
+        def _rgb(run, r, g, b):
+            run.font.color.rgb = RGBColor(r, g, b)
+
+        def _heading_w(text, level=1, color=(26, 95, 26)):
+            p = wdoc.add_heading(text, level=level)
+            for run in p.runs:
+                _rgb(run, *color)
+            return p
+
+        def _shade_cell(cell, fill_hex):
+            tc = cell._tc
+            tcPr = tc.get_or_add_tcPr()
+            shd = OxmlElement('w:shd')
+            shd.set(qn('w:val'), 'clear')
+            shd.set(qn('w:color'), 'auto')
+            shd.set(qn('w:fill'), fill_hex)
+            tcPr.append(shd)
+
+        p0 = wdoc.add_heading('GUÍA DE VARIABLES — PLANTILLAS DE ACTA', 0)
+        for run in p0.runs:
+            _rgb(run, 26, 95, 26)
+        sub = wdoc.add_paragraph('Sistema de Gestión de Actas SENA')
+        if sub.runs:
+            _rgb(sub.runs[0], 108, 117, 125)
+
+        _heading_w('¿Qué es una variable?')
+        wdoc.add_paragraph(
+            'Una variable es un marcador que colocas en tu documento Word. '
+            'Al descargar el PDF, el sistema lo reemplaza con la información real del acta.'
+        )
+        p_ej = wdoc.add_paragraph('Ejemplo: Si escribes ')
+        r_ej = p_ej.add_run('{{titulo}}')
+        r_ej.font.name = 'Courier New'
+        _rgb(r_ej, 13, 110, 253)
+        p_ej.add_run(' en tu plantilla, aparecerá el título real.')
+
+        _heading_w('Reglas importantes')
+        for texto, ok in [
+            ('CORRECTO:   {{titulo}}', True),
+            ('INCORRECTO: { {titulo} }  — espacios dentro de las llaves', False),
+            ('INCORRECTO: {{Titulo}}  — mayúscula', False),
+            ('INCORRECTO: {{ titulo }}  — espacios alrededor', False),
+        ]:
+            p = wdoc.add_paragraph()
+            run = p.add_run(texto)
+            run.font.name = 'Courier New'
+            run.font.size = Pt(10)
+            _rgb(run, 25, 135, 84) if ok else _rgb(run, 220, 53, 69)
+
+        _heading_w('Lista completa de variables')
+        for grupo in _GUIA_VARIABLES:
+            _heading_w(grupo['modulo'], level=2, color=(73, 80, 87))
+            tabla = wdoc.add_table(rows=1, cols=3)
+            tabla.style = 'Table Grid'
+            hcells = tabla.rows[0].cells
+            for i, txt in enumerate(['Variable', 'Descripción', 'Ejemplo de salida']):
+                hcells[i].text = txt
+                for para in hcells[i].paragraphs:
+                    for run in para.runs:
+                        run.bold = True
+                        _rgb(run, 255, 255, 255)
+                _shade_cell(hcells[i], '1a5f1a')
+            for codename, desc, ej in grupo['items']:
+                row = tabla.add_row().cells
+                pv = row[0].paragraphs[0]
+                rv = pv.add_run('{{ ' + codename + ' }}')
+                rv.font.name = 'Courier New'
+                _rgb(rv, 13, 110, 253)
+                row[1].text = desc
+                row[2].text = ej if ej else '(contenido del acta)'
+            wdoc.add_paragraph()
+
+        _heading_w('Consejos')
+        for c in [
+            'Escribe las variables sin interrumpir el formato.',
+            'Copia y pega desde esta guía si tienes dudas.',
+            'Prueba con un acta de ejemplo antes de activar la plantilla.',
+            '{{participantes_tabla}} y {{compromisos_tabla}} deben ir en un párrafo propio.',
+        ]:
+            wdoc.add_paragraph(c, style='List Bullet')
+
+        _heading_w('Preguntas frecuentes')
+        for pregunta, respuesta in [
+            ('¿Puedo usar mayúsculas?', 'No. {{Titulo}} NO funciona, debe ser {{titulo}}.'),
+            ('¿Y si el campo está vacío?', 'Aparecerá un guion (—).'),
+            ('¿Puedo crear mis propias variables?', 'No, solo las de esta lista.'),
+            ('¿Dónde pongo las tablas?', 'En un párrafo propio, sin texto adicional en esa línea.'),
+        ]:
+            pq = wdoc.add_paragraph()
+            rq = pq.add_run(f'P: {pregunta}')
+            rq.bold = True
+            wdoc.add_paragraph(f'R: {respuesta}')
+
+        buf = _io.BytesIO()
+        wdoc.save(buf)
+        buf.seek(0)
+        resp = HttpResponse(
+            buf.read(),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        resp['Content-Disposition'] = 'attachment; filename="Guia_Variables_Plantillas.docx"'
+        return resp
+
+    except ImportError:
+        messages.error(request, 'python-docx no está disponible. Descarga la guía en PDF.')
+        return redirect('actas:plantillas_list')

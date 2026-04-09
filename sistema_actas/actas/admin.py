@@ -1,6 +1,6 @@
 from notifications.models import Notification
 from django.contrib import admin
-from .models import Acta, Participante, Firma, Compromiso, ComentarioActa, ArchivoAdjunto, AnexoActa, PlantillaActa
+from .models import Acta, Participante, Firma, Compromiso, ComentarioActa, ArchivoAdjunto, AnexoActa, PlantillaActa, ParticipanteNoRegistrado
 
 
 class AnexoActaInline(admin.TabularInline):
@@ -69,3 +69,10 @@ class PlantillaActaAdmin(admin.ModelAdmin):
         if not obj.pk:
             obj.creada_por = request.user
         super().save_model(request, obj, form, change)
+
+@admin.register(ParticipanteNoRegistrado)
+class ParticipanteNoRegistradoAdmin(admin.ModelAdmin):
+    list_display = ('nombre_completo', 'email', 'acta', 'cargo_rol', 'pdf_enviado', 'email_rebotado', 'fecha_envio')
+    list_filter = ('pdf_enviado', 'email_rebotado')
+    search_fields = ('nombre_completo', 'email', 'acta__numero_acta')
+    readonly_fields = ('fecha_creacion', 'fecha_envio')

@@ -1,4 +1,4 @@
-from django.db import models, transaction
+from django.db import models
 from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ValidationError
@@ -229,9 +229,21 @@ class Acta(models.Model):
     # ========================================
     # CAMPOS BÁSICOS (YA EXISTENTES)
     # ========================================
-    numero_acta = models.CharField(max_length=20, unique=True, editable=False)
+    numero_acta = models.CharField(
+        max_length=50,
+        unique=True,
+        verbose_name='Número de Acta',
+        help_text='Número oficial asignado por la subdirección. Ej: ACT-2026-COORD-001',
+    )
     titulo = models.CharField(max_length=200)
     tipo_reunion = models.CharField(max_length=30, choices=TIPOS_REUNION)
+    tipo_reunion_otro = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        verbose_name='Tipo de reunión personalizado',
+        help_text='Solo se usa cuando tipo_reunion="otra". Especifique el tipo exacto.',
+    )
     fecha_reunion = models.DateTimeField()
     lugar_reunion = models.CharField(max_length=200)
     modalidad = models.CharField(max_length=20, choices=[
@@ -380,7 +392,12 @@ class Acta(models.Model):
         permissions = [
             ("can_finalize_acta", "Puede finalizar actas"),
             ("can_archive_acta", "Puede archivar actas"),
-            ("can_generate_with_ia", "Puede generar actas con IA"),  # NUEVO PERMISO
+            ("can_generate_with_ia", "Puede generar actas con IA"),
+            ("aprobar_acta", "Puede aprobar actas"),
+            ("rechazar_acta", "Puede rechazar actas"),
+            ("enviar_a_revision", "Puede enviar actas a revisión"),
+            ("generar_pdf_acta", "Puede generar PDF de actas"),
+            ("firmar_acta", "Puede firmar actas"),
         ]
         
         # ÍNDICES PARA OPTIMIZACIÓN
@@ -393,31 +410,6 @@ class Acta(models.Model):
         ]
     
     def save(self, *args, **kwargs):
-        # Generar número de acta si no existe (con protección contra race condition)
-        if not self.numero_acta:
-            with transaction.atomic():
-                year = timezone.now().year
-                # Usar select_for_update para bloquear la tabla durante la consulta
-                # y MAX para obtener el último número de forma segura
-                from django.db.models import Max
-                ultimo_numero = Acta.objects.filter(
-                    fecha_creacion__year=year
-                ).aggregate(Max('id'))['id__max']
-
-                count = 1
-                if ultimo_numero:
-                    # Obtener el último número de acta del añoj
-                    ultima_acta = Acta.objects.filter(fecha_creacion__year=year).order_by('-numero_acta').first()
-                    if ultima_acta and ultima_acta.numero_acta:
-                        try:
-                            # Extraer el número del formato ACT-YYYY-XXX
-                            ultimo_num = int(ultima_acta.numero_acta.split('-')[-1])
-                            count = ultimo_num + 1
-                        except (ValueError, IndexError):
-                            count = Acta.objects.filter(fecha_creacion__year=year).count() + 1
-
-                self.numero_acta = f"ACT-{year}-{count:04d}"
-
         # Establecer fecha límite de firmas (7 días en producción)
         if not self.fecha_limite_firmas and self.estado == 'en_revision':
             self.fecha_limite_firmas = timezone.now() + timedelta(days=7)
@@ -498,6 +490,12 @@ class Acta(models.Model):
             'fecha_ultima_edicion': self.fecha_ultima_edicion_manual
         }
     
+    def get_tipo_reunion_label(self):
+        """Devuelve el tipo de reunión para mostrar al usuario, usando tipo_reunion_otro si aplica."""
+        if self.tipo_reunion == 'otra' and self.tipo_reunion_otro:
+            return self.tipo_reunion_otro
+        return self.get_tipo_reunion_display()
+
     def __str__(self):
         return f"{self.numero_acta} - {self.titulo}"
 
@@ -945,3 +943,42 @@ class PlantillaActa(models.Model):
             except Exception:
                 pass
         super().delete(*args, **kwargs)
+
+# =============================================================================
+# PARTICIPANTES NO REGISTRADOS
+# =============================================================================
+
+class ParticipanteNoRegistrado(models.Model):
+    """
+    Persona que asistió a la reunión pero NO tiene cuenta en el sistema.
+    No puede firmar digitalmente. Recibe el PDF del acta por email al finalizarla.
+    """
+    acta = models.ForeignKey(
+        Acta,
+        on_delete=models.CASCADE,
+        related_name='participantes_no_registrados',
+    )
+    nombre_completo = models.CharField(max_length=200, verbose_name='Nombre completo')
+    email = models.EmailField(verbose_name='Correo electrónico')
+    cargo_rol = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        verbose_name='Cargo / Rol',
+        help_text='Ej: Aprendiz, Invitado externo, Contratista',
+    )
+    fecha_creacion = models.DateTimeField(auto_now_add=True)
+
+    # Estado de envío del PDF
+    pdf_enviado = models.BooleanField(default=False)
+    fecha_envio = models.DateTimeField(null=True, blank=True)
+    email_rebotado = models.BooleanField(default=False)
+
+    class Meta:
+        verbose_name = 'Participante No Registrado'
+        verbose_name_plural = 'Participantes No Registrados'
+        unique_together = [('acta', 'email')]
+        ordering = ['nombre_completo']
+
+    def __str__(self):
+        return f"{self.nombre_completo} ({self.email})"

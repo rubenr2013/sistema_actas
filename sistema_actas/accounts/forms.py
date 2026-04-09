@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth.models import Group, Permission
 from .models import User, TIPO_DOCUMENTO_CHOICES
 
 class CustomUserCreationForm(UserCreationForm):
@@ -166,3 +167,83 @@ class ProfileUpdateForm(forms.ModelForm):
                 raise forms.ValidationError("Solo se permiten imágenes PNG, JPG o JPEG.")
         # Si es un FieldFile existente no tocamos .size (el archivo puede no estar en disco)
         return firma
+
+
+# Permisos visibles y sus etiquetas amigables en la UI de gestión de roles
+PERMISOS_UI = {
+    'Actas': [
+        ('actas.view_acta', 'Ver actas'),
+        ('actas.add_acta', 'Crear actas'),
+        ('actas.change_acta', 'Editar actas'),
+        ('actas.delete_acta', 'Eliminar actas'),
+        ('actas.aprobar_acta', 'Aprobar actas'),
+        ('actas.rechazar_acta', 'Rechazar actas'),
+        ('actas.enviar_a_revision', 'Enviar actas a revisión'),
+        ('actas.generar_pdf_acta', 'Generar PDF de actas'),
+        ('actas.firmar_acta', 'Firmar actas'),
+        ('actas.can_finalize_acta', 'Finalizar actas'),
+        ('actas.can_archive_acta', 'Archivar actas'),
+        ('actas.can_generate_with_ia', 'Generar actas con IA'),
+    ],
+    'Compromisos': [
+        ('actas.view_compromiso', 'Ver compromisos'),
+        ('actas.add_compromiso', 'Crear compromisos'),
+        ('actas.change_compromiso', 'Editar compromisos'),
+        ('actas.delete_compromiso', 'Eliminar compromisos'),
+    ],
+    'Plantillas': [
+        ('actas.view_plantillaacta', 'Ver plantillas de acta'),
+        ('actas.add_plantillaacta', 'Crear plantillas de acta'),
+        ('actas.change_plantillaacta', 'Editar plantillas de acta'),
+        ('actas.delete_plantillaacta', 'Eliminar plantillas de acta'),
+    ],
+    'Usuarios': [
+        ('accounts.view_user', 'Ver usuarios'),
+        ('accounts.change_user', 'Editar usuarios'),
+        ('accounts.delete_user', 'Eliminar usuarios'),
+    ],
+}
+
+
+def get_permission_obj(app_label, codename):
+    """Retorna el objeto Permission dado app_label y codename, o None."""
+    try:
+        return Permission.objects.get(content_type__app_label=app_label, codename=codename)
+    except Permission.DoesNotExist:
+        return None
+
+
+class RolForm(forms.ModelForm):
+    """Formulario para crear/editar un rol (Group) con selección visual de permisos."""
+
+    descripcion = forms.CharField(
+        required=False,
+        label="Descripción",
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 2,
+            'placeholder': 'Descripción opcional del rol...',
+        })
+    )
+
+    class Meta:
+        model = Group
+        fields = ['name']
+        labels = {'name': 'Nombre del rol'}
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ej: Revisor de actas',
+            })
+        }
+
+    def clean_name(self):
+        name = self.cleaned_data.get('name', '').strip()
+        if not name:
+            raise forms.ValidationError("El nombre es obligatorio.")
+        qs = Group.objects.filter(name__iexact=name)
+        if self.instance.pk:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise forms.ValidationError("Ya existe un rol con ese nombre.")
+        return name

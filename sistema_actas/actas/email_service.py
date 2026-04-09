@@ -183,3 +183,101 @@ def enviar_email_acta_firmada_completa(acta):
     except Exception as e:
         logger.error('Error al enviar email de acta firmada completa: %s', str(e), exc_info=True)
         return False
+
+def enviar_pdf_participante_no_registrado(participante_nr, pdf_bytes):
+    """
+    Envía el PDF del acta a un participante no registrado.
+    Retorna True si se envió correctamente, False si falló.
+    """
+    from django.core.mail import EmailMessage
+    from django.utils import timezone as tz
+
+    acta = participante_nr.acta
+    try:
+        contexto = {
+            'nombre_completo': participante_nr.nombre_completo,
+            'numero_acta': acta.numero_acta,
+            'titulo_acta': acta.titulo,
+            'tipo_reunion': acta.get_tipo_reunion_label() if hasattr(acta, 'get_tipo_reunion_label') else acta.get_tipo_reunion_display(),
+            'fecha_reunion': format_datetime_safe(acta.fecha_reunion),
+            'lugar': getattr(acta, 'lugar_reunion', '') or '—',
+            'cargo_rol': participante_nr.cargo_rol or '',
+        }
+
+        html_body = render_to_string('emails/acta_participante_no_registrado.html', contexto)
+        text_body = strip_tags(html_body)
+
+        asunto = f"Acta de reunión SENA – {acta.titulo} ({acta.numero_acta})"
+
+        msg = EmailMessage(
+            subject=asunto,
+            body=text_body,
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[participante_nr.email],
+        )
+        msg.content_subtype = 'plain'
+        msg.attach_alternative(html_body, 'text/html')
+
+        nombre_pdf = f"Acta_{acta.numero_acta}.pdf"
+        msg.attach(nombre_pdf, pdf_bytes, 'application/pdf')
+
+        msg.send(fail_silently=False)
+
+        participante_nr.pdf_enviado = True
+        participante_nr.fecha_envio = tz.now()
+        participante_nr.email_rebotado = False
+        participante_nr.save(update_fields=['pdf_enviado', 'fecha_envio', 'email_rebotado'])
+
+        logger.info('PDF enviado a participante no registrado %s (Acta %s)', participante_nr.email, acta.numero_acta)
+        return True
+
+    except Exception as e:
+        participante_nr.email_rebotado = True
+        participante_nr.save(update_fields=['email_rebotado'])
+        logger.error('Error enviando PDF a %s (Acta %s): %s', participante_nr.email, acta.numero_acta, e, exc_info=True)
+        return False
+
+
+def enviar_pdfs_a_no_registrados(acta):
+    """
+    Genera el PDF del acta y lo envía a todos los participantes no registrados
+    que aún no lo han recibido. Llamar al finalizar el acta.
+    Retorna (enviados, fallidos).
+    """
+    import io as _io
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate, Paragraph
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    pendientes = acta.participantes_no_registrados.filter(pdf_enviado=False)
+    if not pendientes.exists():
+        return 0, 0
+
+    # Generar PDF usando el servicio de plantilla o ReportLab
+    pdf_bytes = None
+    try:
+        from actas.services.plantilla_service import generar_documento_desde_plantilla
+        resultado = generar_documento_desde_plantilla(acta)
+        if resultado and resultado['tipo'] == 'pdf':
+            pdf_bytes = resultado['bytes']
+    except Exception as e:
+        logger.warning('enviar_pdfs_a_no_registrados: no se pudo usar plantilla: %s', e)
+
+    if not pdf_bytes:
+        # Fallback: generar PDF básico con ReportLab
+        try:
+            from actas.views import _generar_pdf_bytes
+            pdf_bytes = _generar_pdf_bytes(acta)
+        except Exception as e:
+            logger.error('enviar_pdfs_a_no_registrados: no se pudo generar PDF: %s', e)
+            return 0, pendientes.count()
+
+    enviados, fallidos = 0, 0
+    for participante in pendientes:
+        if enviar_pdf_participante_no_registrado(participante, pdf_bytes):
+            enviados += 1
+        else:
+            fallidos += 1
+
+    logger.info('PDFs a no registrados — Acta %s: %d enviados, %d fallidos', acta.numero_acta, enviados, fallidos)
+    return enviados, fallidos

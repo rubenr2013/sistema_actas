@@ -424,6 +424,18 @@ def editar_usuario(request, user_id):
             messages.error(request, 'Rol inválido.')
             return redirect('accounts:editar_usuario', user_id=user_id)
 
+        # Protección: no permitir auto-remover privilegios de admin
+        if request.user == usuario and usuario.rol == 'admin' and rol != 'admin':
+            messages.error(request, 'No puedes remover tus propios privilegios de administrador.')
+            return redirect('accounts:editar_usuario', user_id=user_id)
+
+        # Protección: no dejar el sistema sin ningún admin
+        if usuario.rol == 'admin' and rol != 'admin':
+            otros_admins = User.objects.filter(rol='admin').exclude(pk=usuario.pk).count()
+            if otros_admins == 0:
+                messages.error(request, 'No puedes cambiar el rol de este usuario porque es el único administrador del sistema.')
+                return redirect('accounts:editar_usuario', user_id=user_id)
+
         # Actualizamos los campos
         usuario.first_name = first_name
         usuario.last_name = last_name

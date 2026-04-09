@@ -570,6 +570,54 @@
                     {% endfor %}
                 </div>
             </div>
+            <!-- Participantes No Registrados -->
+            {% if participantes_no_registrados %}
+            <div class="card hover-lift mb-4 border-warning">
+                <div class="card-header bg-warning bg-opacity-10">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-clock text-warning me-2"></i>
+                        Participantes No Registrados
+                        <span class="badge bg-warning text-dark ms-2">{{ participantes_no_registrados|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for nr in participantes_no_registrados %}
+                    <div class="d-flex justify-content-between align-items-center p-2 border rounded mb-2 bg-light">
+                        <div>
+                            <strong>{{ nr.nombre_completo }}</strong>
+                            {% if nr.cargo_rol %}<span class="badge bg-secondary ms-1">{{ nr.cargo_rol }}</span>{% endif %}
+                            <br>
+                            <small class="text-muted"><i class="fas fa-envelope me-1"></i>{{ nr.email }}</small>
+                        </div>
+                        <div class="text-end">
+                            {% if nr.email_rebotado %}
+                                <span class="badge bg-danger"><i class="fas fa-exclamation-triangle me-1"></i>Error al enviar</span>
+                                {% if request.user.is_staff or request.user.rol == 'admin' %}
+                                <br>
+                                <form method="post" action="{% url 'actas:reenviar_pdf_nr' acta.id nr.id %}" class="d-inline mt-1">
+                                    {% csrf_token %}
+                                    <button class="btn btn-xs btn-outline-danger btn-sm mt-1">
+                                        <i class="fas fa-redo me-1"></i>Reenviar
+                                    </button>
+                                </form>
+                                {% endif %}
+                            {% elif nr.pdf_enviado %}
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>Enviado</span>
+                                <br><small class="text-muted">{{ nr.fecha_envio|date:"d/m/Y H:i" }}</small>
+                            {% else %}
+                                <span class="badge bg-secondary"><i class="fas fa-clock me-1"></i>Pendiente de envío</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    <p class="text-muted small mt-2 mb-0">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Estos participantes recibirán el PDF del acta por correo electrónico al finalizarla.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+
             <!-- Compromisos -->
             {% if compromisos %}
             <div class="card hover-lift mb-4">
@@ -862,12 +910,23 @@
                     <i class="fas fa-exclamation-triangle me-2"></i>
                     Al rechazar, el acta vuelve a <strong>Borrador</strong> y el creador recibirá tus observaciones para corregirla.
                 </div>
-                <label class="form-label fw-semibold">Motivo del rechazo <span class="text-danger">*</span></label>
-                <textarea class="form-control" id="observaciones-rechazo" rows="4"
-                          placeholder="Explica por qué rechazas esta acta (mínimo 10 caracteres)..."></textarea>
+                <label class="form-label fw-semibold">Observaciones sobre el acta <span class="text-danger">*</span></label>
+                <div class="alert alert-light border mb-2 py-2 small">
+                    <strong>Sé muy específico sobre qué parte del acta no apruebas:</strong>
+                    <ul class="mb-0 mt-1">
+                        <li>Indica el punto exacto (ej: <em>"Punto 3 del orden del día"</em>)</li>
+                        <li>Explica claramente por qué no estás de acuerdo</li>
+                        <li>Sugiere cómo debería corregirse</li>
+                    </ul>
+                </div>
+                <textarea class="form-control" id="observaciones-rechazo" rows="5" maxlength="500"
+                          placeholder="Ej: En el punto 3 del desarrollo se menciona X, pero en realidad ocurrió Y. Sugiero cambiar la redacción a..."></textarea>
                 <div class="d-flex justify-content-between mt-1">
-                    <div id="error-rechazo" class="text-danger d-none"><i class="fas fa-exclamation-triangle me-1"></i>Mínimo 10 caracteres.</div>
-                    <small class="text-muted ms-auto" id="contador-rechazo">0 caracteres</small>
+                    <div id="error-rechazo" class="text-danger d-none">
+                        <i class="fas fa-exclamation-triangle me-1"></i>
+                        Por favor sé más específico. Indica exactamente qué parte del acta no apruebas (mínimo 20 caracteres).
+                    </div>
+                    <small class="text-muted ms-auto" id="contador-rechazo">0 / 500 caracteres</small>
                 </div>
             </div>
             <div class="modal-footer">
@@ -1190,13 +1249,13 @@ function archivarActaDetalle(actaId) {
 
     // ── RECHAZAR ─────────────────────────────────────────
     document.getElementById('observaciones-rechazo')?.addEventListener('input', function() {
-        document.getElementById('contador-rechazo').textContent = this.value.length + ' caracteres';
-        if (this.value.length >= 10) document.getElementById('error-rechazo').classList.add('d-none');
+        document.getElementById('contador-rechazo').textContent = this.value.length + ' / 500 caracteres';
+        if (this.value.trim().length >= 20) document.getElementById('error-rechazo').classList.add('d-none');
     });
 
     document.getElementById('btn-confirmar-rechazar')?.addEventListener('click', function() {
         const obs = document.getElementById('observaciones-rechazo').value.trim();
-        if (obs.length < 10) {
+        if (obs.length < 20) {
             document.getElementById('error-rechazo').classList.remove('d-none');
             return;
         }

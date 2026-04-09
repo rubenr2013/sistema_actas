@@ -66,7 +66,7 @@ def _construir_marcadores(acta):
     return {
         'numero_acta': _texto_seguro(acta.numero_acta),
         'titulo': _texto_seguro(acta.titulo),
-        'tipo_reunion': _texto_seguro(acta.get_tipo_reunion_display()),
+        'tipo_reunion': _texto_seguro(acta.get_tipo_reunion_label() if hasattr(acta, 'get_tipo_reunion_label') else acta.get_tipo_reunion_display()),
         'fecha_reunion': fecha_str,
         'lugar': _texto_seguro(getattr(acta, 'lugar', None) or getattr(acta, 'lugar_reunion', None)),
         'objetivo': _texto_seguro(getattr(acta, 'objetivo', None)),
@@ -214,6 +214,14 @@ def _reemplazar_parrafo_por_tabla_participantes(doc, parrafo, acta):
         else:
             fila.cells[2].text = 'No'
             fila.cells[3].text = 'Pendiente'
+
+    # Participantes no registrados (no firman)
+    for nr in acta.participantes_no_registrados.all():
+        fila = tabla.add_row()
+        fila.cells[0].text = nr.nombre_completo
+        fila.cells[1].text = nr.cargo_rol or 'Participante'
+        fila.cells[2].text = 'N/A'
+        fila.cells[3].text = '(No aplica)'
 
     # Mover la tabla al cuerpo del doc justo después del párrafo marcador
     p_element.addnext(tabla._tbl)

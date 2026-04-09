@@ -97,17 +97,27 @@ urlpatterns = [
     path('api/actas/<int:acta_id>/anexos/<int:anexo_id>/', api_views.eliminar_anexo_api, name='api_eliminar_anexo'),
     path('api/actas/<int:acta_id>/anexos/orden/', api_views.reordenar_anexos_api, name='api_reordenar_anexos'),
 
+    # Participantes no registrados
+    path('<int:acta_id>/nr/<int:nr_id>/reenviar/', views.reenviar_pdf_nr, name='reenviar_pdf_nr'),
+
     # Plantillas de acta (admin)
     path('plantillas/', views.plantillas_list, name='plantillas_list'),
     path('plantillas/crear/', views.plantilla_crear, name='plantilla_crear'),
     path('plantillas/<int:plantilla_id>/editar/', views.plantilla_editar, name='plantilla_editar'),
     path('plantillas/<int:plantilla_id>/eliminar/', views.plantilla_eliminar, name='plantilla_eliminar'),
+    path('plantillas/guia/pdf/', views.guia_plantillas_pdf, name='guia_plantillas_pdf'),
+    path('plantillas/guia/docx/', views.guia_plantillas_docx, name='guia_plantillas_docx'),
 
     # Revisión colaborativa - Vistas web (sesión Django)
     path('<int:acta_id>/web/enviar-revision/', views.web_enviar_a_revision, name='web_enviar_revision'),
     path('<int:acta_id>/web/aprobar/', views.web_aprobar_acta, name='web_aprobar_acta'),
     path('<int:acta_id>/web/rechazar/', views.web_rechazar_acta, name='web_rechazar_acta'),
     path('<int:acta_id>/web/cerrar/', views.web_cerrar_acta, name='web_cerrar_acta'),
+
+    # Participantes no registrados (API móvil)
+    path('api/actas/<int:acta_id>/participantes-nr/', api_views.participantes_nr_list_api, name='api_participantes_nr_list'),
+    path('api/actas/<int:acta_id>/participantes-nr/<int:nr_id>/', api_views.participante_nr_detalle_api, name='api_participante_nr_detalle'),
+    path('api/actas/<int:acta_id>/participantes-nr/<int:nr_id>/reenviar/', api_views.reenviar_pdf_nr_api, name='api_reenviar_pdf_nr'),
 
     # Revisión colaborativa de actas
     path('api/actas/<int:acta_id>/enviar-a-revision/', api_views.enviar_a_revision_api, name='api_enviar_a_revision'),

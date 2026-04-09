@@ -150,7 +150,7 @@ def detectar_rol_por_email(email):
     email = email.lower().strip()
 
     if email.endswith('@soy.sena.edu.co'):
-        return 'aprendiz'
+        return 'invitado'
     elif email.endswith('@sena.edu.co'):
         return 'funcionario'
     else:

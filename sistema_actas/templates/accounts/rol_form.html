@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+
+{% block title %}{% if modo == 'crear' %}Crear Rol{% else %}Editar Rol{% endif %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card { border-radius: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
+    .permiso-grupo .card-header {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        font-weight: 600;
+        font-size: .9rem;
+        cursor: pointer;
+        user-select: none;
+    }
+    .permiso-grupo .card-header:hover { background: #dee2e6; }
+    .permiso-item {
+        padding: .4rem .75rem;
+        border-radius: .4rem;
+        transition: background .15s;
+    }
+    .permiso-item:hover { background: #f0fdf4; }
+    .permiso-item input[type=checkbox]:checked + label { font-weight: 600; color: #198754; }
+    .grupo-toggle-btn { font-size: .75rem; }
+    .advertencia-usuarios {
+        border-left: 4px solid #ffc107;
+        background: #fffbe6;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 col-xl-7">
+
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'accounts:roles_list' %}">Roles</a>
+                    </li>
+                    <li class="breadcrumb-item active">
+                        {% if modo == 'crear' %}Crear{% else %}Editar "{{ rol.name }}"{% endif %}
+                    </li>
+                </ol>
+            </nav>
+
+            <h2 class="fw-bold mb-4">
+                <i class="fas fa-{% if modo == 'crear' %}plus-circle{% else %}edit{% endif %} text-success me-2"></i>
+                {% if modo == 'crear' %}Crear Nuevo Rol{% else %}Editar Rol{% endif %}
+            </h2>
+
+            {% if modo == 'editar' and num_usuarios %}
+            <div class="alert advertencia-usuarios rounded p-3 mb-4">
+                <i class="fas fa-exclamation-triangle text-warning me-2"></i>
+                <strong>Atención:</strong> Hay <strong>{{ num_usuarios }}</strong> usuario(s) con este rol.
+                Los cambios de permisos se aplican de inmediato.
+            </div>
+            {% endif %}
+
+            <form method="post" id="formRol">
+                {% csrf_token %}
+
+                <!-- Paso 1: Información básica -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white">
+                        <i class="fas fa-info-circle me-2"></i>Información básica
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label fw-semibold">
+                                Nombre del Rol <span class="text-danger">*</span>
+                            </label>
+                            {{ form.name }}
+                            {% if form.name.errors %}
+                            <div class="text-danger small mt-1">{{ form.name.errors.0 }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-0">
+                            <label class="form-label fw-semibold">Descripción</label>
+                            <textarea name="descripcion" class="form-control" rows="2"
+                                      placeholder="Descripción opcional del rol..."></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Paso 2: Permisos -->
+                <div class="card mb-4">
+                    <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                        <span><i class="fas fa-key me-2"></i>Asignar Permisos</span>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-light grupo-toggle-btn" id="btnSelectAll">
+                                <i class="fas fa-check-square me-1"></i>Todos
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-light grupo-toggle-btn" id="btnDeselectAll">
+                                <i class="fas fa-square me-1"></i>Ninguno
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        {% for grupo in grupos_ui %}
+                        <div class="permiso-grupo mb-3">
+                            <div class="card border">
+                                <div class="card-header d-flex justify-content-between align-items-center"
+                                     data-bs-toggle="collapse"
+                                     data-bs-target="#grupo-{{ forloop.counter }}">
+                                    <span>
+                                        <i class="fas fa-{% if grupo.modulo == 'Actas' %}file-alt{% elif grupo.modulo == 'Compromisos' %}tasks{% elif grupo.modulo == 'Plantillas' %}file-word{% else %}users{% endif %} me-2 text-success"></i>
+                                        {{ grupo.modulo }}
+                                        <span class="badge bg-secondary ms-1 count-badge" id="count-{{ forloop.counter }}">
+                                            0
+                                        </span>
+                                    </span>
+                                    <div class="d-flex gap-2 align-items-center">
+                                        <button type="button" class="btn btn-sm btn-outline-success grupo-toggle-btn"
+                                                onclick="seleccionarGrupo('grupo-{{ forloop.counter }}', true); event.stopPropagation();">
+                                            Todos
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-outline-secondary grupo-toggle-btn"
+                                                onclick="seleccionarGrupo('grupo-{{ forloop.counter }}', false); event.stopPropagation();">
+                                            Ninguno
+                                        </button>
+                                        <i class="fas fa-chevron-down text-muted"></i>
+                                    </div>
+                                </div>
+                                <div class="collapse show" id="grupo-{{ forloop.counter }}">
+                                    <div class="card-body py-2">
+                                        {% for perm in grupo.permisos %}
+                                        <div class="permiso-item d-flex align-items-center gap-2">
+                                            <input type="checkbox" name="permisos" value="{{ perm.perm_id }}"
+                                                   id="perm-{{ perm.perm_id }}"
+                                                   class="form-check-input perm-check"
+                                                   data-grupo="grupo-{{ forloop.parentloop.counter }}"
+                                                   {% if perm.perm_id in permisos_seleccionados %}checked{% endif %}>
+                                            <label for="perm-{{ perm.perm_id }}" class="form-check-label mb-0"
+                                                   style="cursor:pointer;">
+                                                {{ perm.label }}
+                                            </label>
+                                        </div>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Botones -->
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'accounts:roles_list' %}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left me-1"></i>Cancelar
+                    </a>
+                    <button type="submit" class="btn btn-success px-4">
+                        <i class="fas fa-save me-1"></i>
+                        {% if modo == 'crear' %}Crear Rol{% else %}Guardar Cambios{% endif %}
+                    </button>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    // Actualizar contadores de badges
+    function updateCount(grupoId) {
+        const checks = document.querySelectorAll(`.perm-check[data-grupo="${grupoId}"]`);
+        const checked = Array.from(checks).filter(c => c.checked).length;
+        const idx = grupoId.replace('grupo-', '');
+        const badge = document.getElementById(`count-${idx}`);
+        if (badge) {
+            badge.textContent = checked;
+            badge.className = checked > 0
+                ? 'badge bg-success ms-1 count-badge'
+                : 'badge bg-secondary ms-1 count-badge';
+        }
+    }
+
+    function updateAllCounts() {
+        document.querySelectorAll('.perm-check').forEach(chk => {
+            updateCount(chk.dataset.grupo);
+        });
+    }
+
+    document.querySelectorAll('.perm-check').forEach(chk => {
+        chk.addEventListener('change', () => updateCount(chk.dataset.grupo));
+    });
+
+    window.seleccionarGrupo = function (grupoId, estado) {
+        document.querySelectorAll(`.perm-check[data-grupo="${grupoId}"]`).forEach(c => {
+            c.checked = estado;
+        });
+        updateCount(grupoId);
+    };
+
+    document.getElementById('btnSelectAll').addEventListener('click', function () {
+        document.querySelectorAll('.perm-check').forEach(c => { c.checked = true; });
+        updateAllCounts();
+    });
+    document.getElementById('btnDeselectAll').addEventListener('click', function () {
+        document.querySelectorAll('.perm-check').forEach(c => { c.checked = false; });
+        updateAllCounts();
+    });
+
+    // Inicializar contadores al cargar
+    updateAllCounts();
+})();
+</script>
+{% endblock %}

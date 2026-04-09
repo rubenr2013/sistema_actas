@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+
+{% block title %}Gestión de Roles{% endblock %}
+
+{% block extra_css %}
+<style>
+    .card { border-radius: 1rem; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
+    .table thead { background-color: var(--sena-green, #39A900); color: white; }
+    .table-hover tbody tr:hover { background-color: #f5f5f5; }
+    .badge-permisos { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+    .badge-usuarios { background-color: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
+    .rol-protegido { opacity: .6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <!-- Encabezado -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="fw-bold mb-0"><i class="fas fa-shield-alt text-success me-2"></i>Gestión de Roles</h2>
+            <p class="text-muted small mb-0">Crea y configura roles con permisos personalizados</p>
+        </div>
+        <a href="{% url 'accounts:rol_crear' %}" class="btn btn-success">
+            <i class="fas fa-plus me-1"></i>Crear Rol
+        </a>
+    </div>
+
+    {% if messages %}
+        {% for m in messages %}
+        <div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show" role="alert">
+            {{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Buscador -->
+    <div class="card mb-4">
+        <div class="card-body py-3">
+            <form method="get" class="row g-2 align-items-center">
+                <div class="col-auto flex-grow-1">
+                    <input type="text" name="q" value="{{ q }}" class="form-control"
+                           placeholder="Buscar rol por nombre...">
+                </div>
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="fas fa-search"></i>
+                    </button>
+                    {% if q %}
+                    <a href="{% url 'accounts:roles_list' %}" class="btn btn-outline-secondary ms-1">
+                        <i class="fas fa-times"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tabla -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Nombre del Rol</th>
+                            <th class="text-center">Usuarios</th>
+                            <th class="text-center">Permisos</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rol in roles %}
+                        <tr {% if rol.name|lower in roles_protegidos %}class="rol-protegido"{% endif %}>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center"
+                                         style="width:36px;height:36px;">
+                                        <i class="fas fa-user-tag text-success"></i>
+                                    </div>
+                                    <div>
+                                        <span class="fw-semibold">{{ rol.name }}</span>
+                                        {% if rol.name|lower in roles_protegidos %}
+                                        <span class="badge bg-secondary ms-1" style="font-size:.7rem;">Sistema</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-usuarios px-3 py-1 rounded-pill">
+                                    {{ rol.num_usuarios }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-permisos px-3 py-1 rounded-pill">
+                                    {{ rol.num_permisos }}
+                                </span>
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'accounts:rol_detail' rol.pk %}"
+                                       class="btn btn-outline-secondary" title="Ver detalle">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'accounts:rol_editar' rol.pk %}"
+                                       class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    {% if rol.name|lower not in roles_protegidos %}
+                                    <a href="{% url 'accounts:rol_eliminar' rol.pk %}"
+                                       class="btn btn-outline-danger" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-5 text-muted">
+                                <i class="fas fa-shield-alt fa-2x mb-2 d-block opacity-25"></i>
+                                No se encontraron roles{% if q %} para "{{ q }}"{% endif %}.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <p class="text-muted small mt-3">
+        <i class="fas fa-info-circle me-1"></i>
+        Los roles marcados como <strong>Sistema</strong> no pueden eliminarse ya que son parte del núcleo de la aplicación.
+    </p>
+</div>
+{% endblock %}
