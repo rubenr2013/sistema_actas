@@ -395,11 +395,8 @@ def verificar_codigo(user, codigo_ingresado, tipo='registro'):
 
 def aprobar_usuario_automaticamente(user):
     """
-    Verifica el email del usuario y decide si su cuenta queda activa
-    o pendiente de aprobación según su rol:
-
-      - aprendiz / invitado → estado_cuenta='activa' (aprobación automática)
-      - funcionario        → estado_cuenta='pendiente_aprobacion' (requiere admin)
+    Verifica el email del usuario. Todos los roles quedan en
+    'pendiente_aprobacion' y requieren aprobación manual del administrador.
 
     Args:
         user: Instancia del modelo User
@@ -408,19 +405,11 @@ def aprobar_usuario_automaticamente(user):
         User: Usuario actualizado
     """
     user.email_verificado = True
-
-    if user.rol in ('aprendiz', 'invitado'):
-        # Aprendices e invitados quedan activos de inmediato
-        user.cuenta_aprobada = True
-        user.estado_cuenta = 'activa'
-        user.save()
-    else:
-        # Funcionarios quedan pendientes de revisión por el admin
-        user.cuenta_aprobada = False
-        user.estado_cuenta = 'pendiente_aprobacion'
-        user.save()
-        # Notificar a todos los admins sobre el nuevo funcionario
-        notificar_admins_nuevo_funcionario(user)
+    user.cuenta_aprobada = False
+    user.estado_cuenta = 'pendiente_aprobacion'
+    user.save()
+    # Notificar a todos los admins sobre la nueva solicitud
+    notificar_admins_nuevo_funcionario(user)
 
     return user
 
@@ -518,7 +507,7 @@ def notificar_admins_nuevo_funcionario(nuevo_usuario):
             tipo='nueva_solicitud_rol',
             titulo='Nueva solicitud de cuenta pendiente',
             mensaje=mensaje_notif,
-            enlace='/actas/api/admin/usuarios/',
+            enlace='/accounts/cuentas-pendientes/',
         )
 
         # Email en hilo separado para no bloquear la petición
@@ -592,6 +581,51 @@ Centro Minero
     _enviar_email_en_hilo(asunto, mensaje, user.email, html_content)
 
 
+def _enviar_email_cuenta_rechazada(user, motivo):
+    """
+    Email al usuario cuando su solicitud de cuenta es rechazada por un admin.
+    Se ejecuta en un hilo separado.
+    """
+    asunto = 'Solicitud de cuenta no aprobada - Sistema de Actas SENA'
+
+    mensaje = f"""
+Hola {user.first_name} {user.last_name},
+
+Lamentamos informarte que tu solicitud de acceso al Sistema de Actas del SENA no fue aprobada.
+
+  Motivo: {motivo}
+
+Si tienes preguntas al respecto, contacta al administrador del sistema.
+
+---
+Sistema de Gestión de Actas SENA
+Centro Minero
+"""
+
+    html_content = f"""
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+        <div style="background-color: #39A900; padding: 20px; text-align: center;">
+            <h1 style="color: white; margin: 0;">Sistema de Actas SENA</h1>
+        </div>
+        <div style="padding: 30px; background-color: #f9f9f9;">
+            <h2 style="color: #c62828;">Solicitud no aprobada</h2>
+            <p>Hola <strong>{user.first_name} {user.last_name}</strong>,</p>
+            <p>Lamentamos informarte que tu solicitud de acceso al sistema no fue aprobada.</p>
+            <div style="background-color: #fff3f3; border-left: 4px solid #c62828; padding: 16px; border-radius: 4px; margin: 20px 0;">
+                <p style="margin: 0; font-size: 14px; color: #555;">Motivo del rechazo:</p>
+                <p style="margin: 8px 0 0; font-weight: bold; color: #c62828;">{motivo}</p>
+            </div>
+            <p style="color: #555;">Si consideras que esto es un error o tienes preguntas, contacta al administrador del sistema.</p>
+        </div>
+        <div style="background-color: #333; color: #999; padding: 15px; text-align: center; font-size: 12px;">
+            Sistema de Gestión de Actas - Centro Minero SENA
+        </div>
+    </div>
+    """
+
+    _enviar_email_en_hilo(asunto, mensaje, user.email, html_content)
+
+
 def aprobar_cuenta_usuario(user_a_aprobar, nuevo_rol, admin_user, observaciones=''):
     """
     Aprueba la cuenta de un funcionario pendiente.
@@ -608,7 +642,7 @@ def aprobar_cuenta_usuario(user_a_aprobar, nuevo_rol, admin_user, observaciones=
     from django.utils import timezone
     from notifications.models import Notification
 
-    ROLES_VALIDOS = ['admin', 'director', 'coordinador', 'instructor', 'funcionario']
+    ROLES_VALIDOS = ['admin', 'director', 'coordinador', 'instructor', 'funcionario', 'aprendiz', 'invitado']
     if nuevo_rol not in ROLES_VALIDOS:
         raise ValueError(f"Rol '{nuevo_rol}' inválido. Opciones: {ROLES_VALIDOS}")
 
@@ -618,6 +652,8 @@ def aprobar_cuenta_usuario(user_a_aprobar, nuevo_rol, admin_user, observaciones=
     user_a_aprobar.cuenta_aprobada = True
     user_a_aprobar.fecha_aprobacion = timezone.now()
     user_a_aprobar.aprobado_por = admin_user
+    # El rol admin requiere is_staff para acceder a funciones administrativas
+    user_a_aprobar.is_staff = (nuevo_rol == 'admin')
     if observaciones:
         user_a_aprobar.observaciones_aprobacion = observaciones
     user_a_aprobar.save()
@@ -626,7 +662,7 @@ def aprobar_cuenta_usuario(user_a_aprobar, nuevo_rol, admin_user, observaciones=
     rol_legible = {
         'admin': 'Administrador', 'director': 'Director',
         'coordinador': 'Coordinador', 'instructor': 'Instructor',
-        'funcionario': 'Funcionario',
+        'funcionario': 'Funcionario', 'aprendiz': 'Aprendiz', 'invitado': 'Invitado',
     }.get(nuevo_rol, nuevo_rol.capitalize())
 
     Notification.objects.create(
@@ -967,6 +1003,21 @@ def enviar_acta_a_revision(acta, creador):
 
     logger.info(f'Acta {acta.numero_acta} enviada a revisión. Ciclo {acta.ciclo_revision}.')
 
+    # Enviar PDF a participantes no registrados (externos) — no necesitan firmar
+    def _enviar_pdfs_nr():
+        try:
+            from actas.email_service import enviar_pdfs_a_no_registrados
+            enviados, fallidos = enviar_pdfs_a_no_registrados(acta)
+            if enviados:
+                logger.info('PDF enviado a %d externo(s) del acta %s', enviados, acta.numero_acta)
+            if fallidos:
+                logger.warning('No se pudo enviar PDF a %d externo(s) del acta %s', fallidos, acta.numero_acta)
+        except Exception as _e:
+            logger.error('Error enviando PDFs a externos en acta %s: %s', acta.numero_acta, _e, exc_info=True)
+
+    t_nr = threading.Thread(target=_enviar_pdfs_nr, daemon=True)
+    t_nr.start()
+
 
 def aprobar_acta_participante(acta, participante_user, firma_base64=None):
     """
@@ -1210,7 +1261,7 @@ def rechazar_cuenta_usuario(user_a_rechazar, motivo, admin_user):
     user_a_rechazar.observaciones_aprobacion = motivo
     user_a_rechazar.save()
 
-    # Solo notificación in-app (sin email por privacidad)
+    # Notificación in-app al usuario
     Notification.objects.create(
         usuario=user_a_rechazar,
         tipo='sistema',
@@ -1218,6 +1269,14 @@ def rechazar_cuenta_usuario(user_a_rechazar, motivo, admin_user):
         mensaje=f'Tu solicitud de registro no fue aprobada. Motivo: {motivo}',
         enlace='/accounts/cuenta-pendiente/',
     )
+
+    # Email al usuario (en hilo separado)
+    thread = threading.Thread(
+        target=_enviar_email_cuenta_rechazada,
+        args=(user_a_rechazar, motivo)
+    )
+    thread.daemon = True
+    thread.start()
 
     logger.info(
         f"Cuenta rechazada: {user_a_rechazar.email} "

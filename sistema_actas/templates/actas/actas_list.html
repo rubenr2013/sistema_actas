@@ -74,7 +74,7 @@
                                 <tr>
                                     <td>{{ acta.numero_acta }}</td>
                                     <td>{{ acta.titulo }}</td>
-                                    <td>{{ acta.get_tipo_reunion_display }}</td>
+                                    <td>{% if acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro %}{{ acta.tipo_reunion_otro }}{% else %}{{ acta.get_tipo_reunion_display }}{% endif %}</td>
                                     <td>
                                         <span class="badge badge-estado badge-{{ acta.estado }}">{{ acta.get_estado_display }}</span>
                                     </td>

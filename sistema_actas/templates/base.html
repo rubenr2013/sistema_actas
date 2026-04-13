@@ -1287,11 +1287,18 @@
                     <i class="fas fa-tasks"></i>Compromisos
                 </a>
 
-                {% if user.is_staff %}
+                {% if user.rol == 'admin' or user.is_staff %}
                 <hr>
                 <h6>Administración</h6>
                 <a class="nav-link" href="{% url 'accounts:usuarios' %}">
                     <i class="fas fa-users"></i>Usuarios
+                </a>
+                <a class="nav-link d-flex align-items-center justify-content-between {% if 'cuentas-pendientes' in request.path %}active{% endif %}"
+                   href="{% url 'accounts:cuentas_pendientes' %}">
+                    <span><i class="fas fa-user-clock me-1"></i>Aprobaciones</span>
+                    {% if pending_accounts_count %}
+                    <span class="badge bg-danger rounded-pill">{{ pending_accounts_count }}</span>
+                    {% endif %}
                 </a>
                 <a class="nav-link {% if 'roles' in request.path %}active{% endif %}" href="{% url 'accounts:roles_list' %}">
                     <i class="fas fa-shield-alt"></i>Roles y Permisos
@@ -1354,6 +1361,39 @@
     </footer>
 
 
+    <!-- ===== TOAST GLOBAL ===== -->
+    <div class="toast-container position-fixed top-0 end-0 p-3" style="z-index:9999;">
+        <div id="senaToast" class="toast align-items-center border-0 shadow" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body fw-semibold" id="senaToastBody"></div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== MODAL CONFIRMACIÓN GLOBAL ===== -->
+    <div class="modal fade" id="senaConfirmModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header" id="senaConfirmHeader">
+                    <h5 class="modal-title" id="senaConfirmTitle">
+                        <i class="fas fa-exclamation-triangle me-2"></i>Confirmar acción
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="senaConfirmBody"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i>Cancelar
+                    </button>
+                    <button type="button" class="btn" id="senaConfirmBtn">
+                        <i class="fas fa-check me-1"></i>Confirmar
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap 5 JS Bundle -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     
@@ -1370,6 +1410,60 @@
         setTimeout(function() {
             $('.alert').fadeOut('slow');
         }, 5000);
+
+        // ── Toast global ────────────────────────────────────────────
+        // Uso: showToast('Mensaje', 'success'|'danger'|'warning'|'info')
+        function showToast(message, type) {
+            type = type || 'info';
+            var colorMap = {
+                success: 'bg-success text-white',
+                danger:  'bg-danger text-white',
+                warning: 'bg-warning text-dark',
+                info:    'bg-primary text-white',
+            };
+            var iconMap = {
+                success: 'fa-check-circle',
+                danger:  'fa-times-circle',
+                warning: 'fa-exclamation-triangle',
+                info:    'fa-info-circle',
+            };
+            var el = document.getElementById('senaToast');
+            var body = document.getElementById('senaToastBody');
+            el.className = 'toast align-items-center border-0 shadow ' + (colorMap[type] || colorMap.info);
+            body.innerHTML = '<i class="fas ' + (iconMap[type] || iconMap.info) + ' me-2"></i>' + message;
+            var t = bootstrap.Toast.getOrCreateInstance(el, { delay: 5000 });
+            t.show();
+        }
+        window.showToast = showToast;
+
+        // ── Modal de confirmación global ────────────────────────────
+        // Uso: showConfirm({ title, message, btnText, btnClass, onConfirm })
+        function showConfirm(opts) {
+            opts = opts || {};
+            var header  = document.getElementById('senaConfirmHeader');
+            var title   = document.getElementById('senaConfirmTitle');
+            var body    = document.getElementById('senaConfirmBody');
+            var btn     = document.getElementById('senaConfirmBtn');
+
+            var danger = opts.danger !== false;
+            header.className = 'modal-header ' + (danger ? 'bg-danger text-white' : 'bg-warning text-dark');
+            title.innerHTML  = '<i class="fas fa-exclamation-triangle me-2"></i>' + (opts.title || 'Confirmar acción');
+            body.innerHTML   = opts.message || '¿Deseas continuar?';
+            btn.className    = 'btn ' + (opts.btnClass || (danger ? 'btn-danger' : 'btn-warning'));
+            btn.innerHTML    = '<i class="fas fa-check me-1"></i>' + (opts.btnText || 'Confirmar');
+
+            var modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('senaConfirmModal'));
+
+            var newBtn = btn.cloneNode(true);
+            btn.parentNode.replaceChild(newBtn, btn);
+            newBtn.addEventListener('click', function() {
+                modal.hide();
+                if (typeof opts.onConfirm === 'function') opts.onConfirm();
+            });
+
+            modal.show();
+        }
+        window.showConfirm = showConfirm;
 
         // Marcar notificaciones como leídas
         $('#notificationDropdown').on('click', function() {
@@ -1429,211 +1523,442 @@
 
         <!-- ======= PANEL DE ACCESIBILIDAD SENA ======= -->
     <style>
-    /* Botón flotante de accesibilidad */
-    #btnAccesibilidad {
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    background-color: #2e8b57;
-    color: white;
-    border: none;
-    border-radius: 50%;
-    width: 50px;
-    height: 50px;
-    font-size: 24px;
-    cursor: pointer;
-    z-index: 9999;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-    animation: pulse 2s infinite;
-    }
-    @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(57,169,0,0.5); }
-    70% { box-shadow: 0 0 0 12px rgba(57,169,0,0); }
-    100% { box-shadow: 0 0 0 0 rgba(57,169,0,0); }
-    }
-
-    /* Panel lateral */
-    #accesibilidadPanel {
-    position: fixed;
-    bottom: 80px;
-    left: 20px;
-    background-color: #198754;
-    border-radius: 10px;
-    width: 280px;
-    padding: 10px;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-    display: none;
-    z-index: 9998;
-    color: white;
-    }
-
-    #accesibilidadPanel h5 {
-    text-align: center;
-    margin-bottom: 8px;
-    }
-
-    /* Botones dentro del panel */
-    #accesibilidadPanel button {
-    display: block;
-    width: 100%;
-    margin: 5px 0;
-    border: 1px solid #ccc;
-    border-radius: 8px;
-    background: #f8f9fa;
-    color: #000;
-    font-weight: bold;
-    padding: 8px;
-    cursor: pointer;
-    }
-
-    #accesibilidadPanel button:hover {
-    background-color: #d9ffd9;
-    }
-
-    /* Estilos para modo oscuro */
-    .dark-mode,
-    .dark-mode * {
-    background-color: #121212 !important;
-    color: #f0f0f0 !important;
-    border-color: #333 !important;
-    }
-    .dark-mode .card,
-    .dark-mode .form-control,
-    .dark-mode .btn {
-    background-color: #1e1e1e !important;
-    color: #f0f0f0 !important;
-    }
-
-    /* Fuente disléxica */
     @import url('https://cdn.jsdelivr.net/gh/antijingoist/open-dyslexic/open-dyslexic.css');
-    .dyslexic-font, .dyslexic-font * {
-    font-family: 'OpenDyslexic', Arial, sans-serif !important;
-    letter-spacing: 0.5px;
+
+    /* ── Botón flotante ── */
+    #a11y-btn {
+        position: fixed;
+        bottom: 24px;
+        left: 24px;
+        width: 42px;
+        height: 42px;
+        background: var(--sena-green, #39A900);
+        color: #fff;
+        border: none;
+        border-radius: 12px;
+        font-size: 16px;
+        cursor: pointer;
+        z-index: 9999;
+        box-shadow: 0 4px 14px rgba(57,169,0,0.38);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform .18s, box-shadow .18s;
+    }
+    #a11y-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 7px 20px rgba(57,169,0,0.48);
+    }
+    #a11y-btn:focus-visible {
+        outline: 3px solid #39A900;
+        outline-offset: 3px;
     }
 
-    /* Resaltado de títulos */
-    .highlight-titles h1,
-    .highlight-titles h2,
-    .highlight-titles h3,
-    .highlight-titles h4,
-    .highlight-titles h5,
-    .highlight-titles h6 {
-    background-color: #ffe066;
-    color: #000 !important;
-    text-decoration: underline;
-    padding: 4px 6px;
-    border-radius: 5px;
+    /* ── Panel ── */
+    #a11y-panel {
+        position: fixed;
+        bottom: 76px;
+        left: 24px;
+        width: 258px;
+        background: #fff;
+        border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.13), 0 2px 8px rgba(0,0,0,0.07);
+        z-index: 9998;
+        overflow: hidden;
+        transform: translateY(10px) scale(0.97);
+        opacity: 0;
+        pointer-events: none;
+        transition: transform .2s cubic-bezier(.4,0,.2,1), opacity .2s;
+    }
+    #a11y-panel.a11y-open {
+        transform: translateY(0) scale(1);
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    /* Encabezado */
+    .a11y-header {
+        background: linear-gradient(135deg, #39A900 0%, #2d8000 100%);
+        color: #fff;
+        padding: 13px 15px 11px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
+    .a11y-header-title {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: .5px;
+        text-transform: uppercase;
+        display: flex;
+        align-items: center;
+        gap: 7px;
+    }
+    .a11y-close {
+        background: rgba(255,255,255,.18);
+        border: none;
+        color: #fff;
+        width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 10px;
+        transition: background .15s;
+        flex-shrink: 0;
+    }
+    .a11y-close:hover { background: rgba(255,255,255,.32); }
+
+    /* Cuerpo */
+    .a11y-body { padding: 10px 14px 13px; }
+
+    /* Filas */
+    .a11y-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 0;
+        border-bottom: 1px solid #f2f2f2;
+    }
+    .a11y-row:last-of-type { border-bottom: none; }
+    .a11y-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        color: #333;
+        font-weight: 500;
+    }
+    .a11y-label i {
+        width: 16px;
+        text-align: center;
+        color: #39A900;
+        font-size: 12px;
+    }
+
+    /* Toggle switch */
+    .a11y-toggle {
+        position: relative;
+        width: 36px;
+        height: 20px;
+        flex-shrink: 0;
+    }
+    .a11y-toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .a11y-slider {
+        position: absolute;
+        inset: 0;
+        background: #ddd;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: background .2s;
+    }
+    .a11y-slider::before {
+        content: '';
+        position: absolute;
+        width: 14px;
+        height: 14px;
+        left: 3px;
+        top: 3px;
+        background: #fff;
+        border-radius: 50%;
+        transition: transform .2s;
+        box-shadow: 0 1px 3px rgba(0,0,0,.18);
+    }
+    .a11y-toggle input:checked + .a11y-slider { background: #39A900; }
+    .a11y-toggle input:checked + .a11y-slider::before { transform: translateX(16px); }
+    .a11y-toggle input:focus-visible + .a11y-slider {
+        outline: 2px solid #39A900; outline-offset: 2px;
+    }
+
+    /* Control tamaño */
+    .a11y-size-ctrl { display: flex; align-items: center; gap: 5px; }
+    .a11y-size-btn {
+        width: 24px; height: 24px;
+        border: 1.5px solid #e0e0e0;
+        background: #f7f7f7;
+        border-radius: 7px;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 14px; font-weight: 700; color: #555; line-height: 1;
+        transition: border-color .15s, background .15s, color .15s;
+    }
+    .a11y-size-btn:hover { border-color: #39A900; background: #f0ffe8; color: #39A900; }
+    .a11y-size-val {
+        font-size: 11px; font-weight: 700;
+        color: #39A900; min-width: 30px; text-align: center;
+    }
+
+    /* Botón lectura */
+    .a11y-speak-btn {
+        display: flex; align-items: center; gap: 4px;
+        font-size: 11.5px; font-weight: 600;
+        padding: 4px 9px;
+        border-radius: 8px;
+        border: 1.5px solid #39A900;
+        background: transparent; color: #39A900;
+        cursor: pointer;
+        transition: background .15s, color .15s;
+        white-space: nowrap;
+    }
+    .a11y-speak-btn:hover, .a11y-speak-btn.speaking {
+        background: #39A900; color: #fff;
+    }
+
+    /* Reset */
+    .a11y-reset {
+        width: 100%; margin-top: 8px; padding: 7px;
+        border: 1.5px solid #ebebeb;
+        border-radius: 9px; background: #fafafa;
+        color: #888; font-size: 11.5px; font-weight: 600;
+        cursor: pointer;
+        display: flex; align-items: center; justify-content: center; gap: 5px;
+        transition: border-color .15s, color .15s, background .15s;
+    }
+    .a11y-reset:hover { border-color: #fc8181; color: #e53e3e; background: #fff5f5; }
+
+    /* Responsive */
+    @media (max-width: 576px) {
+        #a11y-btn { bottom: 16px; left: 16px; }
+        #a11y-panel { bottom: 68px; left: 16px; width: calc(100vw - 32px); max-width: 258px; }
+    }
+
+    /* ── Modos visuales ── */
+    body.a11y-dark { background: #111 !important; color: #e8e8e8 !important; }
+    body.a11y-dark .card, body.a11y-dark .navbar,
+    body.a11y-dark .table, body.a11y-dark .modal-content,
+    body.a11y-dark .dropdown-menu, body.a11y-dark .list-group-item {
+        background-color: #1e1e1e !important;
+        color: #e8e8e8 !important;
+        border-color: #2e2e2e !important;
+    }
+    body.a11y-dark .form-control, body.a11y-dark .form-select {
+        background: #2a2a2a !important; color: #e8e8e8 !important; border-color: #3a3a3a !important;
+    }
+    body.a11y-dark .bg-white, body.a11y-dark .bg-light { background: #1e1e1e !important; }
+    body.a11y-dark .text-muted { color: #aaa !important; }
+    body.a11y-dark a:not(.btn) { color: #7ecb63 !important; }
+    body.a11y-dark #a11y-panel { background: #1e1e1e; box-shadow: 0 8px 30px rgba(0,0,0,.45); }
+    body.a11y-dark .a11y-row { border-color: #2e2e2e; }
+    body.a11y-dark .a11y-label { color: #d5d5d5; }
+    body.a11y-dark .a11y-slider { background: #3a3a3a; }
+    body.a11y-dark .a11y-size-btn { background: #2a2a2a; border-color: #3a3a3a; color: #bbb; }
+    body.a11y-dark .a11y-reset { background: #252525; border-color: #333; color: #777; }
+    body.a11y-dark .a11y-reset:hover { border-color: #fc8181; color: #fc8181; background: #1a1010; }
+
+    body.a11y-contrast { filter: contrast(2.1) saturate(0); }
+
+    body.a11y-dyslexic, body.a11y-dyslexic * {
+        font-family: 'OpenDyslexic', Arial, sans-serif !important;
+        letter-spacing: 0.4px; word-spacing: 2px; line-height: 1.75 !important;
+    }
+
+    body.a11y-highlight h1, body.a11y-highlight h2, body.a11y-highlight h3,
+    body.a11y-highlight h4, body.a11y-highlight h5, body.a11y-highlight h6 {
+        background: #fff176 !important; color: #111 !important;
+        padding: 2px 6px; border-radius: 4px; text-decoration: underline;
     }
     </style>
 
     <!-- Botón flotante -->
-    <button id="btnAccesibilidad" title="Opciones de accesibilidad">♿</button>
+    <button id="a11y-btn"
+            aria-label="Abrir panel de accesibilidad"
+            aria-expanded="false"
+            aria-controls="a11y-panel"
+            title="Accesibilidad">
+        <i class="fas fa-universal-access" aria-hidden="true"></i>
+    </button>
 
     <!-- Panel -->
-    <div id="accesibilidadPanel">
-    <h5>♿ Accesibilidad</h5>
-    <button onclick="toggleDarkMode()">🌙 Modo oscuro</button>
-    <button onclick="toggleHighContrast()">⚫ Alto contraste</button>
-    <button onclick="aumentarTexto()">🔍 Aumentar texto</button>
-    <button onclick="reducirTexto()">🔎 Reducir texto</button>
-    <button onclick="toggleDyslexicFont()">📖 Fuente Disléxica</button>
-    <button onclick="toggleHighlightTitles()">✨ Resaltar títulos</button>
-    <button onclick="leerTexto()">🔊 Lectura de texto</button>
-    <button onclick="restablecer()">♻️ Restablecer</button>
+    <div id="a11y-panel" role="dialog" aria-label="Opciones de accesibilidad" aria-modal="false">
+        <div class="a11y-header">
+            <span class="a11y-header-title">
+                <i class="fas fa-universal-access" aria-hidden="true"></i>
+                Accesibilidad
+            </span>
+            <button class="a11y-close" id="a11y-close" aria-label="Cerrar">
+                <i class="fas fa-times" aria-hidden="true"></i>
+            </button>
+        </div>
+        <div class="a11y-body">
+
+            <div class="a11y-row">
+                <span class="a11y-label">
+                    <i class="fas fa-moon" aria-hidden="true"></i>Modo oscuro
+                </span>
+                <label class="a11y-toggle" aria-label="Activar modo oscuro">
+                    <input type="checkbox" id="a11y-dark" role="switch">
+                    <span class="a11y-slider"></span>
+                </label>
+            </div>
+
+            <div class="a11y-row">
+                <span class="a11y-label">
+                    <i class="fas fa-adjust" aria-hidden="true"></i>Alto contraste
+                </span>
+                <label class="a11y-toggle" aria-label="Activar alto contraste">
+                    <input type="checkbox" id="a11y-contrast" role="switch">
+                    <span class="a11y-slider"></span>
+                </label>
+            </div>
+
+            <div class="a11y-row">
+                <span class="a11y-label">
+                    <i class="fas fa-text-height" aria-hidden="true"></i>Tamaño texto
+                </span>
+                <div class="a11y-size-ctrl">
+                    <button class="a11y-size-btn" id="a11y-size-down" aria-label="Reducir texto">−</button>
+                    <span class="a11y-size-val" id="a11y-size-val" aria-live="polite">100%</span>
+                    <button class="a11y-size-btn" id="a11y-size-up" aria-label="Aumentar texto">+</button>
+                </div>
+            </div>
+
+            <div class="a11y-row">
+                <span class="a11y-label">
+                    <i class="fas fa-font" aria-hidden="true"></i>Fuente disléxica
+                </span>
+                <label class="a11y-toggle" aria-label="Activar fuente para dislexia">
+                    <input type="checkbox" id="a11y-dyslexic" role="switch">
+                    <span class="a11y-slider"></span>
+                </label>
+            </div>
+
+            <div class="a11y-row">
+                <span class="a11y-label">
+                    <i class="fas fa-highlighter" aria-hidden="true"></i>Resaltar títulos
+                </span>
+                <label class="a11y-toggle" aria-label="Resaltar encabezados">
+                    <input type="checkbox" id="a11y-highlight" role="switch">
+                    <span class="a11y-slider"></span>
+                </label>
+            </div>
+
+            <div class="a11y-row" style="border-bottom:none">
+                <span class="a11y-label">
+                    <i class="fas fa-volume-up" aria-hidden="true"></i>Leer página
+                </span>
+                <button class="a11y-speak-btn" id="a11y-speak" aria-label="Leer contenido de la página">
+                    <i class="fas fa-play" id="a11y-speak-icon" aria-hidden="true"></i>
+                    <span id="a11y-speak-txt">Leer</span>
+                </button>
+            </div>
+
+            <button class="a11y-reset" id="a11y-reset" aria-label="Restablecer ajustes de accesibilidad">
+                <i class="fas fa-undo-alt" aria-hidden="true"></i>Restablecer ajustes
+            </button>
+        </div>
     </div>
 
-    <!-- Scripts -->
     <script>
-    let darkMode = false;
-    let highContrast = false;
-    let dyslexic = false;
-    let highlighted = false;
-    let currentSize = 100;
+    (function () {
+        'use strict';
+        var KEY = 'sena_a11y_v2';
+        function load() { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch(e) { return {}; } }
+        function save(s) { try { localStorage.setItem(KEY, JSON.stringify(s)); } catch(e) {} }
 
-    // Mostrar/ocultar panel
-    document.getElementById('btnAccesibilidad').addEventListener('click', () => {
-    const panel = document.getElementById('accesibilidadPanel');
-    panel.style.display = (panel.style.display === 'none' || panel.style.display === '') ? 'block' : 'none';
-    });
+        var s = load();
+        var fontSize = s.fontSize || 100;
+        var isSpeaking = false;
 
-    // Modo oscuro
-    function toggleDarkMode() {
-    darkMode = !darkMode;
-    document.body.classList.toggle('dark-mode', darkMode);
-    }
+        var btn        = document.getElementById('a11y-btn');
+        var panel      = document.getElementById('a11y-panel');
+        var closeBtn   = document.getElementById('a11y-close');
+        var darkChk    = document.getElementById('a11y-dark');
+        var contChk    = document.getElementById('a11y-contrast');
+        var dyslChk    = document.getElementById('a11y-dyslexic');
+        var hiChk      = document.getElementById('a11y-highlight');
+        var sizeUp     = document.getElementById('a11y-size-up');
+        var sizeDown   = document.getElementById('a11y-size-down');
+        var sizeVal    = document.getElementById('a11y-size-val');
+        var speakBtn   = document.getElementById('a11y-speak');
+        var speakIcon  = document.getElementById('a11y-speak-icon');
+        var speakTxt   = document.getElementById('a11y-speak-txt');
+        var resetBtn   = document.getElementById('a11y-reset');
 
-    // Alto contraste
-    function toggleHighContrast() {
-    highContrast = !highContrast;
-    document.body.style.filter = highContrast ? 'contrast(1.8)' : 'contrast(1)';
-    }
+        function applyAll() {
+            document.body.classList.toggle('a11y-dark',     !!s.dark);
+            document.body.classList.toggle('a11y-contrast', !!s.contrast);
+            document.body.classList.toggle('a11y-dyslexic', !!s.dyslexic);
+            document.body.classList.toggle('a11y-highlight',!!s.highlight);
+            darkChk.checked = !!s.dark;
+            contChk.checked = !!s.contrast;
+            dyslChk.checked = !!s.dyslexic;
+            hiChk.checked   = !!s.highlight;
+            fontSize = s.fontSize || 100;
+            document.documentElement.style.fontSize = fontSize + '%';
+            sizeVal.textContent = fontSize + '%';
+        }
+        applyAll();
 
-    // Aumentar texto
-    function aumentarTexto() {
-    currentSize += 10;
-    document.body.style.fontSize = currentSize + '%';
-    }
+        /* Panel open/close */
+        function openPanel()  { panel.classList.add('a11y-open');    btn.setAttribute('aria-expanded','true');  closeBtn.focus(); }
+        function closePanel() { panel.classList.remove('a11y-open'); btn.setAttribute('aria-expanded','false'); btn.focus(); }
 
-    // Reducir texto
-    function reducirTexto() {
-    currentSize = Math.max(80, currentSize - 10);
-    document.body.style.fontSize = currentSize + '%';
-    }
+        btn.addEventListener('click', function() {
+            panel.classList.contains('a11y-open') ? closePanel() : openPanel();
+        });
+        closeBtn.addEventListener('click', closePanel);
+        document.addEventListener('click', function(e) {
+            if (!panel.contains(e.target) && e.target !== btn) closePanel();
+        });
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && panel.classList.contains('a11y-open')) closePanel();
+        });
 
-    // Fuente disléxica
-    function toggleDyslexicFont() {
-    dyslexic = !dyslexic;
-    document.body.classList.toggle('dyslexic-font', dyslexic);
-    }
+        /* Toggles */
+        darkChk.addEventListener('change', function() { s.dark = this.checked; document.body.classList.toggle('a11y-dark', s.dark); save(s); });
+        contChk.addEventListener('change', function() { s.contrast = this.checked; document.body.classList.toggle('a11y-contrast', s.contrast); save(s); });
+        dyslChk.addEventListener('change', function() { s.dyslexic = this.checked; document.body.classList.toggle('a11y-dyslexic', s.dyslexic); save(s); });
+        hiChk.addEventListener('change',   function() { s.highlight = this.checked; document.body.classList.toggle('a11y-highlight', s.highlight); save(s); });
 
-    // Resaltar títulos
-    function toggleHighlightTitles() {
-    highlighted = !highlighted;
-    document.body.classList.toggle('highlight-titles', highlighted);
-    }
+        /* Tamaño */
+        function setSize(v) {
+            fontSize = Math.min(150, Math.max(70, v));
+            s.fontSize = fontSize;
+            document.documentElement.style.fontSize = fontSize + '%';
+            sizeVal.textContent = fontSize + '%';
+            save(s);
+        }
+        sizeUp.addEventListener('click',   function() { setSize(fontSize + 10); });
+        sizeDown.addEventListener('click', function() { setSize(fontSize - 10); });
 
-    function leerTexto() {
-    const texto = document.body.innerText;
-    const mensaje = new SpeechSynthesisUtterance(texto);
-    mensaje.lang = 'es-CO'; // español de Colombia por defecto
-    mensaje.rate = 1;
-    mensaje.pitch = 1;
+        /* Lectura */
+        function stopSpeak() {
+            if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            isSpeaking = false;
+            speakBtn.classList.remove('speaking');
+            speakIcon.className = 'fas fa-play';
+            speakTxt.textContent = 'Leer';
+        }
+        speakBtn.addEventListener('click', function() {
+            if (!('speechSynthesis' in window)) return;
+            if (isSpeaking) { stopSpeak(); return; }
+            var main = document.querySelector('[role="main"], main, .container-fluid, .container') || document.body;
+            var texto = (main.innerText || '').substring(0, 4500);
+            var utt = new SpeechSynthesisUtterance(texto);
+            utt.lang = 'es-CO'; utt.rate = 0.92;
+            var voices = window.speechSynthesis.getVoices();
+            var v = voices.find(function(x){ return x.lang.startsWith('es'); });
+            if (v) utt.voice = v;
+            utt.onend = utt.onerror = stopSpeak;
+            window.speechSynthesis.cancel();
+            window.speechSynthesis.speak(utt);
+            isSpeaking = true;
+            speakBtn.classList.add('speaking');
+            speakIcon.className = 'fas fa-stop';
+            speakTxt.textContent = 'Detener';
+        });
 
-    // Buscar voz en español disponible
-    const voces = window.speechSynthesis.getVoices();
-    const vozEspanol = voces.find(v => v.lang.startsWith('es'));
-    if (vozEspanol) {
-        mensaje.voice = vozEspanol;
-    } else {
-        console.warn("⚠️ No se encontró una voz en español, usando por defecto.");
-    }
-
-    // Detener lectura anterior y reproducir
-    window.speechSynthesis.cancel();
-    window.speechSynthesis.speak(mensaje);
-    }
-
-    let leyendo = false;
-
-    function alternarLectura() {
-    if (!leyendo) {
-        leerTexto();
-        leyendo = true;
-    } else {
-        window.speechSynthesis.cancel();
-        leyendo = false;
-    }
-    }
-
-    // Restablecer
-    function restablecer() {
-    document.body.classList.remove('dark-mode', 'dyslexic-font', 'highlight-titles');
-    document.body.style.filter = 'none';
-    document.body.style.fontSize = '100%';
-    darkMode = highContrast = dyslexic = highlighted = false;
-    currentSize = 100;
-    window.speechSynthesis.cancel();
-    }
+        /* Restablecer */
+        resetBtn.addEventListener('click', function() {
+            s = {}; save(s); stopSpeak();
+            document.body.classList.remove('a11y-dark','a11y-contrast','a11y-dyslexic','a11y-highlight');
+            document.documentElement.style.fontSize = '';
+            darkChk.checked = contChk.checked = dyslChk.checked = hiChk.checked = false;
+            fontSize = 100; sizeVal.textContent = '100%';
+        });
+    })();
     </script>
 
     <a href="{% static 'docs/manual_usuario.pdf' %}" 

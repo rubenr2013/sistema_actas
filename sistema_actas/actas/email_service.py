@@ -184,12 +184,136 @@ def enviar_email_acta_firmada_completa(acta):
         logger.error('Error al enviar email de acta firmada completa: %s', str(e), exc_info=True)
         return False
 
+def enviar_email_recordatorio_compromiso(compromiso):
+    """
+    Envía recordatorio por email al responsable de un compromiso próximo a vencer.
+    Retorna True si el email se envió correctamente, False en caso contrario.
+    """
+    try:
+        responsable = compromiso.responsable
+        if not responsable or not responsable.email:
+            logger.warning('Compromiso %s no tiene responsable o email configurado', compromiso.id)
+            return False
+
+        from datetime import date, timedelta
+        hoy = date.today()
+        if compromiso.fecha_limite:
+            delta = (compromiso.fecha_limite - hoy).days
+            if delta == 0:
+                tiempo_restante = 'Vence hoy'
+            elif delta == 1:
+                tiempo_restante = 'Vence mañana'
+            elif delta > 0:
+                tiempo_restante = f'Vence en {delta} día(s)'
+            else:
+                tiempo_restante = f'Venció hace {abs(delta)} día(s)'
+        else:
+            tiempo_restante = 'Sin fecha definida'
+
+        contexto = {
+            'nombre_usuario': responsable.get_full_name() or responsable.username,
+            'titulo_compromiso': compromiso.descripcion,
+            'descripcion': compromiso.descripcion,
+            'fecha_vencimiento': format_datetime_safe(compromiso.fecha_limite, '%d/%m/%Y') if compromiso.fecha_limite else 'No definida',
+            'tiempo_restante': tiempo_restante,
+            'estado': compromiso.get_estado_display() if hasattr(compromiso, 'get_estado_display') else compromiso.estado,
+            'enlace_compromiso': f'{get_site_url()}/actas/{compromiso.acta.id}/' if compromiso.acta else get_site_url(),
+        }
+
+        html_message = render_to_string('emails/recordatorio_compromiso.html', contexto)
+
+        send_mail(
+            subject=f'Recordatorio: Compromiso próximo a vencer — {compromiso.descripcion[:50]}',
+            message=(
+                f'Hola {contexto["nombre_usuario"]},\n\n'
+                f'Tienes un compromiso próximo a vencer:\n\n'
+                f'Descripción: {compromiso.descripcion}\n'
+                f'Vencimiento: {contexto["fecha_vencimiento"]}\n'
+                f'{tiempo_restante}'
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[responsable.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+
+        logger.info('Recordatorio enviado a %s (Compromiso ID: %s)', responsable.email, compromiso.id)
+        return True
+
+    except Exception as e:
+        logger.error('Error al enviar recordatorio de compromiso %s: %s', compromiso.id, str(e), exc_info=True)
+        return False
+
+
+def enviar_email_compromiso_actualizado(compromiso, estado_anterior, user):
+    """
+    Envía email al responsable cuando el estado de un compromiso es actualizado.
+    Retorna True si el email se envió correctamente, False en caso contrario.
+    """
+    try:
+        responsable = compromiso.responsable
+        if not responsable or not responsable.email:
+            logger.warning('Compromiso %s no tiene responsable o email para notificar actualización', compromiso.id)
+            return False
+
+        # No notificar si el responsable es quien actualizó
+        if responsable == user:
+            return True
+
+        estado_nuevo = compromiso.get_estado_display() if hasattr(compromiso, 'get_estado_display') else compromiso.estado
+        estado_ant_display = estado_anterior  # ya viene como string legible desde api_views
+
+        if compromiso.estado in ('cumplido', 'completado'):
+            mensaje_adicional = '<p style="color:#2e7d32;"><strong>¡Excelente trabajo!</strong> El compromiso ha sido marcado como cumplido.</p>'
+        elif compromiso.estado == 'incumplido':
+            mensaje_adicional = '<p style="color:#c62828;">El compromiso ha sido marcado como incumplido. Por favor, coordina con tu equipo los pasos a seguir.</p>'
+        else:
+            mensaje_adicional = ''
+
+        contexto = {
+            'nombre_usuario': responsable.get_full_name() or responsable.username,
+            'titulo_compromiso': compromiso.descripcion,
+            'descripcion': compromiso.descripcion,
+            'estado_anterior': estado_anterior,
+            'estado_nuevo': estado_nuevo,
+            'fecha_vencimiento': format_datetime_safe(compromiso.fecha_limite, '%d/%m/%Y') if compromiso.fecha_limite else 'No definida',
+            'actualizador': user.get_full_name() or user.username,
+            'mensaje_adicional': mensaje_adicional,
+            'enlace_compromiso': f'{get_site_url()}/actas/{compromiso.acta.id}/' if compromiso.acta else get_site_url(),
+        }
+
+        html_message = render_to_string('emails/compromiso_actualizado.html', contexto)
+
+        send_mail(
+            subject=f'Compromiso actualizado: {compromiso.descripcion[:50]}',
+            message=(
+                f'Hola {contexto["nombre_usuario"]},\n\n'
+                f'Se ha actualizado el estado de tu compromiso:\n\n'
+                f'Descripción: {compromiso.descripcion}\n'
+                f'Estado anterior: {estado_anterior}\n'
+                f'Estado nuevo: {estado_nuevo}\n'
+                f'Actualizado por: {contexto["actualizador"]}'
+            ),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[responsable.email],
+            html_message=html_message,
+            fail_silently=False,
+        )
+
+        logger.info('Email de actualización de compromiso enviado a %s (Compromiso ID: %s)', responsable.email, compromiso.id)
+        return True
+
+    except Exception as e:
+        logger.error('Error al enviar email de compromiso actualizado %s: %s', compromiso.id, str(e), exc_info=True)
+        return False
+
+
 def enviar_pdf_participante_no_registrado(participante_nr, pdf_bytes):
     """
     Envía el PDF del acta a un participante no registrado.
     Retorna True si se envió correctamente, False si falló.
     """
-    from django.core.mail import EmailMessage
+    from django.core.mail import EmailMultiAlternatives
     from django.utils import timezone as tz
 
     acta = participante_nr.acta
@@ -198,7 +322,7 @@ def enviar_pdf_participante_no_registrado(participante_nr, pdf_bytes):
             'nombre_completo': participante_nr.nombre_completo,
             'numero_acta': acta.numero_acta,
             'titulo_acta': acta.titulo,
-            'tipo_reunion': acta.get_tipo_reunion_label() if hasattr(acta, 'get_tipo_reunion_label') else acta.get_tipo_reunion_display(),
+            'tipo_reunion': (acta.tipo_reunion_otro if (acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro) else acta.get_tipo_reunion_display()),
             'fecha_reunion': format_datetime_safe(acta.fecha_reunion),
             'lugar': getattr(acta, 'lugar_reunion', '') or '—',
             'cargo_rol': participante_nr.cargo_rol or '',
@@ -209,13 +333,12 @@ def enviar_pdf_participante_no_registrado(participante_nr, pdf_bytes):
 
         asunto = f"Acta de reunión SENA – {acta.titulo} ({acta.numero_acta})"
 
-        msg = EmailMessage(
+        msg = EmailMultiAlternatives(
             subject=asunto,
             body=text_body,
             from_email=settings.DEFAULT_FROM_EMAIL,
             to=[participante_nr.email],
         )
-        msg.content_subtype = 'plain'
         msg.attach_alternative(html_body, 'text/html')
 
         nombre_pdf = f"Acta_{acta.numero_acta}.pdf"

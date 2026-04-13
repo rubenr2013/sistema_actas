@@ -173,7 +173,7 @@
                                                 </a>
                                             </h6>
                                             <p class="mb-1 text-muted">
-                                                {{ acta.get_tipo_reunion_display }}
+                                                {% if acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro %}{{ acta.tipo_reunion_otro }}{% else %}{{ acta.get_tipo_reunion_display }}{% endif %}
                                                 <span class="ms-2 badge bg-light text-dark">
                                                     <i class="fas fa-user me-1"></i>{{ acta.creador.get_full_name }}
                                                 </span>
@@ -375,7 +375,7 @@
                                                     {{ acta.numero_acta }} - {{ acta.titulo }}
                                                 </a>
                                             </h6>
-                                            <p class="mb-1 text-muted">{{ acta.get_tipo_reunion_display }}</p>
+                                            <p class="mb-1 text-muted">{% if acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro %}{{ acta.tipo_reunion_otro }}{% else %}{{ acta.get_tipo_reunion_display }}{% endif %}</p>
                                             <small class="text-muted">
                                                 <i class="fas fa-calendar me-1"></i>{{ acta.fecha_reunion|date:"d/m/Y H:i" }}
                                                 <i class="fas fa-map-marker-alt ms-3 me-1"></i>{{ acta.lugar_reunion }}

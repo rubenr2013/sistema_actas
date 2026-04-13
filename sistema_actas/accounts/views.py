@@ -1,3 +1,4 @@
+import logging
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login, authenticate, logout
 from django.contrib import messages
@@ -6,9 +7,10 @@ from django.core.cache import cache
 from .forms import CustomUserCreationForm, CustomAuthenticationForm, ProfileUpdateForm
 from .models import User
 from django.contrib.auth import update_session_auth_hash
-from django.contrib import messages
 from django.core.paginator import Paginator
 from django.db.models import Q
+
+logger = logging.getLogger(__name__)
 
 
 # ============================================
@@ -369,9 +371,11 @@ def usuarios(request):
         lista_usuarios = lista_usuarios.filter(email_verificado=True)
     elif estado == 'no_verificado':
         lista_usuarios = lista_usuarios.filter(email_verificado=False)
+    elif estado in ('activa', 'pendiente_aprobacion', 'rechazada', 'suspendida'):
+        lista_usuarios = lista_usuarios.filter(estado_cuenta=estado)
 
     # Paginación
-    paginator = Paginator(lista_usuarios, 10)  # 10 usuarios por página
+    paginator = Paginator(lista_usuarios, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -379,22 +383,29 @@ def usuarios(request):
     roles = User.ROLES
 
     estados = [
-        ('verificado', 'Verificado'),
-        ('no_verificado', 'No Verificado'),
+        ('verificado', 'Email verificado'),
+        ('no_verificado', 'Email no verificado'),
+        ('activa', 'Cuenta activa'),
+        ('pendiente_aprobacion', 'Pendiente de aprobación'),
+        ('rechazada', 'Rechazada'),
+        ('suspendida', 'Suspendida'),
     ]
-    
+
+    total_pendientes = User.objects.filter(estado_cuenta='pendiente_aprobacion').count()
+
     context = {
         'page_obj': page_obj,
         'usuarios': page_obj,
         'roles': roles,
         'estados': estados,
+        'total_pendientes': total_pendientes,
         'filtros': {
             'search': search,
             'rol': rol,
             'estado': estado,
         }
     }
-    
+
     return render(request, "accounts/usuarios.html", context)
 
 
@@ -442,6 +453,7 @@ def editar_usuario(request, user_id):
         usuario.email = email
         usuario.telefono = telefono
         usuario.rol = rol
+        usuario.is_staff = (rol == 'admin')
 
         # Si se subió una nueva firma digital
         if firma:
@@ -550,7 +562,7 @@ def aprobar_cuenta_view(request, user_id):
     nuevo_rol = request.POST.get('nuevo_rol', '').strip()
     observaciones = request.POST.get('observaciones', '').strip()
 
-    ROLES_VALIDOS = ['admin', 'director', 'coordinador', 'instructor', 'funcionario']
+    ROLES_VALIDOS = ['admin', 'director', 'coordinador', 'instructor', 'funcionario', 'aprendiz', 'invitado']
     if nuevo_rol not in ROLES_VALIDOS:
         messages.error(request, f"Rol inválido. Elige uno de: {', '.join(ROLES_VALIDOS)}")
         return redirect('accounts:cuentas_pendientes')
@@ -561,6 +573,48 @@ def aprobar_cuenta_view(request, user_id):
     messages.success(
         request,
         f"La cuenta de {user_a_aprobar.get_full_name()} fue aprobada con el rol '{nuevo_rol}'."
+    )
+    return redirect('accounts:cuentas_pendientes')
+
+
+@login_required
+def aprobar_todas_view(request):
+    """
+    Aprueba masivamente TODAS las cuentas pendientes con el rol especificado.
+    POST: nuevo_rol (requerido). Solo admins.
+    """
+    if request.method != 'POST':
+        return redirect('accounts:cuentas_pendientes')
+
+    if request.user.rol != 'admin':
+        messages.error(request, "No tienes permisos para esta acción.")
+        return redirect('core:dashboard')
+
+    nuevo_rol = request.POST.get('nuevo_rol', '').strip()
+    ROLES_VALIDOS = ['admin', 'director', 'coordinador', 'instructor', 'funcionario', 'aprendiz', 'invitado']
+    if nuevo_rol not in ROLES_VALIDOS:
+        messages.error(request, f"Rol inválido. Elige uno de: {', '.join(ROLES_VALIDOS)}")
+        return redirect('accounts:cuentas_pendientes')
+
+    pendientes = User.objects.filter(estado_cuenta='pendiente_aprobacion')
+    total = pendientes.count()
+
+    if total == 0:
+        messages.warning(request, "No hay cuentas pendientes para aprobar.")
+        return redirect('accounts:cuentas_pendientes')
+
+    from actas.utils import aprobar_cuenta_usuario
+    aprobados = 0
+    for usuario in pendientes:
+        try:
+            aprobar_cuenta_usuario(usuario, nuevo_rol, request.user)
+            aprobados += 1
+        except Exception as e:
+            logger.warning(f"Error aprobando cuenta {usuario.email}: {e}")
+
+    messages.success(
+        request,
+        f"Se aprobaron {aprobados} de {total} cuenta(s) pendiente(s) con el rol '{nuevo_rol}'."
     )
     return redirect('accounts:cuentas_pendientes')
 
@@ -594,4 +648,3 @@ def rechazar_cuenta_view(request, user_id):
         f"La solicitud de {user_a_rechazar.get_full_name()} fue rechazada."
     )
     return redirect('accounts:cuentas_pendientes')
-    return redirect('accounts:usuarios')

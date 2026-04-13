@@ -65,31 +65,53 @@
                         <td class="text-center">
                             {% if archivo.tipo == 'sistema' %}
                                 {% if user.rol == 'admin' %}
-                                    <a href="{% url 'core:restaurar_backup' archivo.nombre %}"
-                                        class="btn btn-warning btn-sm"
-                                        onclick="return confirm('ADVERTENCIA: Se borrarán TODOS los datos actuales y se reemplazarán con los del backup. Deberás iniciar sesión nuevamente. ¿Continuar?')">
+                                    <button type="button" class="btn btn-warning btn-sm"
+                                        onclick="showConfirm({
+                                            title: 'Restaurar backup del sistema',
+                                            message: '<div class=\'alert alert-danger mb-2\'><i class=\'fas fa-exclamation-triangle me-1\'></i><strong>ADVERTENCIA:</strong> Se borrarán TODOS los datos actuales y se reemplazarán con los del backup. Deberás iniciar sesión nuevamente.</div>¿Deseas continuar?',
+                                            btnText: 'Sí, restaurar',
+                                            btnClass: 'btn-warning',
+                                            danger: true,
+                                            onConfirm: function(){ window.location.href='{% url "core:restaurar_backup" archivo.nombre %}'; }
+                                        })">
                                         <i class="fas fa-redo me-1"></i> Restaurar
-                                    </a>
-                                    <a href="{% url 'core:eliminar_copia_seguridad' archivo.nombre %}"
-                                        class="btn btn-danger btn-sm ms-1"
-                                        onclick="return confirm('¿Eliminar este backup permanentemente?')">
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm ms-1"
+                                        onclick="showConfirm({
+                                            title: 'Eliminar backup',
+                                            message: '¿Eliminar el backup <strong>{{ archivo.nombre }}</strong> permanentemente? Esta acción no se puede deshacer.',
+                                            btnText: 'Sí, eliminar',
+                                            btnClass: 'btn-danger',
+                                            onConfirm: function(){ window.location.href='{% url "core:eliminar_copia_seguridad" archivo.nombre %}'; }
+                                        })">
                                         <i class="fas fa-trash me-1"></i> Eliminar
-                                    </a>
+                                    </button>
                                 {% else %}
                                     <span class="text-muted small"><i class="fas fa-lock me-1"></i> Solo admin</span>
                                 {% endif %}
                             {% else %}
-                                <a href="{% url 'core:restaurar_backup_personal' archivo.nombre %}"
-                                    class="btn btn-success btn-sm"
-                                    onclick="return confirm('Se restaurarán las actas eliminadas de este backup. Las actas que ya existen no serán modificadas. ¿Continuar?')">
+                                <button type="button" class="btn btn-success btn-sm"
+                                    onclick="showConfirm({
+                                        title: 'Restaurar backup personal',
+                                        message: 'Se restaurarán las actas eliminadas de este backup. <strong>Las actas que ya existen no serán modificadas.</strong><br>¿Deseas continuar?',
+                                        btnText: 'Sí, restaurar',
+                                        btnClass: 'btn-success',
+                                        danger: false,
+                                        onConfirm: function(){ window.location.href='{% url "core:restaurar_backup_personal" archivo.nombre %}'; }
+                                    })">
                                     <i class="fas fa-redo me-1"></i> Restaurar
-                                </a>
+                                </button>
                                 {% if user.rol == 'admin' %}
-                                    <a href="{% url 'core:eliminar_copia_seguridad' archivo.nombre %}"
-                                        class="btn btn-danger btn-sm ms-1"
-                                        onclick="return confirm('¿Eliminar este backup permanentemente?')">
+                                    <button type="button" class="btn btn-danger btn-sm ms-1"
+                                        onclick="showConfirm({
+                                            title: 'Eliminar backup',
+                                            message: '¿Eliminar el backup <strong>{{ archivo.nombre }}</strong> permanentemente? Esta acción no se puede deshacer.',
+                                            btnText: 'Sí, eliminar',
+                                            btnClass: 'btn-danger',
+                                            onConfirm: function(){ window.location.href='{% url "core:eliminar_copia_seguridad" archivo.nombre %}'; }
+                                        })">
                                         <i class="fas fa-trash me-1"></i> Eliminar
-                                    </a>
+                                    </button>
                                 {% endif %}
                             {% endif %}
                         </td>

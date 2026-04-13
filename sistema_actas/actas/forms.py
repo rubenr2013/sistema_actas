@@ -1,11 +1,6 @@
 from django import forms
 from .models import Compromiso
 
-# actas/forms.py
-
-from django import forms
-from .models import Compromiso
-
 class ReporteCompromisoForm(forms.ModelForm):
     class Meta:
         model = Compromiso

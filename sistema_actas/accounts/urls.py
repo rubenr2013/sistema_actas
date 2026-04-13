@@ -41,6 +41,7 @@ urlpatterns = [
     # Acciones de aprobación / rechazo (POST desde el panel)
     path("aprobar-cuenta/<int:user_id>/", views.aprobar_cuenta_view, name="aprobar_cuenta"),
     path("rechazar-cuenta/<int:user_id>/", views.rechazar_cuenta_view, name="rechazar_cuenta"),
+    path("aprobar-todas/", views.aprobar_todas_view, name="aprobar_todas"),
     
     # ==========================================================
     # FLUJO DE RECUPERACIÓN DE CONTRASEÑA (CORREGIDO)

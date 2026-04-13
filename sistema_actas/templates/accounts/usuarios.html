@@ -68,6 +68,19 @@
         </a>
     </div>
 
+    {% if total_pendientes and request.user.rol == 'admin' %}
+    <div class="alert alert-warning d-flex align-items-center justify-content-between mb-3" role="alert">
+        <div>
+            <i class="fas fa-user-clock me-2"></i>
+            <strong>{{ total_pendientes }} cuenta{{ total_pendientes|pluralize:"s" }} pendiente{{ total_pendientes|pluralize:"s" }} de aprobación.</strong>
+            Revísalas y asigna el rol correspondiente.
+        </div>
+        <a href="{% url 'accounts:cuentas_pendientes' %}" class="btn btn-warning btn-sm ms-3 text-dark fw-semibold">
+            <i class="fas fa-user-check me-1"></i>Ir a Pendientes
+        </a>
+    </div>
+    {% endif %}
+
     <div class="card">
         <div class="card-body">
             <!-- FILTROS Y BÚSQUEDA -->
@@ -174,26 +187,49 @@
                                         </span>
                                     </td>
                                     <td>
-                                        {% if u.email_verificado %}
-                                            <span class="badge bg-success">
-                                                <i class="fas fa-check-circle me-1"></i>Verificado
-                                            </span>
+                                        {% if u.estado_cuenta == 'activa' %}
+                                            <span class="badge bg-success"><i class="fas fa-check-circle me-1"></i>Activa</span>
+                                        {% elif u.estado_cuenta == 'pendiente_aprobacion' %}
+                                            <span class="badge bg-warning text-dark"><i class="fas fa-user-clock me-1"></i>Pendiente</span>
+                                        {% elif u.estado_cuenta == 'rechazada' %}
+                                            <span class="badge bg-danger"><i class="fas fa-times-circle me-1"></i>Rechazada</span>
+                                        {% elif u.estado_cuenta == 'suspendida' %}
+                                            <span class="badge bg-secondary"><i class="fas fa-ban me-1"></i>Suspendida</span>
                                         {% else %}
-                                            <span class="badge bg-warning text-dark">
-                                                <i class="fas fa-exclamation-triangle me-1"></i>No Verificado
-                                            </span>
+                                            <span class="badge bg-light text-dark border">{{ u.estado_cuenta }}</span>
+                                        {% endif %}
+                                        {% if not u.email_verificado %}
+                                            <span class="badge bg-light text-warning border ms-1" title="Email no verificado"><i class="fas fa-envelope"></i></span>
                                         {% endif %}
                                     </td>
                                     <td>
+                                        {% if u.estado_cuenta == 'pendiente_aprobacion' and request.user.rol == 'admin' %}
+                                        <button type="button" class="btn btn-sm btn-success me-1"
+                                                data-bs-toggle="modal" data-bs-target="#modalAprobarUsuario"
+                                                data-user-id="{{ u.id }}" data-user-nombre="{{ u.get_full_name|default:u.username }}"
+                                                title="Aprobar cuenta">
+                                            <i class="fas fa-user-check"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-sm btn-danger me-1"
+                                                data-bs-toggle="modal" data-bs-target="#modalRechazarUsuario"
+                                                data-user-id="{{ u.id }}" data-user-nombre="{{ u.get_full_name|default:u.username }}"
+                                                title="Rechazar cuenta">
+                                            <i class="fas fa-user-times"></i>
+                                        </button>
+                                        {% endif %}
                                         <a href="{% url 'accounts:editar_usuario' u.id %}" class="btn btn-sm btn-outline-primary" title="Editar">
                                             <i class="fas fa-edit"></i>
                                         </a>
-                                        <a href="{% url 'accounts:eliminar_usuario' u.id %}" 
-                                           class="btn btn-sm btn-outline-danger" 
-                                           title="Eliminar"
-                                           onclick="return confirm('¿Estás seguro de eliminar a {{ u.get_full_name|default:u.username }}?')">
+                                        <button type="button" class="btn btn-sm btn-outline-danger" title="Eliminar"
+                                            onclick="showConfirm({
+                                                title: 'Eliminar usuario',
+                                                message: '¿Estás seguro de eliminar a <strong>{{ u.get_full_name|default:u.username }}</strong>? Esta acción no se puede deshacer.',
+                                                btnText: 'Sí, eliminar',
+                                                btnClass: 'btn-danger',
+                                                onConfirm: function(){ window.location.href='{% url "accounts:eliminar_usuario" u.id %}'; }
+                                            })">
                                             <i class="fas fa-trash-alt"></i>
-                                        </a>
+                                        </button>
                                     </td>
                                 </tr>
                             {% endfor %}
@@ -246,4 +282,86 @@
         </div>
     </div>
 </div>
+
+<!-- Modal: Aprobar cuenta desde lista de usuarios -->
+<div class="modal fade" id="modalAprobarUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formAprobarUsuario">
+                {% csrf_token %}
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-user-check me-2"></i>Aprobar cuenta</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Vas a aprobar la cuenta de: <strong id="aprobar-u-nombre"></strong></p>
+                    <div class="mb-3">
+                        <label for="nuevo_rol_u" class="form-label fw-semibold">Rol a asignar <span class="text-danger">*</span></label>
+                        <select class="form-select" id="nuevo_rol_u" name="nuevo_rol" required>
+                            <option value="">Selecciona el rol...</option>
+                            <option value="aprendiz">Aprendiz</option>
+                            <option value="instructor">Instructor</option>
+                            <option value="coordinador">Coordinador</option>
+                            <option value="director">Director</option>
+                            <option value="funcionario">Funcionario / Administrativo</option>
+                            <option value="invitado">Invitado</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="observaciones_u" class="form-label">Observaciones (opcional)</label>
+                        <textarea class="form-control" id="observaciones_u" name="observaciones" rows="2" placeholder="Notas adicionales..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success"><i class="fas fa-check me-1"></i>Confirmar aprobación</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Rechazar cuenta desde lista de usuarios -->
+<div class="modal fade" id="modalRechazarUsuario" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" id="formRechazarUsuario">
+                {% csrf_token %}
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title"><i class="fas fa-user-times me-2"></i>Rechazar cuenta</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Vas a rechazar la cuenta de: <strong id="rechazar-u-nombre"></strong></p>
+                    <div class="mb-3">
+                        <label for="motivo_u" class="form-label fw-semibold">Motivo del rechazo <span class="text-danger">*</span></label>
+                        <textarea class="form-control" id="motivo_u" name="motivo" rows="3"
+                                  placeholder="Explica por qué se rechaza esta solicitud..." required></textarea>
+                        <div class="form-text">El usuario recibirá un email con este motivo.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-danger"><i class="fas fa-times me-1"></i>Confirmar rechazo</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('modalAprobarUsuario').addEventListener('show.bs.modal', function(e) {
+    const btn = e.relatedTarget;
+    document.getElementById('aprobar-u-nombre').textContent = btn.dataset.userNombre;
+    document.getElementById('formAprobarUsuario').action = `/accounts/aprobar-cuenta/${btn.dataset.userId}/`;
+});
+document.getElementById('modalRechazarUsuario').addEventListener('show.bs.modal', function(e) {
+    const btn = e.relatedTarget;
+    document.getElementById('rechazar-u-nombre').textContent = btn.dataset.userNombre;
+    document.getElementById('formRechazarUsuario').action = `/accounts/rechazar-cuenta/${btn.dataset.userId}/`;
+});
+</script>
 {% endblock %}

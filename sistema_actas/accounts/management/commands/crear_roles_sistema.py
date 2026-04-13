@@ -12,10 +12,11 @@ from django.contrib.auth.models import Group
 
 ROLES_SISTEMA = [
     'Administrador',
+    'Aprendiz',
     'Coordinador',
-    'Instructor',
-    'Funcionario',
     'Director',
+    'Funcionario',
+    'Instructor',
     'Invitado',
 ]
 

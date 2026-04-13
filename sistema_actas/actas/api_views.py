@@ -2118,15 +2118,23 @@ def editar_acta_api(request, acta_id):
             
             cambios_realizados.append("Participantes actualizados")
         
-        # Crear comentario de auditoría con los cambios
+        # Crear comentario de auditoría y registrar en historial
         if cambios_realizados:
             from .models import ComentarioActa
+            from .utils import _registrar_historial_acta
             ComentarioActa.objects.create(
                 acta=acta,
                 autor=user,
                 texto=f"[EDICIÓN] {user.get_full_name()} editó el acta:\n" + "\n".join(f"- {cambio}" for cambio in cambios_realizados)
             )
-        
+            _registrar_historial_acta(
+                acta,
+                accion='editada',
+                usuario_nombre=user.get_full_name() or user.username,
+                detalle='; '.join(cambios_realizados),
+            )
+            acta.save(update_fields=['historial_cambios'])
+
         return JsonResponse({
             'success': True,
             'message': 'Acta actualizada correctamente',
@@ -2372,7 +2380,8 @@ def generar_pdf_api(request, acta_id):
         story.append(agenda_table)
         
         # OBJETIVOS
-        objetivo = f"Reunión de tipo {acta.get_tipo_reunion_display()}"
+        tipo_display = acta.tipo_reunion_otro if (acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro) else acta.get_tipo_reunion_display()
+        objetivo = f"Reunión de tipo {tipo_display}"
         if acta.generada_con_ia:
             objetivo += " (Generada con IA)"
         
@@ -2885,128 +2894,6 @@ def aplicar_silencio_administrativo_api(request, acta_id):
             'error': handle_error(e)
         }, status=500)
         
-@csrf_exempt
-def register_api(request):
-    """
-    API para registro de nuevos usuarios
-    """
-    if request.method != 'POST':
-        return JsonResponse({
-            'success': False,
-            'error': 'Método no permitido'
-        }, status=405)
-    
-    try:
-        data = json.loads(request.body)
-        
-        # Obtener datos
-        first_name = data.get('first_name', '').strip()
-        last_name = data.get('last_name', '').strip()
-        email = data.get('email', '').lower().strip()
-        password = data.get('password', '')
-        rol = data.get('rol', 'aprendiz')
-        telefono = data.get('telefono', '').strip()
-        
-        # Validaciones básicas
-        if not all([first_name, last_name, email, password]):
-            return JsonResponse({
-                'success': False,
-                'error': 'Todos los campos son obligatorios'
-            }, status=400)
-        
-        # Validar email
-        if not '@' in email:
-            return JsonResponse({
-                'success': False,
-                'error': 'Email inválido'
-            }, status=400)
-        
-        # Validar contraseña
-        if len(password) < 8:
-            return JsonResponse({
-                'success': False,
-                'error': 'La contraseña debe tener al menos 8 caracteres'
-            }, status=400)
-        
-        # Validar que el email no exista
-        if User.objects.filter(email=email).exists():
-            return JsonResponse({
-                'success': False,
-                'error': 'Este correo ya está registrado'
-            }, status=400)
-        
-        # Validar rol
-        roles_validos = ['aprendiz', 'instructor', 'funcionario', 'coordinador', 'director']
-        if rol not in roles_validos:
-            return JsonResponse({
-                'success': False,
-                'error': 'Rol inválido'
-            }, status=400)
-        
-        # No permitir registro como admin
-        if rol == 'admin':
-            return JsonResponse({
-                'success': False,
-                'error': 'No puedes registrarte como Administrador'
-            }, status=400)
-        
-        # Validar dominio de email según rol
-        if rol == 'aprendiz':
-            dominios_validos = ['@soy.sena.edu.co', '@gmail.com']
-            if not any(email.endswith(d) for d in dominios_validos):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'El correo del aprendiz debe ser @soy.sena.edu.co o @gmail.com'
-                }, status=400)
-        elif rol in ['funcionario', 'coordinador', 'director', 'instructor']:
-            dominios_validos = ['@sena.edu.co', '@gmail.com']
-            if not any(email.endswith(d) for d in dominios_validos):
-                return JsonResponse({
-                    'success': False,
-                    'error': 'El correo debe ser @sena.edu.co o @gmail.com'
-                }, status=400)
-        
-        # Generar username único
-        base_username = email.split('@')[0]
-        username = base_username
-        counter = 1
-        while User.objects.filter(username=username).exists():
-            username = f"{base_username}{counter}"
-            counter += 1
-        
-        # Crear usuario
-        user = User.objects.create_user(
-            username=username,
-            email=email,
-            password=password,
-            first_name=first_name,
-            last_name=last_name,
-            rol=rol,
-            telefono=telefono,
-        )
-        
-        return JsonResponse({
-            'success': True,
-            'message': 'Cuenta creada correctamente. Ahora puedes iniciar sesión.',
-            'data': {
-                'id': user.id,
-                'email': user.email,
-                'nombre_completo': user.get_full_name(),
-                'rol': user.rol,
-            }
-        })
-        
-    except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'error': 'Datos inválidos'
-        }, status=400)
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
-
 @csrf_exempt
 def actualizar_firma_api(request):
     """

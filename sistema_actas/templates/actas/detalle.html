@@ -403,7 +403,7 @@
                             <table class="table table-borderless table-sm">
                                 <tr>
                                     <td class="fw-semibold">Tipo de Reunión:</td>
-                                    <td>{{ acta.get_tipo_reunion_display }}</td>
+                                    <td>{% if acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro %}{{ acta.tipo_reunion_otro }}{% else %}{{ acta.get_tipo_reunion_display }}{% endif %}</td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Fecha y Hora:</td>
@@ -994,7 +994,7 @@ $(document).ready(function() {
             },
             error: function(xhr, status, error) {
                 console.error("Error:", error);
-                alert("Ocurrió un error al enviar el acta a revisión.");
+                showToast("Ocurrió un error al enviar el acta a revisión.", "danger");
             }
         });
     });

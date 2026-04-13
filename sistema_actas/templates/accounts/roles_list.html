@@ -9,27 +9,25 @@
     .table-hover tbody tr:hover { background-color: #f5f5f5; }
     .badge-permisos { background-color: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
     .badge-usuarios { background-color: #e3f2fd; color: #1565c0; border: 1px solid #90caf9; }
-    .rol-protegido { opacity: .6; }
 </style>
 {% endblock %}
 
 {% block content %}
 <div class="container-fluid py-4">
 
-    <!-- Encabezado -->
     <div class="d-flex justify-content-between align-items-center mb-4">
         <div>
             <h2 class="fw-bold mb-0"><i class="fas fa-shield-alt text-success me-2"></i>Gestión de Roles</h2>
-            <p class="text-muted small mb-0">Crea y configura roles con permisos personalizados</p>
+            <p class="text-muted small mb-0">Configura los permisos de cada rol del sistema</p>
         </div>
         <a href="{% url 'accounts:rol_crear' %}" class="btn btn-success">
-            <i class="fas fa-plus me-1"></i>Crear Rol
+            <i class="fas fa-plus me-1"></i>Crear Rol Personalizado
         </a>
     </div>
 
     {% if messages %}
         {% for m in messages %}
-        <div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show" role="alert">
+        <div class="alert alert-{{ m.tags|default:'info' }} alert-dismissible fade show">
             {{ m }}<button type="button" class="btn-close" data-bs-dismiss="alert"></button>
         </div>
         {% endfor %}
@@ -44,9 +42,7 @@
                            placeholder="Buscar rol por nombre...">
                 </div>
                 <div class="col-auto">
-                    <button type="submit" class="btn btn-outline-secondary">
-                        <i class="fas fa-search"></i>
-                    </button>
+                    <button type="submit" class="btn btn-outline-secondary"><i class="fas fa-search"></i></button>
                     {% if q %}
                     <a href="{% url 'accounts:roles_list' %}" class="btn btn-outline-secondary ms-1">
                         <i class="fas fa-times"></i>
@@ -57,22 +53,26 @@
         </div>
     </div>
 
-    <!-- Tabla -->
-    <div class="card">
+    <!-- Roles del sistema -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white">
+            <i class="fas fa-lock me-2"></i>Roles del sistema
+            <span class="badge bg-white text-success ms-1">{{ roles_sistema|length }}</span>
+        </div>
         <div class="card-body p-0">
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead>
                         <tr>
-                            <th class="ps-4">Nombre del Rol</th>
-                            <th class="text-center">Usuarios</th>
-                            <th class="text-center">Permisos</th>
+                            <th class="ps-4">Rol</th>
+                            <th class="text-center">Usuarios activos</th>
+                            <th class="text-center">Permisos asignados</th>
                             <th class="text-center">Acciones</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {% for rol in roles %}
-                        <tr {% if rol.name|lower in roles_protegidos %}class="rol-protegido"{% endif %}>
+                        {% for rol in roles_sistema %}
+                        <tr>
                             <td class="ps-4">
                                 <div class="d-flex align-items-center gap-2">
                                     <div class="rounded-circle bg-success bg-opacity-10 d-flex align-items-center justify-content-center"
@@ -81,46 +81,47 @@
                                     </div>
                                     <div>
                                         <span class="fw-semibold">{{ rol.name }}</span>
-                                        {% if rol.name|lower in roles_protegidos %}
                                         <span class="badge bg-secondary ms-1" style="font-size:.7rem;">Sistema</span>
-                                        {% endif %}
                                     </div>
                                 </div>
                             </td>
                             <td class="text-center">
-                                <span class="badge badge-usuarios px-3 py-1 rounded-pill">
+                                <span class="badge badge-usuarios px-3 py-1 rounded-pill fw-semibold">
                                     {{ rol.num_usuarios }}
                                 </span>
                             </td>
                             <td class="text-center">
-                                <span class="badge badge-permisos px-3 py-1 rounded-pill">
+                                {% if rol.num_permisos > 0 %}
+                                <span class="badge badge-permisos px-3 py-1 rounded-pill fw-semibold">
                                     {{ rol.num_permisos }}
                                 </span>
+                                {% else %}
+                                <span class="badge bg-light text-muted px-3 py-1 rounded-pill">
+                                    Sin configurar
+                                </span>
+                                {% endif %}
                             </td>
                             <td class="text-center">
+                                {% if rol.pk %}
                                 <div class="btn-group btn-group-sm">
                                     <a href="{% url 'accounts:rol_detail' rol.pk %}"
                                        class="btn btn-outline-secondary" title="Ver detalle">
                                         <i class="fas fa-eye"></i>
                                     </a>
                                     <a href="{% url 'accounts:rol_editar' rol.pk %}"
-                                       class="btn btn-outline-primary" title="Editar">
-                                        <i class="fas fa-edit"></i>
+                                       class="btn btn-outline-primary" title="Editar permisos">
+                                        <i class="fas fa-key"></i> Permisos
                                     </a>
-                                    {% if rol.name|lower not in roles_protegidos %}
-                                    <a href="{% url 'accounts:rol_eliminar' rol.pk %}"
-                                       class="btn btn-outline-danger" title="Eliminar">
-                                        <i class="fas fa-trash"></i>
-                                    </a>
-                                    {% endif %}
                                 </div>
+                                {% else %}
+                                <span class="text-muted small">—</span>
+                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="4" class="text-center py-5 text-muted">
-                                <i class="fas fa-shield-alt fa-2x mb-2 d-block opacity-25"></i>
-                                No se encontraron roles{% if q %} para "{{ q }}"{% endif %}.
+                            <td colspan="4" class="text-center py-4 text-muted">
+                                No se encontraron roles del sistema para "{{ q }}".
                             </td>
                         </tr>
                         {% endfor %}
@@ -130,9 +131,81 @@
         </div>
     </div>
 
+    <!-- Roles personalizados -->
+    {% if grupos_custom or not q %}
+    <div class="card">
+        <div class="card-header bg-secondary bg-opacity-75 text-white d-flex justify-content-between align-items-center">
+            <span><i class="fas fa-user-cog me-2"></i>Roles personalizados</span>
+            <a href="{% url 'accounts:rol_crear' %}" class="btn btn-sm btn-light">
+                <i class="fas fa-plus me-1"></i>Nuevo
+            </a>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th class="ps-4">Nombre</th>
+                            <th class="text-center">Usuarios</th>
+                            <th class="text-center">Permisos</th>
+                            <th class="text-center">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rol in grupos_custom %}
+                        <tr>
+                            <td class="ps-4">
+                                <div class="d-flex align-items-center gap-2">
+                                    <div class="rounded-circle bg-secondary bg-opacity-10 d-flex align-items-center justify-content-center"
+                                         style="width:36px;height:36px;">
+                                        <i class="fas fa-user-cog text-secondary"></i>
+                                    </div>
+                                    <span class="fw-semibold">{{ rol.name }}</span>
+                                </div>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-usuarios px-3 py-1 rounded-pill">{{ rol.num_usuarios }}</span>
+                            </td>
+                            <td class="text-center">
+                                <span class="badge badge-permisos px-3 py-1 rounded-pill">{{ rol.num_permisos }}</span>
+                            </td>
+                            <td class="text-center">
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'accounts:rol_detail' rol.pk %}"
+                                       class="btn btn-outline-secondary" title="Ver">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <a href="{% url 'accounts:rol_editar' rol.pk %}"
+                                       class="btn btn-outline-primary" title="Editar">
+                                        <i class="fas fa-edit"></i>
+                                    </a>
+                                    <a href="{% url 'accounts:rol_eliminar' rol.pk %}"
+                                       class="btn btn-outline-danger" title="Eliminar">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-muted">
+                                <i class="fas fa-info-circle me-1"></i>
+                                No hay roles personalizados aún.
+                                <a href="{% url 'accounts:rol_crear' %}">Crear uno</a>.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
     <p class="text-muted small mt-3">
         <i class="fas fa-info-circle me-1"></i>
-        Los roles marcados como <strong>Sistema</strong> no pueden eliminarse ya que son parte del núcleo de la aplicación.
+        Los <strong>roles del sistema</strong> no pueden eliminarse. Solo se pueden configurar sus permisos.
+        El conteo de usuarios refleja el campo <code>rol</code> de cada usuario.
     </p>
 </div>
 {% endblock %}

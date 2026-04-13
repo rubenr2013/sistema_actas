@@ -337,7 +337,14 @@ $(document).ready(function() {
         ) {
             e.preventDefault();
             $('#email').addClass('is-invalid');
-            alert('El correo debe ser institucional (@sena.edu.co o @soy.sena.edu.co) o de Gmail.');
+            var fb = document.getElementById('emailFeedback');
+            if (!fb) {
+                fb = document.createElement('div');
+                fb.id = 'emailFeedback';
+                fb.className = 'invalid-feedback d-block';
+                $('#email').after(fb);
+            }
+            fb.textContent = 'El correo debe ser institucional (@sena.edu.co o @soy.sena.edu.co) o de Gmail.';
             return false;
         }
 

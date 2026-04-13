@@ -1,4 +1,5 @@
 import os
+import io
 import logging
 from datetime import timedelta, datetime
 
@@ -170,20 +171,54 @@ def editar_acta(request, acta_id):
         if Acta.objects.filter(numero_acta=nuevo_numero).exclude(pk=acta.pk).exists():
             messages.error(request, f"Ya existe otra acta con el número '{nuevo_numero}'.")
             return redirect("actas:editar", acta_id=acta_id)
-        acta.numero_acta = nuevo_numero
 
-        acta.titulo = sanitizar_texto_plano(request.POST.get("titulo", ""))
-        acta.tipo_reunion = request.POST.get("tipo_reunion")
+        # Capturar valores anteriores para detectar cambios
+        cambios = []
+        if acta.numero_acta != nuevo_numero:
+            cambios.append(f"Número de acta: '{acta.numero_acta}' → '{nuevo_numero}'")
+
+        nuevo_titulo = sanitizar_texto_plano(request.POST.get("titulo", ""))
+        if acta.titulo != nuevo_titulo:
+            cambios.append(f"Título: '{acta.titulo}' → '{nuevo_titulo}'")
+
+        nuevo_tipo = request.POST.get("tipo_reunion")
+        if acta.tipo_reunion != nuevo_tipo:
+            cambios.append("Tipo de reunión modificado")
+
+        nuevo_lugar = sanitizar_texto_plano(request.POST.get("lugar_reunion", ""))
+        if acta.lugar_reunion != nuevo_lugar:
+            cambios.append(f"Lugar: '{acta.lugar_reunion}' → '{nuevo_lugar}'")
+
+        nueva_modalidad = request.POST.get("modalidad")
+        if acta.modalidad != nueva_modalidad:
+            cambios.append("Modalidad modificada")
+
+        nuevo_orden = sanitizar_html(request.POST.get("orden_dia", ""))
+        if acta.orden_dia != nuevo_orden:
+            cambios.append("Orden del día modificado")
+
+        nuevo_desarrollo = sanitizar_html(request.POST.get("desarrollo", ""))
+        if acta.desarrollo != nuevo_desarrollo:
+            cambios.append("Desarrollo modificado")
+
+        nuevo_obs = sanitizar_html(request.POST.get("observaciones", ""))
+        if acta.observaciones != nuevo_obs:
+            cambios.append("Observaciones modificadas")
+
+        # Aplicar cambios
+        acta.numero_acta = nuevo_numero
+        acta.titulo = nuevo_titulo
+        acta.tipo_reunion = nuevo_tipo
         if acta.tipo_reunion == 'otra':
             acta.tipo_reunion_otro = sanitizar_texto_plano(request.POST.get("tipo_reunion_otro", "")).strip()
         else:
             acta.tipo_reunion_otro = ''
         acta.fecha_reunion = request.POST.get("fecha_reunion")
-        acta.lugar_reunion = sanitizar_texto_plano(request.POST.get("lugar_reunion", ""))
-        acta.modalidad = request.POST.get("modalidad")
-        acta.orden_dia = sanitizar_html(request.POST.get("orden_dia", ""))
-        acta.desarrollo = sanitizar_html(request.POST.get("desarrollo", ""))
-        acta.observaciones = sanitizar_html(request.POST.get("observaciones", ""))
+        acta.lugar_reunion = nuevo_lugar
+        acta.modalidad = nueva_modalidad
+        acta.orden_dia = nuevo_orden
+        acta.desarrollo = nuevo_desarrollo
+        acta.observaciones = nuevo_obs
         acta.save()
 
         # Actualizar participantes
@@ -261,6 +296,25 @@ def editar_acta(request, acta_id):
                     defaults={'nombre_completo': nombre_nr, 'cargo_rol': cargo_nr.strip()},
                 )
                 emails_vistos.add(email_nr)
+
+        # Registrar en historial si hubo cambios
+        if cambios:
+            from .utils import _registrar_historial_acta
+            _registrar_historial_acta(
+                acta,
+                accion='editada',
+                usuario_nombre=request.user.get_full_name() or request.user.username,
+                detalle='; '.join(cambios),
+            )
+            acta.save(update_fields=['historial_cambios'])
+            ComentarioActa.objects.create(
+                acta=acta,
+                autor=request.user,
+                texto=(
+                    f"[EDICIÓN] {request.user.get_full_name() or request.user.username} editó el acta:\n"
+                    + "\n".join(f"- {c}" for c in cambios)
+                ),
+            )
 
         messages.success(request, "Acta actualizada exitosamente.")
         return redirect("actas:detalle", acta_id=acta.id)
@@ -428,6 +482,18 @@ def enviar_revision(request, acta_id):
             except Exception as e:
                 logger.error('Error al enviar email de compromiso a %s: %s', compromiso.responsable.email, str(e), exc_info=True)
 
+    # Enviar PDF a participantes no registrados (externos) al pasar a revisión
+    # No necesitan firmar, reciben el documento para su información
+    try:
+        from .email_service import enviar_pdfs_a_no_registrados
+        nr_enviados, nr_fallidos = enviar_pdfs_a_no_registrados(acta)
+        if nr_enviados:
+            messages.info(request, f"Se envió el acta por email a {nr_enviados} participante(s) externo(s).")
+        if nr_fallidos:
+            messages.warning(request, f"No se pudo enviar el email a {nr_fallidos} participante(s) externo(s).")
+    except Exception as e:
+        logger.error('enviar_revision: error enviando PDFs a no registrados: %s', e, exc_info=True)
+
     messages.success(request, f"Acta enviada a revisión. {participantes_notificados} participantes y {compromisos_notificados} responsables de compromisos han sido notificados.")
     return redirect("actas:detalle", acta_id=acta_id)
 
@@ -475,7 +541,6 @@ def obtener_firma_imagen(firma, usuario):
     Retorna un objeto Image de ReportLab o None.
     """
     import base64
-    import io
     from django.conf import settings
     from reportlab.platypus import Image as RLImage
 
@@ -633,7 +698,8 @@ def _generar_pdf_bytes(acta):
     ]))
     story.append(agenda_table)
 
-    objetivo = f"Reunión de tipo {acta.get_tipo_reunion_display()}"
+    tipo_display = acta.tipo_reunion_otro if (acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro) else acta.get_tipo_reunion_display()
+    objetivo = f"Reunión de tipo {tipo_display}"
     if acta.generada_con_ia:
         objetivo += " (Generada con IA)"
     objetivo_table = Table(
@@ -954,6 +1020,16 @@ def crear_acta(request):
                 resumen_ia=resumen if resumen else '',
                 creador=request.user
             )
+            # Registrar evento de creación en el historial
+            from .utils import _registrar_historial_acta
+            _registrar_historial_acta(
+                acta,
+                accion='creada',
+                usuario_nombre=request.user.get_full_name() or request.user.username,
+                detalle=f"Acta creada{'  (generada con IA)' if resumen else ''}",
+                ciclo=1,
+            )
+            acta.save(update_fields=['historial_cambios'])
             
             # ========================================
             # PROCESAR PARTICIPANTES
@@ -1110,6 +1186,13 @@ def finalizar_acta(request, acta_id):
 
     acta.estado = "finalizada"
     acta.fecha_modificacion = timezone.now()
+    from .utils import _registrar_historial_acta
+    _registrar_historial_acta(
+        acta,
+        accion='finalizada',
+        usuario_nombre=request.user.get_full_name() or request.user.username,
+        detalle='Acta finalizada manualmente por el creador',
+    )
     acta.save()
 
     # Enviar PDF a participantes no registrados
@@ -1162,6 +1245,13 @@ def archivar_acta(request, acta_id):
     # Archivar
     acta.estado = "archivada"
     acta.fecha_modificacion = timezone.now()
+    from .utils import _registrar_historial_acta
+    _registrar_historial_acta(
+        acta,
+        accion='archivada',
+        usuario_nombre=request.user.get_full_name() or request.user.username,
+        detalle='Acta archivada',
+    )
     acta.save()
 
     return JsonResponse({
@@ -1803,7 +1893,6 @@ _GUIA_VARIABLES = [
 @login_required
 def guia_plantillas_pdf(request):
     """Genera y descarga la guía de variables en formato PDF."""
-    import io as _io
     from reportlab.lib.pagesizes import letter
     from reportlab.lib.units import inch
     from reportlab.lib import colors as rl_colors
@@ -1814,7 +1903,7 @@ def guia_plantillas_pdf(request):
         Table, TableStyle as RLTableStyle,
     )
 
-    buf = _io.BytesIO()
+    buf = io.BytesIO()
     doc_rl = SimpleDocTemplate(
         buf, pagesize=letter,
         rightMargin=0.75*inch, leftMargin=0.75*inch,
@@ -1933,7 +2022,6 @@ def guia_plantillas_pdf(request):
 def guia_plantillas_docx(request):
     """Genera y descarga la guía de variables en formato Word (.docx)."""
     try:
-        import io as _io
         from docx import Document as WDocument
         from docx.shared import Pt, RGBColor
         from docx.oxml.ns import qn
@@ -2034,7 +2122,7 @@ def guia_plantillas_docx(request):
             rq.bold = True
             wdoc.add_paragraph(f'R: {respuesta}')
 
-        buf = _io.BytesIO()
+        buf = io.BytesIO()
         wdoc.save(buf)
         buf.seek(0)
         resp = HttpResponse(

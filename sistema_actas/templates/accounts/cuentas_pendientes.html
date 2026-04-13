@@ -12,9 +12,16 @@
             <h2 class="mb-1"><i class="fas fa-user-clock me-2 text-warning"></i>Cuentas Pendientes</h2>
             <p class="text-muted mb-0">Revisa y aprueba o rechaza las solicitudes de registro</p>
         </div>
-        <span class="badge bg-warning text-dark fs-6 px-3 py-2">
-            {{ pendientes.count }} pendiente{{ pendientes.count|pluralize:"s" }}
-        </span>
+        <div class="d-flex align-items-center gap-2">
+            <span class="badge bg-warning text-dark fs-6 px-3 py-2">
+                {{ pendientes.count }} pendiente{{ pendientes.count|pluralize:"s" }}
+            </span>
+            {% if pendientes %}
+            <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAprobarTodas">
+                <i class="fas fa-check-double me-1"></i>Aprobar todas
+            </button>
+            {% endif %}
+        </div>
     </div>
 
     <!-- Mensajes del sistema -->
@@ -107,6 +114,46 @@
 
 </div>
 
+<!-- ─── Modal: Aprobar TODAS ──────────────────────────────────────────────── -->
+<div class="modal fade" id="modalAprobarTodas" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'accounts:aprobar_todas' %}">
+                {% csrf_token %}
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="fas fa-check-double me-2"></i>Aprobar todas las cuentas</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta acción aprobará <strong>{{ pendientes.count }} cuenta{{ pendientes.count|pluralize:"s" }}</strong> pendiente{{ pendientes.count|pluralize:"s" }} de una sola vez.
+                    </div>
+                    <div class="mb-3">
+                        <label for="nuevo_rol_todas" class="form-label fw-semibold">Rol a asignar a todas <span class="text-danger">*</span></label>
+                        <select class="form-select" id="nuevo_rol_todas" name="nuevo_rol" required>
+                            <option value="">Selecciona el rol...</option>
+                            <option value="aprendiz">Aprendiz</option>
+                            <option value="instructor">Instructor</option>
+                            <option value="coordinador">Coordinador</option>
+                            <option value="director">Director</option>
+                            <option value="funcionario">Funcionario / Administrativo</option>
+                            <option value="invitado">Invitado</option>
+                        </select>
+                        <div class="form-text">Todas las cuentas recibirán este mismo rol. Puedes editarlas individualmente después.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="fas fa-check-double me-1"></i>Confirmar aprobación masiva
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- ─── Modal: Aprobar cuenta ─────────────────────────────────────────────── -->
 <div class="modal fade" id="modalAprobar" tabindex="-1" aria-labelledby="modalAprobarLabel" aria-hidden="true">
     <div class="modal-dialog">
@@ -128,10 +175,12 @@
                         </label>
                         <select class="form-select" id="nuevo_rol" name="nuevo_rol" required>
                             <option value="">Selecciona el rol...</option>
+                            <option value="aprendiz">Aprendiz</option>
                             <option value="instructor">Instructor</option>
                             <option value="coordinador">Coordinador</option>
                             <option value="director">Director</option>
                             <option value="funcionario">Funcionario / Administrativo</option>
+                            <option value="invitado">Invitado</option>
                             <option value="admin">Administrador</option>
                         </select>
                     </div>

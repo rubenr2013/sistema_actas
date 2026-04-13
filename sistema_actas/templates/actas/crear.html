@@ -1181,13 +1181,17 @@ $(document).ready(function() {
     function generateResumen() {
         const numeroActa = $('#numero_acta').val();
         const titulo = $('#titulo').val();
-        const tipo = $('#tipo_reunion option:selected').text();
+        const tipoVal = $('#tipo_reunion').val();
+        const tipoTexto = tipoVal === 'otra' ? ($('#tipo_reunion_otro').val().trim() || 'Otra') : $('#tipo_reunion option:selected').text();
         const fecha = new Date($('#fecha_reunion').val()).toLocaleDateString('es-CO');
         const lugar = $('#lugar_reunion').val();
         const modalidad = $('#modalidad option:selected').text();
-        
-        // Leer del DOM para mostrar todos los participantes seleccionados
+
+        // Participantes registrados
         const participantes = getParticipantesActuales().map(p => p.nombre || p.email);
+
+        // Participantes no registrados (externos)
+        const externosList = nrLista.map(p => `${p.nombre} <span class="text-muted">&lt;${p.email}&gt;</span>${p.cargo ? ` <span class="badge bg-secondary">${p.cargo}</span>` : ''}`);
 
         const compromisos = [];
         $('.compromiso-descripcion').each(function() {
@@ -1204,7 +1208,7 @@ $(document).ready(function() {
                     <table class="table table-sm table-striped">
                         <tr><td><strong>N° Acta:</strong></td><td>${numeroActa}</td></tr>
                         <tr><td><strong>Título:</strong></td><td>${titulo}</td></tr>
-                        <tr><td><strong>Tipo:</strong></td><td>${tipo}</td></tr>
+                        <tr><td><strong>Tipo:</strong></td><td>${tipoTexto}</td></tr>
                         <tr><td><strong>Fecha:</strong></td><td>${fecha}</td></tr>
                         <tr><td><strong>Lugar:</strong></td><td>${lugar}</td></tr>
                         <tr><td><strong>Modalidad:</strong></td><td>${modalidad}</td></tr>
@@ -1215,6 +1219,12 @@ $(document).ready(function() {
                     <ul class="list-group list-group-flush">
                         ${participantes.map(p => `<li class="list-group-item py-1 px-0"><i class="fas fa-user me-2 text-muted"></i>${p}</li>`).join('')}
                     </ul>
+                    ${externosList.length > 0 ? `
+                        <h6 class="text-warning mt-3"><i class="fas fa-user-clock me-2"></i>Externos / No registrados (${externosList.length})</h6>
+                        <ul class="list-group list-group-flush">
+                            ${externosList.map(p => `<li class="list-group-item py-1 px-0"><i class="fas fa-user-slash me-2 text-warning"></i>${p}</li>`).join('')}
+                        </ul>
+                    ` : ''}
                 </div>
             </div>
             ${compromisos.length > 0 ? `

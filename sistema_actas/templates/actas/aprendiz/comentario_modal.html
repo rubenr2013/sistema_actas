@@ -10,6 +10,9 @@
         <div class="modal-body">
             <p>¿Deseas rechazar esta acta? Indica el motivo del rechazo.</p>
             <textarea id="motivoRechazo" class="form-control" rows="3" placeholder="Motivo del rechazo..."></textarea>
+            <div id="motivoRechazoError" class="alert alert-danger mt-2 py-2 d-none">
+                <i class="fas fa-exclamation-circle me-1"></i>Por favor, indica el motivo del rechazo.
+            </div>
         </div>
         <div class="modal-footer">
             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
@@ -22,10 +25,14 @@
 <script>
 document.getElementById('confirmarRechazo').addEventListener('click', function() {
     const motivo = document.getElementById('motivoRechazo').value.trim();
+    const errDiv = document.getElementById('motivoRechazoError');
     if (!motivo) {
-        alert('Por favor, indica el motivo del rechazo.');
+        errDiv.classList.remove('d-none');
+        document.getElementById('motivoRechazo').classList.add('is-invalid');
         return;
     }
+    errDiv.classList.add('d-none');
+    document.getElementById('motivoRechazo').classList.remove('is-invalid');
 
     const form = document.getElementById('firmaForm');
     const comentarios = document.getElementById('comentarios');
