@@ -24,6 +24,30 @@ from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
 
+# ── Utilidad: convierte HTML de CKEditor a texto plano con saltos de línea ──
+import re as _re
+def _html_a_texto_pdf(html_texto):
+    """
+    Convierte HTML (guardado por CKEditor) a texto plano apto para ReportLab.
+    Convierte <p>, <br>, <li> en saltos de línea y elimina las demás etiquetas.
+    """
+    if not html_texto:
+        return ''
+    t = html_texto
+    # Bloques que deben separarse con salto de línea
+    t = _re.sub(r'</p>\s*<p[^>]*>', '\n', t, flags=_re.IGNORECASE)
+    t = _re.sub(r'<br\s*/?>', '\n', t, flags=_re.IGNORECASE)
+    t = _re.sub(r'</li>', '\n', t, flags=_re.IGNORECASE)
+    t = _re.sub(r'<li[^>]*>', '• ', t, flags=_re.IGNORECASE)
+    t = _re.sub(r'<[^>]+>', '', t)   # eliminar resto de etiquetas
+    t = _re.sub(r'&nbsp;', ' ', t)
+    t = _re.sub(r'&amp;', '&', t)
+    t = _re.sub(r'&lt;', '<', t)
+    t = _re.sub(r'&gt;', '>', t)
+    t = _re.sub(r'&quot;', '"', t)
+    t = _re.sub(r'\n{3,}', '\n\n', t)  # máximo 2 saltos consecutivos
+    return t.strip()
+
 # Modelos y utilidades locales
 from .models import Acta, Participante, Firma, Compromiso, ComentarioActa
 from .utils import sanitizar_html, sanitizar_texto_plano
@@ -219,6 +243,15 @@ def editar_acta(request, acta_id):
         acta.orden_dia = nuevo_orden
         acta.desarrollo = nuevo_desarrollo
         acta.observaciones = nuevo_obs
+        # Nuevos campos GOR-F-084 V02
+        acta.ciudad = sanitizar_texto_plano(request.POST.get("ciudad", "")).strip()
+        acta.hora_inicio = request.POST.get("hora_inicio") or None
+        acta.hora_fin = request.POST.get("hora_fin") or None
+        acta.lugar_enlace = sanitizar_texto_plano(request.POST.get("lugar_enlace", "")).strip()
+        acta.direccion = sanitizar_texto_plano(request.POST.get("direccion", "")).strip()
+        acta.regional = sanitizar_texto_plano(request.POST.get("regional", "Boyacá")).strip()
+        acta.centro = sanitizar_texto_plano(request.POST.get("centro", "Centro Minero")).strip()
+        acta.objetivos = sanitizar_html(request.POST.get("objetivos", ""))
         acta.save()
 
         # Actualizar participantes
@@ -634,17 +667,19 @@ def _generar_pdf_bytes(acta):
     story.append(comite_table)
 
     fecha_str = acta.fecha_reunion.strftime("%d/%m/%Y")
-    hora_inicio = acta.fecha_reunion.strftime("%H:%M")
-    hora_fin = (acta.fecha_reunion + timedelta(hours=2)).strftime("%H:%M")
+    # Usar campos dedicados hora_inicio/hora_fin si existen; si no, derivar de fecha_reunion
+    hora_inicio_str = acta.hora_inicio.strftime("%H:%M") if acta.hora_inicio else acta.fecha_reunion.strftime("%H:%M")
+    hora_fin_str = acta.hora_fin.strftime("%H:%M") if acta.hora_fin else (acta.fecha_reunion + timedelta(hours=2)).strftime("%H:%M")
+    ciudad_str = acta.ciudad if acta.ciudad else acta.lugar_reunion
 
     info_table = Table(
         [[
             Paragraph("<b>CIUDAD Y FECHA:</b>", styles['Normal']),
-            Paragraph(f"{acta.lugar_reunion}, {fecha_str}", styles['Normal']),
+            Paragraph(f"{ciudad_str}, {fecha_str}", styles['Normal']),
             Paragraph("<b>HORA INICIO:</b>", styles['Normal']),
-            Paragraph(hora_inicio, styles['Normal']),
+            Paragraph(hora_inicio_str, styles['Normal']),
             Paragraph("<b>HORA FIN:</b>", styles['Normal']),
-            Paragraph(hora_fin, styles['Normal']),
+            Paragraph(hora_fin_str, styles['Normal']),
         ]],
         colWidths=[1.2*inch, 2*inch, 1*inch, 0.8*inch, 1*inch, 1*inch]
     )
@@ -659,14 +694,20 @@ def _generar_pdf_bytes(acta):
     ]))
     story.append(info_table)
 
+    lugar_enlace_str = acta.lugar_enlace if acta.lugar_enlace else acta.lugar_reunion
+    dir_regional_centro = f"{acta.direccion + ' / ' if acta.direccion else ''}{acta.regional or 'Boyacá'} / {acta.centro or 'Centro Minero'}"
     lugar_table = Table(
-        [[
-            Paragraph("<b>LUGAR Y/O ENLACE:</b>", styles['Normal']),
-            Paragraph(acta.lugar_reunion, styles['Normal']),
-            Paragraph("<b>DIRECCIÓN / REGIONAL / CENTRO:</b>", styles['Normal']),
-            Paragraph("Centro Minero SENA", styles['Normal']),
-        ]],
-        colWidths=[1.5*inch, 2*inch, 2*inch, 1.5*inch]
+        [
+            [
+                Paragraph("<b>LUGAR Y/O ENLACE:</b>", styles['Normal']),
+                Paragraph(lugar_enlace_str, styles['Normal']),
+            ],
+            [
+                Paragraph("<b>DIRECCIÓN / REGIONAL / CENTRO:</b>", styles['Normal']),
+                Paragraph(dir_regional_centro, styles['Normal']),
+            ],
+        ],
+        colWidths=[2.2*inch, 4.8*inch]
     )
     lugar_table.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 1, colors.black),
@@ -679,11 +720,11 @@ def _generar_pdf_bytes(acta):
     ]))
     story.append(lugar_table)
 
-    agenda_content = sanitizar_texto_plano(acta.orden_dia) if acta.orden_dia else "No especificada"
+    agenda_content = _html_a_texto_pdf(acta.orden_dia) if acta.orden_dia else "No especificada"
     agenda_table = Table(
         [
             [Paragraph("<b>AGENDA O PUNTOS PARA DESARROLLAR:</b>", styles['Normal'])],
-            [Paragraph(agenda_content.replace('\n', '<br/>'), styles['Normal'])]
+            [Paragraph(agenda_content.replace('\n', '<br/>').replace('&', '&amp;'), styles['Normal'])]
         ],
         colWidths=[7*inch], splitByRow=1
     )
@@ -698,33 +739,43 @@ def _generar_pdf_bytes(acta):
     ]))
     story.append(agenda_table)
 
+    # Usar el campo objetivos si existe; si no, generar un texto por defecto
     tipo_display = acta.tipo_reunion_otro if (acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro) else acta.get_tipo_reunion_display()
-    objetivo = f"Reunión de tipo {tipo_display}"
-    if acta.generada_con_ia:
-        objetivo += " (Generada con IA)"
+    if acta.objetivos:
+        objetivo_texto = _html_a_texto_pdf(acta.objetivos)
+    else:
+        objetivo_texto = f"Reunión de tipo {tipo_display}"
+        if acta.generada_con_ia:
+            objetivo_texto += " (Generada con IA)"
+
+    # Construir la lista de objetivos como filas individuales para el PDF
+    objetivo_lineas = [l.strip() for l in objetivo_texto.split('\n') if l.strip()]
+    objetivo_body = [Paragraph(linea.replace('&', '&amp;'), styles['Normal']) for linea in objetivo_lineas]
+    if not objetivo_body:
+        objetivo_body = [Paragraph(objetivo_texto, styles['Normal'])]
+
     objetivo_table = Table(
-        [
-            [Paragraph("<b>OBJETIVO(S) DE LA REUNIÓN:</b>", styles['Normal'])],
-            [Paragraph(sanitizar_texto_plano(objetivo), styles['Normal'])]
-        ],
+        [[Paragraph("<b>OBJETIVO(S) DE LA REUNIÓN:</b>", styles['Normal'])]] +
+        [[p] for p in objetivo_body],
         colWidths=[7*inch]
     )
     objetivo_table.setStyle(TableStyle([
         ('BOX', (0, 0), (-1, -1), 1, colors.black),
         ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
         ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('TOPPADDING', (0, 0), (-1, -1), 4),
-        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ('TOPPADDING', (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING', (0, 1), (-1, -1), 16),   # sangría para los ítems
         ('RIGHTPADDING', (0, 0), (-1, -1), 6),
+        ('LEFTPADDING', (0, 0), (0, 0), 6),       # encabezado sin sangría
     ]))
     story.append(objetivo_table)
 
-    desarrollo_content = sanitizar_texto_plano(acta.desarrollo) if acta.desarrollo else "No especificado"
+    desarrollo_texto = _html_a_texto_pdf(acta.desarrollo) if acta.desarrollo else "No especificado"
     desarrollo_table = Table(
         [
             [Paragraph("<b>DESARROLLO DE LA REUNIÓN</b>", styles['Normal'])],
-            [Paragraph(desarrollo_content.replace('\n', '<br/>'), styles['Normal'])]
+            [Paragraph(desarrollo_texto.replace('\n', '<br/>').replace('&', '&amp;'), styles['Normal'])]
         ],
         colWidths=[7*inch], splitByRow=1
     )
@@ -739,11 +790,11 @@ def _generar_pdf_bytes(acta):
     ]))
     story.append(desarrollo_table)
 
-    conclusiones = acta.observaciones if acta.observaciones else "Sin observaciones adicionales"
+    conclusiones_texto = _html_a_texto_pdf(acta.observaciones) if acta.observaciones else "Sin conclusiones adicionales"
     conclusiones_table = Table(
         [
             [Paragraph("<b>CONCLUSIONES</b>", styles['Normal'])],
-            [Paragraph(conclusiones.replace('\n', '<br/>'), styles['Normal'])]
+            [Paragraph(conclusiones_texto.replace('\n', '<br/>').replace('&', '&amp;'), styles['Normal'])]
         ],
         colWidths=[7*inch], splitByRow=1
     )
@@ -812,17 +863,19 @@ def _generar_pdf_bytes(acta):
         else:
             firma_cell = Paragraph("<font color='red'>Pendiente</font>", styles['Normal'])
 
+        dep = participante.dependencia_empresa or 'SENA - CENTRO MINERO'
         asistentes_data.append([
             Paragraph(participante.usuario.get_full_name(), styles['Normal']),
-            Paragraph(participante.rol_en_reunion or "Participante", styles['Normal']),
+            Paragraph(dep, styles['Normal']),
             Paragraph("SÍ" if firma_obj and firma_obj.firmado else "NO", styles['Normal']),
             firma_cell
         ])
 
     for nr in acta.participantes_no_registrados.all():
+        dep_nr = nr.dependencia_empresa if nr.dependencia_empresa else (nr.cargo_rol or 'Participante externo')
         asistentes_data.append([
             Paragraph(nr.nombre_completo, styles['Normal']),
-            Paragraph(nr.cargo_rol or 'Participante', styles['Normal']),
+            Paragraph(dep_nr, styles['Normal']),
             Paragraph("N/A", styles['Normal']),
             Paragraph("(No aplica)", styles['Normal']),
         ])
@@ -839,6 +892,34 @@ def _generar_pdf_bytes(acta):
         ('RIGHTPADDING', (0, 0), (-1, -1), 4),
     ]))
     story.append(asistentes_table)
+
+    # SECCIÓN ANEXOS
+    archivos_adjuntos = list(acta.archivos_adjuntos.all())
+    if archivos_adjuntos:
+        story.append(Spacer(1, 8))
+        anexos_data = [[
+            Paragraph("<b>ANEXOS</b>", styles['Normal']),
+            Paragraph("", styles['Normal']),
+        ]]
+        for adj in archivos_adjuntos:
+            mb = round(adj.tamaño_bytes / (1024 * 1024), 2) if adj.tamaño_bytes else 0
+            anexos_data.append([
+                Paragraph(adj.nombre_original, styles['Normal']),
+                Paragraph(f"{mb} MB — {adj.tipo_archivo.upper()}", styles['Normal']),
+            ])
+        anexos_table = Table(anexos_data, colWidths=[5*inch, 2*inch])
+        anexos_table.setStyle(TableStyle([
+            ('BOX', (0, 0), (-1, -1), 1, colors.black),
+            ('INNERGRID', (0, 0), (-1, -1), 0.5, colors.black),
+            ('BACKGROUND', (0, 0), (-1, 0), colors.lightgrey),
+            ('SPAN', (0, 0), (1, 0)),
+            ('ALIGN', (0, 0), (0, 0), 'CENTER'),
+            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING', (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        story.append(anexos_table)
 
     story.append(Spacer(1, 10))
     nota_legal = Paragraph(
@@ -1012,13 +1093,22 @@ def crear_acta(request):
                 tipo_reunion=tipo_reunion,
                 tipo_reunion_otro=tipo_reunion_otro if tipo_reunion == 'otra' else '',
                 fecha_reunion=request.POST.get('fecha_reunion'),
-                lugar_reunion=request.POST.get('lugar_reunion'),
+                lugar_reunion=request.POST.get('lugar_reunion', ''),
                 modalidad=request.POST.get('modalidad'),
                 orden_dia=orden_dia,
                 desarrollo=desarrollo,
                 observaciones=request.POST.get('observaciones', ''),
                 resumen_ia=resumen if resumen else '',
-                creador=request.user
+                creador=request.user,
+                # Nuevos campos GOR-F-084 V02
+                ciudad=request.POST.get('ciudad', '').strip(),
+                hora_inicio=request.POST.get('hora_inicio') or None,
+                hora_fin=request.POST.get('hora_fin') or None,
+                lugar_enlace=request.POST.get('lugar_enlace', '').strip(),
+                direccion=request.POST.get('direccion', '').strip(),
+                regional=request.POST.get('regional', 'Boyacá').strip(),
+                centro=request.POST.get('centro', 'Centro Minero').strip(),
+                objetivos=request.POST.get('objetivos', '').strip(),
             )
             # Registrar evento de creación en el historial
             from .utils import _registrar_historial_acta
@@ -1048,13 +1138,16 @@ def crear_acta(request):
                             # El creador (idx=0) tiene su propio rol; los demás usan rol_participante_{idx}
                             if idx == 0:
                                 rol = request.POST.get('rol_creador', 'Creador del Acta').strip() or 'Creador del Acta'
+                                dep = request.POST.get('dependencia_creador', 'SENA - CENTRO MINERO').strip() or 'SENA - CENTRO MINERO'
                             else:
                                 rol = request.POST.get(f'rol_participante_{idx}', '').strip() or 'Participante'
+                                dep = request.POST.get(f'dependencia_participante_{idx}', 'SENA - CENTRO MINERO').strip() or 'SENA - CENTRO MINERO'
 
                             Participante.objects.create(
                                 acta=acta,
                                 usuario=usuario,
                                 rol_en_reunion=rol,
+                                dependencia_empresa=dep,
                                 obligatorio_firma=True
                             )
                             participantes_agregados.add(email)
@@ -1120,16 +1213,35 @@ def crear_acta(request):
             nr_nombres = request.POST.getlist('nr_nombre[]')
             nr_emails = request.POST.getlist('nr_email[]')
             nr_cargos = request.POST.getlist('nr_cargo[]')
+            nr_dependencias = request.POST.getlist('nr_dependencia[]')
             emails_nr_vistos = set()
-            for nombre_nr, email_nr, cargo_nr in zip(nr_nombres, nr_emails, nr_cargos):
+            for i_nr, (nombre_nr, email_nr, cargo_nr) in enumerate(zip(nr_nombres, nr_emails, nr_cargos)):
+                dep_nr = nr_dependencias[i_nr].strip() if i_nr < len(nr_dependencias) else ''
                 nombre_nr = nombre_nr.strip()
                 email_nr = email_nr.strip().lower()
                 if nombre_nr and email_nr and email_nr not in emails_nr_vistos:
                     ParticipanteNoRegistrado.objects.get_or_create(
                         acta=acta, email=email_nr,
-                        defaults={'nombre_completo': nombre_nr, 'cargo_rol': cargo_nr.strip()},
+                        defaults={
+                            'nombre_completo': nombre_nr,
+                            'cargo_rol': cargo_nr.strip(),
+                            'dependencia_empresa': dep_nr,
+                        },
                     )
                     emails_nr_vistos.add(email_nr)
+
+            # Guardar ANEXOS subidos
+            from .models import ArchivoAdjunto
+            for anexo_file in request.FILES.getlist('anexos'):
+                ext = anexo_file.name.rsplit('.', 1)[-1].lower() if '.' in anexo_file.name else ''
+                ArchivoAdjunto.objects.create(
+                    acta=acta,
+                    archivo=anexo_file,
+                    nombre_original=anexo_file.name,
+                    tipo_archivo=ext,
+                    tamaño_bytes=anexo_file.size,
+                    subido_por=request.user,
+                )
 
             # Mensaje de éxito
             messages.success(request, f'Acta {acta.numero_acta} creada exitosamente con {participantes_agregados.__len__()} participantes.')

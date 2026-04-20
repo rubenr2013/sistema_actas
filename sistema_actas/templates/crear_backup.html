@@ -51,7 +51,7 @@
         <form method="POST" id="backupForm">
             {% csrf_token %}
             <button type="submit" class="btn btn-backup mt-3" id="backupBtn">
-                <span id="btnText">Generar Backup</span>
+                <span id="btnText">Generar copia de seguridad</span>
                 <div class="spinner-border spinner-border-sm text-light ms-2" id="spinner" role="status"></div>
             </button>
         </form>
@@ -72,7 +72,7 @@
 <script>
 document.getElementById("backupForm").addEventListener("submit", function() {
     document.getElementById("spinner").style.display = "inline-block";
-    document.getElementById("btnText").textContent = "Generando...";
+    document.getElementById("btnText").textContent = "Generando copia...";
     document.getElementById("backupBtn").disabled = true;
 });
 </script>

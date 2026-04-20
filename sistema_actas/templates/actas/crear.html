@@ -238,12 +238,12 @@
         <div class="step-line"></div>
         <div class="step" data-step="2">
             <div class="step-number">2</div>
-            <span>Procesamiento IA</span>
+            <span>Agenda y Desarrollo</span>
         </div>
         <div class="step-line"></div>
         <div class="step" data-step="3">
             <div class="step-number">3</div>
-            <span>Participantes</span>
+            <span>Desarrollo del Acta</span>
         </div>
         <div class="step-line"></div>
         <div class="step" data-step="4">
@@ -309,19 +309,36 @@
                             <div class="row">
                                 <div class="col-md-4 mb-3">
                                     <div class="form-floating">
-                                        <input type="datetime-local" class="form-control" id="fecha_reunion" 
+                                        <input type="datetime-local" class="form-control" id="fecha_reunion"
                                                 name="fecha_reunion" required>
-                                        <label for="fecha_reunion">Fecha y Hora</label>
+                                        <label for="fecha_reunion">Fecha de Reunión <span class="text-danger">*</span></label>
                                     </div>
                                 </div>
                                 <div class="col-md-4 mb-3">
                                     <div class="form-floating">
-                                        <input type="text" class="form-control" id="lugar_reunion" 
-                                                name="lugar_reunion" placeholder="Lugar de la reunión" required>
-                                        <label for="lugar_reunion">Lugar</label>
+                                        <input type="time" class="form-control" id="hora_inicio"
+                                               name="hora_inicio" required>
+                                        <label for="hora_inicio">Hora Inicio <span class="text-danger">*</span></label>
                                     </div>
                                 </div>
                                 <div class="col-md-4 mb-3">
+                                    <div class="form-floating">
+                                        <input type="time" class="form-control" id="hora_fin"
+                                               name="hora_fin" required>
+                                        <label for="hora_fin">Hora Fin <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="ciudad"
+                                               name="ciudad" placeholder="Ej: Sogamoso, Boyacá" required maxlength="100">
+                                        <label for="ciudad">Ciudad <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
                                     <div class="form-floating">
                                         <select class="form-select" id="modalidad" name="modalidad" required>
                                             <option value="presencial">Presencial</option>
@@ -329,6 +346,52 @@
                                             <option value="hibrida">Híbrida</option>
                                         </select>
                                         <label for="modalidad">Modalidad</label>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label for="lugar_enlace" class="form-label fw-semibold">
+                                        Lugar y/o Enlace <span class="text-danger">*</span>
+                                    </label>
+                                    <textarea class="form-control" id="lugar_enlace" name="lugar_enlace"
+                                              rows="2" placeholder="Dirección física o enlace virtual (Teams, Zoom, Google Meet)..." required></textarea>
+                                    <div class="form-text"><i class="fas fa-info-circle me-1"></i>Puede incluir enlaces de Teams, Zoom, Google Meet u otra plataforma virtual.</div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="lugar_reunion"
+                                                name="lugar_reunion" placeholder="Nombre del lugar" required>
+                                        <label for="lugar_reunion">Nombre del Lugar / Sala</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="direccion"
+                                               name="direccion" placeholder="Ej: Cra 9 #14-109" maxlength="200">
+                                        <label for="direccion">Dirección Física</label>
+                                    </div>
+                                    <div class="form-text">Opcional si la reunión es 100% virtual.</div>
+                                </div>
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="regional"
+                                               name="regional" placeholder="Ej: Boyacá" value="Boyacá" required maxlength="100">
+                                        <label for="regional">Regional <span class="text-danger">*</span></label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <div class="form-floating">
+                                        <input type="text" class="form-control" id="centro"
+                                               name="centro" placeholder="Ej: Centro Minero" value="Centro Minero" required maxlength="150">
+                                        <label for="centro">Centro <span class="text-danger">*</span></label>
                                     </div>
                                 </div>
                             </div>
@@ -345,7 +408,7 @@
             </div>
         </div>
 
-        <!-- Paso 2: Procesamiento con IA -->
+        <!-- Paso 2: Agenda, Objetivos y Desarrollo -->
         <div class="form-step" id="step-2">
             <div class="row">
                 <div class="col-lg-10 mx-auto">
@@ -421,44 +484,110 @@ Ejemplo:
                             </div>
                         </div>
                     </div>
+
+                    <!-- Campos de contenido del acta -->
+                    <div class="card hover-lift mt-4">
+                        <div class="card-header">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-file-alt text-primary me-2"></i>
+                                Contenido del Acta — Formato GOR-F-084 V02
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-4">
+                                <label for="orden_dia" class="form-label fw-bold">
+                                    <i class="fas fa-list-ol me-1 text-success"></i>
+                                    AGENDA O PUNTOS PARA DESARROLLAR <span class="text-danger">*</span>
+                                </label>
+                                <textarea class="form-control" id="orden_dia" name="orden_dia" rows="5"
+                                          placeholder="1. Verificación del quórum&#10;2. Lectura y aprobación del orden del día&#10;3. [Agregar puntos específicos]&#10;4. Compromisos y acuerdos&#10;5. Varios" required></textarea>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="objetivos" class="form-label fw-bold">
+                                    <i class="fas fa-bullseye me-1 text-success"></i>
+                                    OBJETIVO(S) DE LA REUNIÓN <span class="text-danger">*</span>
+                                </label>
+                                <textarea class="form-control" id="objetivos" name="objetivos" rows="4"
+                                          placeholder="1. Revisar y consolidar información del estado de los aprendices.&#10;2. Realizar retroalimentación sobre los resultados obtenidos.&#10;3. Evaluar y aprobar los compromisos pendientes." required></textarea>
+                                <div class="form-text"><i class="fas fa-info-circle me-1"></i>Use verbos en infinitivo. Ej: Revisar, Evaluar, Aprobar, Socializar...</div>
+                            </div>
+
+                            <div class="mb-4">
+                                <label for="desarrollo" class="form-label fw-bold">
+                                    <i class="fas fa-pen-alt me-1 text-success"></i>
+                                    DESARROLLO DE LA REUNIÓN <span class="text-danger">*</span>
+                                </label>
+                                <textarea class="form-control" id="desarrollo" name="desarrollo" rows="10"
+                                          placeholder="Describa detalladamente el desarrollo de la reunión..." required></textarea>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="observaciones" class="form-label fw-bold">
+                                    <i class="fas fa-check-double me-1 text-success"></i>
+                                    CONCLUSIONES
+                                </label>
+                                <textarea class="form-control" id="observaciones" name="observaciones" rows="4"
+                                          placeholder="Resumen de decisiones tomadas y conclusiones de la reunión..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cerrar div col-lg-10 y div row del paso 2 -->
+                    <div class="d-flex justify-content-between mt-4">
+                        <button type="button" class="btn btn-outline-secondary" onclick="goToStep(1)">
+                            <i class="fas fa-arrow-left me-1"></i>Anterior
+                        </button>
+                        <button type="button" class="btn btn-primary" id="btn-next-step-2b">
+                            Siguiente <i class="fas fa-arrow-right ms-1"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- Paso 3: Participantes y Contenido -->
+        <!-- Paso 3: Desarrollo del Acta (Participantes + Compromisos + Anexos) -->
         <div class="form-step" id="step-3">
             <div class="row">
                 <div class="col-lg-6 mb-4">
+                    <!-- Participantes Registrados -->
                     <div class="card hover-lift">
                         <div class="card-header">
                             <h5 class="card-title mb-0">
                                 <i class="fas fa-users text-primary me-2"></i>
-                                Participantes
+                                Asistentes y Aprobación de Decisiones
                             </h5>
                         </div>
                         <div class="card-body">
                             <div id="participantes-container">
                                 <!-- Participante creador (automático) -->
                                 <div class="mb-3 p-3 border rounded bg-light">
-                                    <div class="row align-items-center">
+                                    <div class="row g-2 align-items-end">
                                         <div class="col-md-6">
-                                            <label class="form-label">Participante</label>
+                                            <label class="form-label small fw-semibold">Participante</label>
                                             <input type="hidden" name="participantes" value="{{ user.email }}">
-                                            <input type="text" class="form-control"
+                                            <input type="text" class="form-control form-control-sm"
                                                     value="{{ user.get_full_name }} ({{ user.email }})" readonly>
                                         </div>
-                                        <div class="col-md-6">
-                                            <label class="form-label">Rol en la Reunión</label>
-                                            <input type="text" class="form-control"
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-semibold">Rol en la Reunión</label>
+                                            <input type="text" class="form-control form-control-sm"
                                                    name="rol_creador"
                                                    value="Creador del Acta"
-                                                   placeholder="Ej: Coordinador, Director, Instructor">
+                                                   placeholder="Ej: Coordinador, Director">
+                                        </div>
+                                        <div class="col-md-3">
+                                            <label class="form-label small fw-semibold">Dependencia / Empresa</label>
+                                            <input type="text" class="form-control form-control-sm"
+                                                   name="dependencia_creador"
+                                                   value="SENA - CENTRO MINERO"
+                                                   placeholder="Ej: SENA - CENTRO MINERO">
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <button type="button" class="btn btn-outline-primary" id="btn-agregar-participante">
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btn-agregar-participante">
                                 <i class="fas fa-user-plus me-1"></i>Agregar Participante
                             </button>
                             <div class="mt-2">
@@ -484,21 +613,25 @@ Ejemplo:
                         <div class="card-body">
                             <p class="text-muted small mb-3">
                                 <i class="fas fa-info-circle me-1"></i>
-                                Agrega personas que participaron en la reunión pero <strong>no tienen cuenta</strong> en el sistema
-                                (aprendices, invitados externos, etc.). Recibirán el PDF del acta automáticamente cuando se finalice.
+                                Agrega personas que participaron en la reunión pero <strong>no tienen cuenta</strong> en el sistema.
+                                Recibirán el PDF del acta automáticamente cuando se finalice.
                             </p>
                             <div class="row g-2 mb-2">
-                                <div class="col-md-5">
+                                <div class="col-md-4">
                                     <input type="text" class="form-control form-control-sm" id="nr-nombre"
                                            placeholder="Nombre completo *" maxlength="200">
                                 </div>
-                                <div class="col-md-4">
+                                <div class="col-md-3">
                                     <input type="email" class="form-control form-control-sm" id="nr-email"
                                            placeholder="Email *">
                                 </div>
                                 <div class="col-md-2">
                                     <input type="text" class="form-control form-control-sm" id="nr-cargo"
-                                           placeholder="Cargo (opcional)" maxlength="100">
+                                           placeholder="Cargo" maxlength="100">
+                                </div>
+                                <div class="col-md-2">
+                                    <input type="text" class="form-control form-control-sm" id="nr-dependencia"
+                                           placeholder="Dependencia/Empresa" maxlength="200">
                                 </div>
                                 <div class="col-md-1">
                                     <button type="button" class="btn btn-warning btn-sm w-100" id="btn-agregar-nr"
@@ -517,15 +650,12 @@ Ejemplo:
                         <div class="card-header">
                             <h5 class="card-title mb-0">
                                 <i class="fas fa-tasks text-primary me-2"></i>
-                                Compromisos
+                                Establecimiento y Aceptación de Compromisos
                             </h5>
                         </div>
                         <div class="card-body">
-                            <div id="compromisos-container">
-                                <!-- Los compromisos se agregan dinámicamente -->
-                            </div>
-                            
-                            <button type="button" class="btn btn-outline-primary" id="btn-agregar-compromiso">
+                            <div id="compromisos-container"></div>
+                            <button type="button" class="btn btn-outline-primary btn-sm" id="btn-agregar-compromiso">
                                 <i class="fas fa-plus me-1"></i>Agregar Compromiso
                             </button>
                         </div>
@@ -533,38 +663,33 @@ Ejemplo:
                 </div>
 
                 <div class="col-lg-6">
+                    <!-- ANEXOS -->
                     <div class="card hover-lift">
                         <div class="card-header">
                             <h5 class="card-title mb-0">
-                                <i class="fas fa-file-alt text-primary me-2"></i>
-                                Contenido del Acta
+                                <i class="fas fa-paperclip text-primary me-2"></i>
+                                ANEXOS
+                                <small class="text-muted fw-normal ms-2">(Archivos adjuntos del acta)</small>
                             </h5>
                         </div>
                         <div class="card-body">
+                            <p class="text-muted small mb-3">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Adjunta archivos que forman parte del acta: presentaciones, informes, fotos, etc.
+                                Se mostrarán en la sección <strong>ANEXOS</strong> al final del PDF generado.
+                            </p>
                             <div class="mb-3">
-                                <label for="orden_dia" class="form-label">Orden del Día</label>
-                                <textarea class="form-control" id="orden_dia" name="orden_dia" rows="4"
-                                            placeholder="1. Verificación del quórum&#10;2. Lectura y aprobación del orden del día&#10;3. [Agregar puntos específicos]&#10;4. Compromisos y acuerdos&#10;5. Varios"></textarea>
+                                <label for="anexos" class="form-label">
+                                    <i class="fas fa-upload me-1"></i>Seleccionar archivos
+                                </label>
+                                <input type="file" class="form-control" id="anexos" name="anexos" multiple
+                                       accept=".pdf,.png,.jpg,.jpeg,.docx,.xlsx,.pptx">
+                                <div class="form-text">
+                                    Formatos permitidos: PDF, imágenes (PNG, JPG), Word, Excel, PowerPoint.
+                                    Máximo <strong>10 MB</strong> por archivo.
+                                </div>
                             </div>
-
-                            <div class="mb-3">
-                                <label for="desarrollo" class="form-label">Desarrollo de la Reunión</label>
-                                <textarea class="form-control" id="desarrollo" name="desarrollo" rows="8"
-                                            placeholder="Describa detalladamente el desarrollo de la reunión..."></textarea>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="observaciones" class="form-label">Observaciones</label>
-                                <textarea class="form-control" id="observaciones" name="observaciones" rows="3"
-                                            placeholder="Observaciones adicionales (opcional)"></textarea>
-                            </div>
-
-                            <div class="mb-3">
-                                <label for="archivo_adjunto" class="form-label">Archivo Adjunto</label>
-                                <input type="file" class="form-control" id="archivo_adjunto" name="archivo_adjunto"
-                                        accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx">
-                                <div class="form-text">Formatos soportados: PDF, Word, Excel, PowerPoint</div>
-                            </div>
+                            <div id="anexos-preview" class="mt-2"></div>
                         </div>
                     </div>
                 </div>
@@ -692,7 +817,7 @@ $(document).ready(function() {
     // AGREGAR PARTICIPANTE (buscador por documento)
     // ========================================
     // ── PARTICIPANTES NO REGISTRADOS ─────────────────────────────────────────
-    const nrLista = [];  // {nombre, email, cargo}
+    const nrLista = [];  // {nombre, email, cargo, dependencia}
 
     function renderNrLista() {
         const container = document.getElementById('nr-lista');
@@ -704,10 +829,12 @@ $(document).ready(function() {
                     <strong>${p.nombre}</strong>
                     <span class="text-muted ms-1">&lt;${p.email}&gt;</span>
                     ${p.cargo ? `<span class="badge bg-secondary ms-1">${p.cargo}</span>` : ''}
+                    ${p.dependencia ? `<span class="badge bg-info text-dark ms-1">${p.dependencia}</span>` : ''}
                 </span>
                 <input type="hidden" name="nr_nombre[]" value="${p.nombre}">
                 <input type="hidden" name="nr_email[]" value="${p.email}">
                 <input type="hidden" name="nr_cargo[]" value="${p.cargo}">
+                <input type="hidden" name="nr_dependencia[]" value="${p.dependencia}">
                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="eliminarNr(${i})">
                     <i class="fas fa-times"></i>
                 </button>
@@ -724,6 +851,7 @@ $(document).ready(function() {
         const nombre = document.getElementById('nr-nombre').value.trim();
         const email = document.getElementById('nr-email').value.trim();
         const cargo = document.getElementById('nr-cargo').value.trim();
+        const dependencia = document.getElementById('nr-dependencia').value.trim();
         const errorDiv = document.getElementById('nr-error');
 
         errorDiv.classList.add('d-none');
@@ -739,11 +867,12 @@ $(document).ready(function() {
             errorDiv.textContent = 'Máximo 20 participantes no registrados por acta.'; errorDiv.classList.remove('d-none'); return;
         }
 
-        nrLista.push({ nombre, email, cargo });
+        nrLista.push({ nombre, email, cargo, dependencia });
         renderNrLista();
         document.getElementById('nr-nombre').value = '';
         document.getElementById('nr-email').value = '';
         document.getElementById('nr-cargo').value = '';
+        document.getElementById('nr-dependencia').value = '';
     });
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -753,18 +882,18 @@ $(document).ready(function() {
 
         const html = `
             <div class="mb-3 p-3 border rounded item-dinamico" id="participante-${pid}">
-                <div class="row align-items-start">
-                    <div class="col-md-5">
-                        <label class="form-label">Participante</label>
+                <div class="row align-items-start g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Participante</label>
                         <input type="hidden" name="participantes" id="hidden-participante-${pid}" value="">
                         <div class="participante-search-wrapper position-relative" id="search-wrapper-${pid}">
-                            <div class="input-group">
+                            <div class="input-group input-group-sm">
                                 <span class="input-group-text bg-white"><i class="fas fa-search text-muted"></i></span>
                                 <input type="text"
                                        class="form-control participante-search-input"
                                        id="search-input-${pid}"
                                        data-pid="${pid}"
-                                       placeholder="Escribe el número de documento..."
+                                       placeholder="Número de documento..."
                                        autocomplete="off">
                                 <button type="button" class="btn btn-outline-secondary btn-clear-participante d-none"
                                         id="btn-clear-${pid}" data-pid="${pid}" title="Limpiar selección">
@@ -783,13 +912,19 @@ $(document).ready(function() {
                             </span>
                         </div>
                     </div>
-                    <div class="col-md-5">
-                        <label class="form-label">Rol en la Reunión</label>
+                    <div class="col-md-3">
+                        <label class="form-label small fw-semibold">Rol en la Reunión</label>
                         <input type="text" name="rol_participante_${pid}"
-                               class="form-control" placeholder="Ej: Participante, Secretario">
+                               class="form-control form-control-sm" placeholder="Ej: Participante, Secretario">
                     </div>
-                    <div class="col-md-2">
-                        <label class="form-label">&nbsp;</label>
+                    <div class="col-md-4">
+                        <label class="form-label small fw-semibold">Dependencia / Empresa</label>
+                        <input type="text" name="dependencia_participante_${pid}"
+                               class="form-control form-control-sm" value="SENA - CENTRO MINERO"
+                               placeholder="Ej: SENA - CENTRO MINERO">
+                    </div>
+                    <div class="col-md-1">
+                        <label class="form-label small">&nbsp;</label>
                         <button type="button" class="btn btn-danger btn-sm w-100"
                                 onclick="eliminarParticipante(${pid})">
                             <i class="fas fa-trash"></i>
@@ -1059,6 +1194,9 @@ $(document).ready(function() {
         $('html, body').animate({scrollTop: 0}, 300);
     }
 
+    // goToStep expuesto globalmente (usado en botón inline del paso 2)
+    window.goToStep = function(step) { showStep(step); };
+
     // Event listeners para navegación
     $('#btn-next-step-1').click(function() {
         if (validateStep1()) {
@@ -1070,9 +1208,18 @@ $(document).ready(function() {
         showStep(1);
     });
 
+    // Botón "Siguiente" / "Saltar IA" del bloque IA (habilita y sigue al contenido en mismo paso)
     $('#btn-next-step-2, #btn-skip-ia').click(function() {
         $('#btn-next-step-2').prop('disabled', false);
-        showStep(3);
+        // Solo scrollear hacia abajo para mostrar los campos de contenido
+        $('html, body').animate({ scrollTop: $('.card.hover-lift.mt-4').first().offset().top - 80 }, 400);
+    });
+
+    // Botón "Siguiente" del bloque de contenido del acta (paso 2 → paso 3)
+    $('#btn-next-step-2b').click(function() {
+        if (validateStep2()) {
+            showStep(3);
+        }
     });
 
     $('#btn-prev-step-3').click(function() {
@@ -1106,14 +1253,19 @@ $(document).ready(function() {
 
     function validateStep1() {
         let valid = true;
-        const requiredFields = ['#numero_acta', '#titulo', '#tipo_reunion', '#fecha_reunion', '#lugar_reunion'];
+        const requiredFields = [
+            '#numero_acta', '#titulo', '#tipo_reunion', '#fecha_reunion',
+            '#hora_inicio', '#hora_fin', '#ciudad', '#lugar_enlace',
+            '#regional', '#centro'
+        ];
 
         requiredFields.forEach(field => {
-            if (!$(field).val().trim()) {
-                $(field).addClass('is-invalid');
+            const $f = $(field);
+            if (!$f.val() || !$f.val().trim()) {
+                $f.addClass('is-invalid');
                 valid = false;
             } else {
-                $(field).removeClass('is-invalid');
+                $f.removeClass('is-invalid');
             }
         });
 
@@ -1125,10 +1277,56 @@ $(document).ready(function() {
             $('#tipo_reunion_otro').removeClass('is-invalid');
         }
 
+        // Validar hora fin > hora inicio
+        const hI = $('#hora_inicio').val();
+        const hF = $('#hora_fin').val();
+        if (hI && hF && hF <= hI) {
+            $('#hora_fin').addClass('is-invalid');
+            showAlert('La hora de fin debe ser posterior a la hora de inicio', 'warning');
+            return false;
+        }
+
         if (!valid) {
             showAlert('Por favor complete todos los campos requeridos', 'warning');
         }
 
+        return valid;
+    }
+
+    function validateStep2() {
+        // Sincronizar CKEditor → textarea antes de validar
+        if (CKEDITOR.instances.desarrollo) {
+            CKEDITOR.instances.desarrollo.updateElement();
+        }
+
+        let valid = true;
+
+        // Verificar cada campo (para desarrollo, preferir getData() de CKEditor)
+        const campos = [
+            { selector: '#orden_dia', label: 'Agenda o Puntos para Desarrollar' },
+            { selector: '#objetivos', label: 'Objetivo(s) de la Reunión' },
+            { selector: '#desarrollo', label: 'Desarrollo de la Reunión', isCkeditor: true },
+        ];
+
+        campos.forEach(({ selector, label, isCkeditor }) => {
+            const $f = $(selector);
+            let val = '';
+            if (isCkeditor && CKEDITOR.instances.desarrollo) {
+                val = CKEDITOR.instances.desarrollo.getData().replace(/<[^>]*>/g, '').trim();
+            } else {
+                val = $f.val() ? $f.val().trim() : '';
+            }
+            if (!val) {
+                $f.addClass('is-invalid');
+                valid = false;
+            } else {
+                $f.removeClass('is-invalid');
+            }
+        });
+
+        if (!valid) {
+            showAlert('Complete los campos: Agenda, Objetivo(s) y Desarrollo de la Reunión', 'warning');
+        }
         return valid;
     }
 
@@ -1184,45 +1382,63 @@ $(document).ready(function() {
         const tipoVal = $('#tipo_reunion').val();
         const tipoTexto = tipoVal === 'otra' ? ($('#tipo_reunion_otro').val().trim() || 'Otra') : $('#tipo_reunion option:selected').text();
         const fecha = new Date($('#fecha_reunion').val()).toLocaleDateString('es-CO');
+        const ciudad = $('#ciudad').val();
+        const horaI = $('#hora_inicio').val();
+        const horaF = $('#hora_fin').val();
         const lugar = $('#lugar_reunion').val();
+        const lugarEnlace = $('#lugar_enlace').val();
+        const regional = $('#regional').val();
+        const centro = $('#centro').val();
         const modalidad = $('#modalidad option:selected').text();
 
         // Participantes registrados
         const participantes = getParticipantesActuales().map(p => p.nombre || p.email);
 
         // Participantes no registrados (externos)
-        const externosList = nrLista.map(p => `${p.nombre} <span class="text-muted">&lt;${p.email}&gt;</span>${p.cargo ? ` <span class="badge bg-secondary">${p.cargo}</span>` : ''}`);
+        const externosList = nrLista.map(p =>
+            `${p.nombre} <span class="text-muted">&lt;${p.email}&gt;</span>` +
+            (p.cargo ? ` <span class="badge bg-secondary">${p.cargo}</span>` : '') +
+            (p.dependencia ? ` <span class="badge bg-info text-dark">${p.dependencia}</span>` : '')
+        );
 
         const compromisos = [];
         $('.compromiso-descripcion').each(function() {
             const desc = $(this).val().trim();
-            if (desc) {
-                compromisos.push(desc);
-            }
+            if (desc) compromisos.push(desc);
         });
+
+        // ANEXOS
+        const anexosInput = document.getElementById('anexos');
+        const anexosCount = anexosInput && anexosInput.files ? anexosInput.files.length : 0;
 
         const resumenHtml = `
             <div class="row">
                 <div class="col-md-6">
-                    <h6 class="text-primary"><i class="fas fa-info-circle me-2"></i>Información General</h6>
+                    <h6 class="text-primary"><i class="fas fa-info-circle me-2"></i>Información General — GOR-F-084 V02</h6>
                     <table class="table table-sm table-striped">
-                        <tr><td><strong>N° Acta:</strong></td><td>${numeroActa}</td></tr>
-                        <tr><td><strong>Título:</strong></td><td>${titulo}</td></tr>
+                        <tr><td><strong>ACTA No.:</strong></td><td>${numeroActa}</td></tr>
+                        <tr><td><strong>Nombre Reunión:</strong></td><td>${titulo}</td></tr>
                         <tr><td><strong>Tipo:</strong></td><td>${tipoTexto}</td></tr>
-                        <tr><td><strong>Fecha:</strong></td><td>${fecha}</td></tr>
-                        <tr><td><strong>Lugar:</strong></td><td>${lugar}</td></tr>
+                        <tr><td><strong>Ciudad y Fecha:</strong></td><td>${ciudad}, ${fecha}</td></tr>
+                        <tr><td><strong>Hora Inicio:</strong></td><td>${horaI || '-'}</td></tr>
+                        <tr><td><strong>Hora Fin:</strong></td><td>${horaF || '-'}</td></tr>
+                        <tr><td><strong>Lugar/Enlace:</strong></td><td class="text-break">${lugarEnlace.substring(0,80)}${lugarEnlace.length>80?'...':''}</td></tr>
+                        <tr><td><strong>Lugar/Sala:</strong></td><td>${lugar}</td></tr>
+                        <tr><td><strong>Regional:</strong></td><td>${regional}</td></tr>
+                        <tr><td><strong>Centro:</strong></td><td>${centro}</td></tr>
                         <tr><td><strong>Modalidad:</strong></td><td>${modalidad}</td></tr>
+                        ${anexosCount > 0 ? `<tr><td><strong>Anexos:</strong></td><td><span class="badge bg-success">${anexosCount} archivo(s)</span></td></tr>` : ''}
                     </table>
                 </div>
                 <div class="col-md-6">
-                    <h6 class="text-primary"><i class="fas fa-users me-2"></i>Participantes (${participantes.length})</h6>
+                    <h6 class="text-primary"><i class="fas fa-users me-2"></i>Asistentes (${participantes.length})</h6>
                     <ul class="list-group list-group-flush">
                         ${participantes.map(p => `<li class="list-group-item py-1 px-0"><i class="fas fa-user me-2 text-muted"></i>${p}</li>`).join('')}
                     </ul>
                     ${externosList.length > 0 ? `
                         <h6 class="text-warning mt-3"><i class="fas fa-user-clock me-2"></i>Externos / No registrados (${externosList.length})</h6>
                         <ul class="list-group list-group-flush">
-                            ${externosList.map(p => `<li class="list-group-item py-1 px-0"><i class="fas fa-user-slash me-2 text-warning"></i>${p}</li>`).join('')}
+                            ${externosList.map(p => `<li class="list-group-item py-1 px-0 small"><i class="fas fa-user-slash me-2 text-warning"></i>${p}</li>`).join('')}
                         </ul>
                     ` : ''}
                 </div>
@@ -1231,7 +1447,7 @@ $(document).ready(function() {
                 <div class="mt-3">
                     <h6 class="text-primary"><i class="fas fa-tasks me-2"></i>Compromisos (${compromisos.length})</h6>
                     <ul class="list-group">
-                        ${compromisos.map(c => `<li class="list-group-item"><i class="fas fa-check-circle me-2 text-success"></i>${c.substring(0, 100)}${c.length > 100 ? '...' : ''}</li>`).join('')}
+                        ${compromisos.map(c => `<li class="list-group-item small"><i class="fas fa-check-circle me-2 text-success"></i>${c.substring(0,100)}${c.length>100?'...':''}</li>`).join('')}
                     </ul>
                 </div>
             ` : ''}
@@ -1239,6 +1455,30 @@ $(document).ready(function() {
 
         $('#resumen-acta').html(resumenHtml);
     }
+
+    // Preview de ANEXOS al seleccionar archivos
+    document.getElementById('anexos').addEventListener('change', function() {
+        const preview = document.getElementById('anexos-preview');
+        if (!this.files.length) { preview.innerHTML = ''; return; }
+        const iconos = { pdf: 'fa-file-pdf text-danger', docx: 'fa-file-word text-primary', xlsx: 'fa-file-excel text-success', pptx: 'fa-file-powerpoint text-warning', png: 'fa-file-image text-info', jpg: 'fa-file-image text-info', jpeg: 'fa-file-image text-info' };
+        let html = '<ul class="list-group list-group-sm mt-2">';
+        for (const f of this.files) {
+            const ext = f.name.split('.').pop().toLowerCase();
+            const icono = iconos[ext] || 'fa-file text-muted';
+            const mb = (f.size / (1024*1024)).toFixed(2);
+            const color = f.size > 10*1024*1024 ? 'text-danger' : 'text-muted';
+            html += `<li class="list-group-item py-1 d-flex align-items-center gap-2 small">
+                <i class="fas ${icono}"></i>
+                <span class="flex-grow-1">${f.name}</span>
+                <span class="${color}">${mb} MB</span>
+            </li>`;
+        }
+        html += '</ul>';
+        if (Array.from(this.files).some(f => f.size > 10*1024*1024)) {
+            html += '<div class="alert alert-danger mt-2 py-1 small"><i class="fas fa-exclamation-triangle me-1"></i>Uno o más archivos superan los 10 MB permitidos.</div>';
+        }
+        preview.innerHTML = html;
+    });
 
     // ========================================
     // ALERTAS
@@ -1276,10 +1516,113 @@ $(document).ready(function() {
         }, 5000);
     }
 
-    // Auto-llenar fecha actual
-    const now = new Date();
-    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-    $('#fecha_reunion').val(now.toISOString().slice(0, 16));
+    // Sincronizar CKEditor al enviar el formulario y limpiar localStorage
+    $('#form-acta').on('submit', function() {
+        if (CKEDITOR.instances.desarrollo) {
+            CKEDITOR.instances.desarrollo.updateElement();
+        }
+        localStorage.removeItem('acta_borrador');
+    });
+
+    // ========================================
+    // PERSISTENCIA EN localStorage
+    // ========================================
+    const DRAFT_KEY = 'acta_borrador';
+
+    // Campos de texto/select simples que se persisten
+    const camposPersistentes = [
+        'numero_acta', 'titulo', 'tipo_reunion', 'tipo_reunion_otro',
+        'fecha_reunion', 'hora_inicio', 'hora_fin', 'ciudad',
+        'lugar_enlace', 'lugar_reunion', 'direccion', 'regional', 'centro',
+        'modalidad', 'resumen_reunion',
+        'orden_dia', 'objetivos', 'observaciones'
+    ];
+
+    function guardarBorrador() {
+        const data = {};
+        camposPersistentes.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) data[id] = el.value;
+        });
+        // CKEditor (desarrollo)
+        if (CKEDITOR.instances.desarrollo) {
+            data['desarrollo'] = CKEDITOR.instances.desarrollo.getData();
+        } else {
+            const el = document.getElementById('desarrollo');
+            if (el) data['desarrollo'] = el.value;
+        }
+        try { localStorage.setItem(DRAFT_KEY, JSON.stringify(data)); } catch(e) {}
+    }
+
+    function restaurarBorrador() {
+        let data;
+        try { data = JSON.parse(localStorage.getItem(DRAFT_KEY)); } catch(e) {}
+        if (!data) return;
+
+        camposPersistentes.forEach(id => {
+            if (data[id] === undefined) return;
+            const el = document.getElementById(id);
+            if (el) el.value = data[id];
+        });
+
+        // Restaurar tipo_reunion_otro si aplica
+        if (data['tipo_reunion'] === 'otra') {
+            $('#campo-tipo-otro').removeClass('d-none');
+            $('#tipo_reunion_otro').attr('required', true);
+        }
+
+        // Restaurar CKEditor (puede que aún no esté listo)
+        if (data['desarrollo']) {
+            const setDesarrollo = () => {
+                if (CKEDITOR.instances.desarrollo) {
+                    CKEDITOR.instances.desarrollo.setData(data['desarrollo']);
+                } else {
+                    setTimeout(setDesarrollo, 200);
+                }
+            };
+            setDesarrollo();
+        }
+
+        showAlert('Se restauró un borrador guardado anteriormente. <a href="#" id="limpiar-borrador" class="alert-link">Limpiar borrador</a>', 'info');
+        document.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'limpiar-borrador') {
+                e.preventDefault();
+                localStorage.removeItem(DRAFT_KEY);
+                location.reload();
+            }
+        });
+    }
+
+    // Guardar en localStorage cada vez que el usuario escribe (debounce 800ms)
+    let draftTimer;
+    function debouncedSave() {
+        clearTimeout(draftTimer);
+        draftTimer = setTimeout(guardarBorrador, 800);
+    }
+
+    camposPersistentes.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.addEventListener('input', debouncedSave);
+        if (el && (el.tagName === 'SELECT')) el.addEventListener('change', debouncedSave);
+    });
+
+    // CKEditor guarda al cambiar contenido
+    CKEDITOR.on('instanceReady', function(evt) {
+        if (evt.editor.name === 'desarrollo') {
+            evt.editor.on('change', debouncedSave);
+        }
+    });
+
+    // Auto-llenar fecha actual solo si no hay borrador
+    const hasBorrador = !!localStorage.getItem(DRAFT_KEY);
+    if (!hasBorrador) {
+        const now = new Date();
+        now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+        $('#fecha_reunion').val(now.toISOString().slice(0, 16));
+    }
+
+    // Restaurar borrador al cargar
+    restaurarBorrador();
 });
 </script>
 {% endblock %}

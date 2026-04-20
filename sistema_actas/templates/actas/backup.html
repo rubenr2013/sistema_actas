@@ -28,16 +28,16 @@
     <div class="alert alert-warning">
         <i class="fas fa-lock me-2"></i>
         <strong>Vista de solo lectura:</strong> Solo los administradores pueden crear y eliminar copias de seguridad del sistema.
-        Puedes descargar los backups disponibles.
+        Puedes descargar las copias de seguridad disponibles.
     </div>
     {% endif %}
 
     {% if archivos %}
         <div class="alert alert-secondary small mb-3">
             <i class="fas fa-info-circle me-1"></i>
-            <strong>Backup del Sistema</strong> (solo admin): restaura toda la base de datos, se requiere iniciar sesion nuevamente.
+            <strong>Copia del Sistema</strong> (solo administrador): restaura toda la base de datos, se requiere iniciar sesión nuevamente.
             &nbsp;|&nbsp;
-            <strong>Backup Personal</strong>: restaura unicamente tus actas eliminadas sin afectar el resto del sistema.
+            <strong>Copia Personal</strong>: restaura únicamente tus actas eliminadas sin afectar el resto del sistema.
         </div>
         <table class="table table-hover shadow-sm rounded">
             <thead class="table-success">
@@ -67,8 +67,8 @@
                                 {% if user.rol == 'admin' %}
                                     <button type="button" class="btn btn-warning btn-sm"
                                         onclick="showConfirm({
-                                            title: 'Restaurar backup del sistema',
-                                            message: '<div class=\'alert alert-danger mb-2\'><i class=\'fas fa-exclamation-triangle me-1\'></i><strong>ADVERTENCIA:</strong> Se borrarán TODOS los datos actuales y se reemplazarán con los del backup. Deberás iniciar sesión nuevamente.</div>¿Deseas continuar?',
+                                            title: 'Restaurar copia del sistema',
+                                            message: '<div class=\'alert alert-danger mb-2\'><i class=\'fas fa-exclamation-triangle me-1\'></i><strong>ADVERTENCIA:</strong> Se borrarán TODOS los datos actuales y se reemplazarán con los de la copia de seguridad. Deberás iniciar sesión nuevamente.</div>¿Deseas continuar?',
                                             btnText: 'Sí, restaurar',
                                             btnClass: 'btn-warning',
                                             danger: true,
@@ -78,8 +78,8 @@
                                     </button>
                                     <button type="button" class="btn btn-danger btn-sm ms-1"
                                         onclick="showConfirm({
-                                            title: 'Eliminar backup',
-                                            message: '¿Eliminar el backup <strong>{{ archivo.nombre }}</strong> permanentemente? Esta acción no se puede deshacer.',
+                                            title: 'Eliminar copia de seguridad',
+                                            message: '¿Eliminar la copia de seguridad <strong>{{ archivo.nombre }}</strong> permanentemente? Esta acción no se puede deshacer.',
                                             btnText: 'Sí, eliminar',
                                             btnClass: 'btn-danger',
                                             onConfirm: function(){ window.location.href='{% url "core:eliminar_copia_seguridad" archivo.nombre %}'; }
@@ -87,13 +87,13 @@
                                         <i class="fas fa-trash me-1"></i> Eliminar
                                     </button>
                                 {% else %}
-                                    <span class="text-muted small"><i class="fas fa-lock me-1"></i> Solo admin</span>
+                                    <span class="text-muted small"><i class="fas fa-lock me-1"></i> Solo administrador</span>
                                 {% endif %}
                             {% else %}
                                 <button type="button" class="btn btn-success btn-sm"
                                     onclick="showConfirm({
-                                        title: 'Restaurar backup personal',
-                                        message: 'Se restaurarán las actas eliminadas de este backup. <strong>Las actas que ya existen no serán modificadas.</strong><br>¿Deseas continuar?',
+                                        title: 'Restaurar copia personal',
+                                        message: 'Se restaurarán las actas eliminadas de esta copia de seguridad. <strong>Las actas que ya existen no serán modificadas.</strong><br>¿Deseas continuar?',
                                         btnText: 'Sí, restaurar',
                                         btnClass: 'btn-success',
                                         danger: false,
@@ -104,8 +104,8 @@
                                 {% if user.rol == 'admin' %}
                                     <button type="button" class="btn btn-danger btn-sm ms-1"
                                         onclick="showConfirm({
-                                            title: 'Eliminar backup',
-                                            message: '¿Eliminar el backup <strong>{{ archivo.nombre }}</strong> permanentemente? Esta acción no se puede deshacer.',
+                                            title: 'Eliminar copia de seguridad',
+                                            message: '¿Eliminar la copia de seguridad <strong>{{ archivo.nombre }}</strong> permanentemente? Esta acción no se puede deshacer.',
                                             btnText: 'Sí, eliminar',
                                             btnClass: 'btn-danger',
                                             onConfirm: function(){ window.location.href='{% url "core:eliminar_copia_seguridad" archivo.nombre %}'; }

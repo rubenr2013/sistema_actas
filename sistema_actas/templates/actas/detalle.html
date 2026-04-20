@@ -308,6 +308,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th>Participante</th>
+                                <th>Dependencia / Empresa</th>
                                 <th>Estado</th>
                                 <th>Fecha Respuesta</th>
                                 <th>Observaciones</th>
@@ -320,6 +321,7 @@
                                     <strong>{{ p.usuario.get_full_name }}</strong>
                                     <br><small class="text-muted">{{ p.usuario.email }}</small>
                                 </td>
+                                <td><small>{{ p.dependencia_empresa|default:"SENA - CENTRO MINERO" }}</small></td>
                                 <td>
                                     {% if p.estado_aprobacion == 'aprobado' and p.ciclo_revision == acta.ciclo_revision %}
                                         <span class="badge bg-success"><i class="fas fa-check me-1"></i>Aprobó</span>
@@ -402,25 +404,59 @@
                         <div class="col-md-6">
                             <table class="table table-borderless table-sm">
                                 <tr>
-                                    <td class="fw-semibold">Tipo de Reunión:</td>
+                                    <td class="fw-semibold text-nowrap">Nombre del Comité / Reunión:</td>
+                                    <td>{{ acta.titulo }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Tipo:</td>
                                     <td>{% if acta.tipo_reunion == 'otra' and acta.tipo_reunion_otro %}{{ acta.tipo_reunion_otro }}{% else %}{{ acta.get_tipo_reunion_display }}{% endif %}</td>
                                 </tr>
                                 <tr>
-                                    <td class="fw-semibold">Fecha y Hora:</td>
-                                    <td>{{ acta.fecha_reunion|date:"d/m/Y H:i" }}</td>
+                                    <td class="fw-semibold">Ciudad y Fecha:</td>
+                                    <td>{% if acta.ciudad %}{{ acta.ciudad }}, {% endif %}{{ acta.fecha_reunion|date:"d/m/Y" }}</td>
                                 </tr>
                                 <tr>
-                                    <td class="fw-semibold">Lugar:</td>
+                                    <td class="fw-semibold">Hora Inicio / Fin:</td>
+                                    <td>
+                                        {% if acta.hora_inicio %}{{ acta.hora_inicio|time:"H:i" }}{% else %}-{% endif %}
+                                        /
+                                        {% if acta.hora_fin %}{{ acta.hora_fin|time:"H:i" }}{% else %}-{% endif %}
+                                    </td>
+                                </tr>
+                                {% if acta.lugar_enlace %}
+                                <tr>
+                                    <td class="fw-semibold">Lugar y/o Enlace:</td>
+                                    <td class="text-break">{{ acta.lugar_enlace }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if acta.lugar_reunion %}
+                                <tr>
+                                    <td class="fw-semibold">Lugar / Sala:</td>
                                     <td>{{ acta.lugar_reunion }}</td>
+                                </tr>
+                                {% endif %}
+                                {% if acta.direccion %}
+                                <tr>
+                                    <td class="fw-semibold">Dirección:</td>
+                                    <td>{{ acta.direccion }}</td>
+                                </tr>
+                                {% endif %}
+                            </table>
+                        </div>
+                        <div class="col-md-6">
+                            <table class="table table-borderless table-sm">
+                                <tr>
+                                    <td class="fw-semibold">Regional:</td>
+                                    <td>{{ acta.regional|default:"-" }}</td>
+                                </tr>
+                                <tr>
+                                    <td class="fw-semibold">Centro:</td>
+                                    <td>{{ acta.centro|default:"-" }}</td>
                                 </tr>
                                 <tr>
                                     <td class="fw-semibold">Modalidad:</td>
                                     <td>{{ acta.get_modalidad_display }}</td>
                                 </tr>
-                            </table>
-                        </div>
-                        <div class="col-md-6">
-                            <table class="table table-borderless table-sm">
                                 <tr>
                                     <td class="fw-semibold">Creador:</td>
                                     <td>{{ acta.creador.get_full_name }}</td>
@@ -429,13 +465,9 @@
                                     <td class="fw-semibold">Fecha Creación:</td>
                                     <td>{{ acta.fecha_creacion|date:"d/m/Y H:i" }}</td>
                                 </tr>
-                                <tr>
-                                    <td class="fw-semibold">Última Modificación:</td>
-                                    <td>{{ acta.fecha_modificacion|date:"d/m/Y H:i" }}</td>
-                                </tr>
                                 {% if acta.fecha_limite_firmas %}
                                 <tr>
-                                    <td class="fw-semibold">Límite para Firmas:</td>
+                                    <td class="fw-semibold">Límite Firmas:</td>
                                     <td>{{ acta.fecha_limite_firmas|date:"d/m/Y H:i" }}</td>
                                 </tr>
                                 {% endif %}
@@ -444,13 +476,13 @@
                     </div>
                 </div>
             </div>
-            <!-- Orden del Día -->
+            <!-- AGENDA O PUNTOS PARA DESARROLLAR -->
             {% if acta.orden_dia %}
             <div class="card hover-lift mb-4">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
                         <i class="fas fa-list-ol text-primary me-2"></i>
-                        Orden del Día
+                        AGENDA O PUNTOS PARA DESARROLLAR
                     </h5>
                 </div>
                 <div class="card-body">
@@ -460,13 +492,29 @@
                 </div>
             </div>
             {% endif %}
-            <!-- Desarrollo de la Reunión -->
+            <!-- OBJETIVO(S) DE LA REUNIÓN -->
+            {% if acta.objetivos %}
+            <div class="card hover-lift mb-4">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-bullseye text-success me-2"></i>
+                        OBJETIVO(S) DE LA REUNIÓN
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="formatted-content">
+                        {{ acta.objetivos|linebreaks }}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            <!-- DESARROLLO DE LA REUNIÓN -->
             {% if acta.desarrollo %}
             <div class="card hover-lift mb-4">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-comments text-primary me-2"></i>
-                        Desarrollo de la Reunión
+                        <i class="fas fa-pen-alt text-primary me-2"></i>
+                        DESARROLLO DE LA REUNIÓN
                     </h5>
                 </div>
                 <div class="card-body">
@@ -485,13 +533,13 @@
                 </div>
             </div>
             {% endif %}
-            <!-- Observaciones -->
+            <!-- CONCLUSIONES -->
             {% if acta.observaciones %}
             <div class="card hover-lift mb-4">
                 <div class="card-header">
                     <h5 class="card-title mb-0">
-                        <i class="fas fa-sticky-note text-primary me-2"></i>
-                        Observaciones
+                        <i class="fas fa-check-double text-success me-2"></i>
+                        CONCLUSIONES
                     </h5>
                 </div>
                 <div class="card-body">

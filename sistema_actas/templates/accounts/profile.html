@@ -146,10 +146,10 @@
             <h6 class="text-muted mb-2"><i class="fas fa-shield-alt me-2"></i>Gestión de Copias de Seguridad</h6>
             <div class="d-flex gap-2 flex-wrap">
                 <a href="{% url 'core:crear_backup_personal' %}" class="btn btn-success btn-sm">
-                    <i class="fas fa-download me-1"></i> Descargar mi Backup
+                    <i class="fas fa-download me-1"></i> Descargar mi copia de seguridad
                 </a>
                 <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#restaurarBackupModal">
-                    <i class="fas fa-upload me-1"></i> Restaurar mi Backup
+                    <i class="fas fa-upload me-1"></i> Restaurar mi copia de seguridad
                 </button>
             </div>
         </div>
@@ -182,17 +182,17 @@
                 <div class="modal-body">
                     <div class="alert alert-info">
                         <i class="fas fa-info-circle me-2"></i>
-                        <strong>Importante:</strong> Solo puedes restaurar backups que hayas creado previamente desde tu perfil.
+                        <strong>Importante:</strong> Solo puedes restaurar copias de seguridad que hayas creado previamente desde tu perfil.
                     </div>
                     <div class="mb-3">
                         <label for="backup_file" class="form-label">
-                            <i class="fas fa-file-archive me-1"></i>Selecciona tu archivo de backup (.zip)
+                            <i class="fas fa-file-archive me-1"></i>Selecciona tu archivo de copia de seguridad (.zip)
                         </label>
                         <input type="file" class="form-control" id="backup_file" name="backup_file" accept=".zip" required>
                     </div>
                     <div class="alert alert-warning">
                         <i class="fas fa-exclamation-triangle me-2"></i>
-                        Esta acción verificará y mostrará la información contenida en tu backup.
+                        Esta acción verificará y mostrará la información contenida en la copia de seguridad.
                     </div>
                 </div>
                 <div class="modal-footer">
@@ -200,7 +200,7 @@
                         <i class="fas fa-times me-1"></i>Cancelar
                     </button>
                     <button type="submit" class="btn btn-primary">
-                        <i class="fas fa-upload me-1"></i>Restaurar Backup
+                        <i class="fas fa-upload me-1"></i>Restaurar copia de seguridad
                     </button>
                 </div>
             </form>

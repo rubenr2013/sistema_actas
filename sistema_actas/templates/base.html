@@ -1313,7 +1313,7 @@
                     <i class="fas fa-layer-group"></i>Fichas
                 </a>
                 <a class="nav-link" href="{% url 'admin:index' %}">
-                    <i class="fas fa-tools"></i>Panel Admin
+                    <i class="fas fa-tools"></i>Panel de Administración
                 </a>
                 {% endif %}
             </nav>
@@ -1501,24 +1501,6 @@
         });
     </script>
 
-    <script src="https://website-widgets.pages.dev/dist/sienna.min.js" async></script> 
-    
-    <script>
-        // Función de chequeo recursivo
-        function checkSiennaLoaded() {
-            // Verificamos si la función global existe.
-            if (typeof SiennaAccessibility !== 'undefined' && typeof SiennaAccessibility.load === 'function') {
-                SiennaAccessibility.load();
-                console.log("Sienna Accessibility cargado con éxito.");
-            } else {
-                // Si no está lista, intentamos de nuevo en 200 milisegundos.
-                setTimeout(checkSiennaLoaded, 200); 
-            }
-        }
-        
-        // Iniciar el chequeo después de que el DOM está listo
-        document.addEventListener("DOMContentLoaded", checkSiennaLoaded);
-    </script>
     {% block extra_js %}{% endblock %}
 
         <!-- ======= PANEL DE ACCESIBILIDAD SENA ======= -->
@@ -1892,18 +1874,28 @@
         applyAll();
 
         /* Panel open/close */
-        function openPanel()  { panel.classList.add('a11y-open');    btn.setAttribute('aria-expanded','true');  closeBtn.focus(); }
-        function closePanel() { panel.classList.remove('a11y-open'); btn.setAttribute('aria-expanded','false'); btn.focus(); }
+        function openPanel() {
+            panel.classList.add('a11y-open');
+            btn.setAttribute('aria-expanded', 'true');
+            closeBtn.focus();
+        }
+        // returnFocus=true solo cuando el cierre es intencional (X o Escape),
+        // nunca al hacer clic fuera, para no robar el foco de inputs/formularios
+        function closePanel(returnFocus) {
+            panel.classList.remove('a11y-open');
+            btn.setAttribute('aria-expanded', 'false');
+            if (returnFocus) btn.focus();
+        }
 
         btn.addEventListener('click', function() {
-            panel.classList.contains('a11y-open') ? closePanel() : openPanel();
+            panel.classList.contains('a11y-open') ? closePanel(true) : openPanel();
         });
-        closeBtn.addEventListener('click', closePanel);
+        closeBtn.addEventListener('click', function() { closePanel(true); });
         document.addEventListener('click', function(e) {
-            if (!panel.contains(e.target) && e.target !== btn) closePanel();
+            if (!panel.contains(e.target) && e.target !== btn) closePanel(false);
         });
         document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape' && panel.classList.contains('a11y-open')) closePanel();
+            if (e.key === 'Escape' && panel.classList.contains('a11y-open')) closePanel(true);
         });
 
         /* Toggles */

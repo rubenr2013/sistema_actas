@@ -2,7 +2,7 @@
 {% load static %}
 {% load humanize %}
 
-{% block title %}Dashboard - Sistema de Gestión de Actas{% endblock %}
+{% block title %}Inicio - Sistema de Gestión de Actas{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
@@ -18,7 +18,7 @@
                     {% if user.rol == "admin" %}
                         {% if es_vista_admin %}
                             <a href="?vista=personal" class="btn btn-outline-secondary">
-                                <i class="fas fa-user me-1"></i>Mi Dashboard
+                                <i class="fas fa-user me-1"></i>Mi Panel
                             </a>
                         {% else %}
                             <a href="{% url 'core:dashboard' %}" class="btn btn-outline-primary">

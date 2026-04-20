@@ -276,7 +276,61 @@ class Acta(models.Model):
     silencio_administrativo = models.BooleanField(default=False)
     aplicar_silencio_dias = models.IntegerField(default=7)
     
-    # Archivos adjuntos
+    # ========================================
+    # CAMPOS FORMATO OFICIAL GOR-F-084 V02
+    # ========================================
+    ciudad = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        verbose_name='Ciudad',
+        help_text='Ej: Sogamoso, Boyacá',
+    )
+    hora_inicio = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name='Hora de inicio',
+        help_text='Hora de inicio de la reunión (HH:MM)',
+    )
+    hora_fin = models.TimeField(
+        null=True,
+        blank=True,
+        verbose_name='Hora de fin',
+        help_text='Hora de finalización de la reunión (HH:MM)',
+    )
+    lugar_enlace = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Lugar y/o enlace',
+        help_text='Dirección física o enlace virtual (Teams, Zoom, Google Meet)',
+    )
+    direccion = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        verbose_name='Dirección',
+        help_text='Dirección física. Ej: Cra 9 #14-109',
+    )
+    regional = models.CharField(
+        max_length=100,
+        blank=True,
+        default='Boyacá',
+        verbose_name='Regional',
+    )
+    centro = models.CharField(
+        max_length=150,
+        blank=True,
+        default='Centro Minero',
+        verbose_name='Centro',
+    )
+    objetivos = models.TextField(
+        blank=True,
+        default='',
+        verbose_name='Objetivo(s) de la reunión',
+        help_text='Verbos en infinitivo. Ej: 1. Revisar... 2. Evaluar...',
+    )
+
+    # Archivos adjuntos (campo legacy)
     archivo_adjunto = models.FileField(
         upload_to='actas/adjuntos/',
         blank=True,
@@ -510,6 +564,13 @@ class Participante(models.Model):
     acta = models.ForeignKey(Acta, on_delete=models.CASCADE, related_name='participantes')
     usuario = models.ForeignKey(User, on_delete=models.CASCADE)
     rol_en_reunion = models.CharField(max_length=100, blank=True)
+    dependencia_empresa = models.CharField(
+        max_length=200,
+        blank=True,
+        default='SENA - CENTRO MINERO',
+        verbose_name='Dependencia / Empresa',
+        help_text='Ej: SENA - CENTRO MINERO, Alcaldía de Sogamoso',
+    )
     obligatorio_firma = models.BooleanField(default=True)
     fecha_agregado = models.DateTimeField(auto_now_add=True)
 
@@ -966,6 +1027,13 @@ class ParticipanteNoRegistrado(models.Model):
         default='',
         verbose_name='Cargo / Rol',
         help_text='Ej: Aprendiz, Invitado externo, Contratista',
+    )
+    dependencia_empresa = models.CharField(
+        max_length=200,
+        blank=True,
+        default='',
+        verbose_name='Dependencia / Empresa',
+        help_text='Ej: Alcaldía de Sogamoso, Empresa XYZ S.A.S.',
     )
     fecha_creacion = models.DateTimeField(auto_now_add=True)
 
