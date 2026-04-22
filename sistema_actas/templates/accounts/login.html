@@ -186,7 +186,7 @@ body {
                     {% endfor %}
                 {% endif %}
 
-                <form method="post" id="loginForm">
+                <form method="post" id="loginForm" autocomplete="off">
                     {% csrf_token %}
                     
                     <div class="form-floating mb-3">

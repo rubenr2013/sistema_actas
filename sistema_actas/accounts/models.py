@@ -211,9 +211,19 @@ class User (AbstractUser) :
             )
 
         # Rol invitado puede tener cualquier email (sin restricciones)
+    # Mapa rol → nombre del Group de Django (debe coincidir con views_roles.ROL_A_GROUP)
+    _ROL_A_GROUP = {
+        'aprendiz':    'Aprendiz',
+        'instructor':  'Instructor',
+        'invitado':    'Invitado',
+        'funcionario': 'Funcionario',
+        'coordinador': 'Coordinador',
+        'director':    'Director',
+        'admin':       'Administrador',
+    }
+
     #Guardado Personalizado
-    def save (self, *args, **kwargs):
-        #Redimensionar firma digital si es muy grade
+    def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
 
         if self.rol == 'admin':
@@ -226,6 +236,22 @@ class User (AbstractUser) :
                 self.is_staff = False
                 self.is_superuser = False
                 super().save(*args, **kwargs)
+
+        # Sincronizar el usuario al Group correspondiente a su rol.
+        # Esto permite que user.has_perm() refleje los permisos configurados
+        # en la pantalla de Roles y Permisos del administrador.
+        try:
+            from django.contrib.auth.models import Group
+            nombres_roles = set(self._ROL_A_GROUP.values())
+            # Quitar de todos los grupos de rol
+            self.groups.remove(*self.groups.filter(name__in=nombres_roles))
+            # Agregar al grupo correcto
+            nombre_grupo = self._ROL_A_GROUP.get(self.rol)
+            if nombre_grupo:
+                grupo, _ = Group.objects.get_or_create(name=nombre_grupo)
+                self.groups.add(grupo)
+        except Exception:
+            pass  # No interrumpir el guardado si falla la sincronización de grupos
 
         if self.firma_digital:
             import os

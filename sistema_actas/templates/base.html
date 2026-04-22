@@ -1270,29 +1270,37 @@
                 <a class="nav-link" href="{% url 'actas:actas_list' %}">
                     <i class="fas fa-file-alt"></i>Mis Actas
                 </a>
-                {% if user.email_verificado and user.cuenta_aprobada %}
+                {% if user.email_verificado and user.cuenta_aprobada and perms.actas.add_acta %}
                 <a class="nav-link" href="{% url 'actas:crear' %}">
                     <i class="fas fa-plus-circle"></i>Nueva Acta
                 </a>
                 {% endif %}
+                {% if perms.actas.firmar_acta %}
                 <a class="nav-link" href="{% url 'actas:firmas_pendientes' %}">
                     <i class="fas fa-signature"></i>Firmas Pendientes
                 </a>
-                {% if user.rol == 'admin' %}
+                {% endif %}
+                {% if user.is_staff %}
                 <a class="nav-link" href="{% url 'core:vista_backup' %}">
                     <i class="fas fa-database me-1"></i>Copias de Seguridad
                 </a>
                 {% endif %}
+                {% if perms.actas.view_compromiso %}
                 <a class="nav-link" href="{% url 'actas:mis_compromisos' %}">
                     <i class="fas fa-tasks"></i>Compromisos
                 </a>
+                {% endif %}
 
-                {% if user.rol == 'admin' or user.is_staff %}
+                {# Sección Administración: visible si el usuario tiene al menos uno de estos permisos #}
+                {% if user.is_staff or perms.accounts.view_user or perms.actas.view_plantillaacta %}
                 <hr>
                 <h6>Administración</h6>
+                {% if user.is_staff or perms.accounts.view_user %}
                 <a class="nav-link" href="{% url 'accounts:usuarios' %}">
                     <i class="fas fa-users"></i>Usuarios
                 </a>
+                {% endif %}
+                {% if user.is_staff %}
                 <a class="nav-link d-flex align-items-center justify-content-between {% if 'cuentas-pendientes' in request.path %}active{% endif %}"
                    href="{% url 'accounts:cuentas_pendientes' %}">
                     <span><i class="fas fa-user-clock me-1"></i>Aprobaciones</span>
@@ -1303,9 +1311,13 @@
                 <a class="nav-link {% if 'roles' in request.path %}active{% endif %}" href="{% url 'accounts:roles_list' %}">
                     <i class="fas fa-shield-alt"></i>Roles y Permisos
                 </a>
+                {% endif %}
+                {% if user.is_staff or perms.actas.view_plantillaacta %}
                 <a class="nav-link {% if 'plantillas' in request.path %}active{% endif %}" href="{% url 'actas:plantillas_list' %}">
                     <i class="fas fa-file-word"></i>Plantillas de Acta
                 </a>
+                {% endif %}
+                {% if user.is_staff %}
                 <a class="nav-link" href="{% url 'formacion:programas_list' %}">
                     <i class="fas fa-graduation-cap"></i>Programas
                 </a>
@@ -1315,6 +1327,7 @@
                 <a class="nav-link" href="{% url 'admin:index' %}">
                     <i class="fas fa-tools"></i>Panel de Administración
                 </a>
+                {% endif %}
                 {% endif %}
             </nav>
         {% endif %}

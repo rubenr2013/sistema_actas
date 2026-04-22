@@ -41,13 +41,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Clave secreta para seguridad de Django (lee desde .env — NUNCA usar el default en producción)
 SECRET_KEY = config("SECRET_KEY", default="django-insecure-change-me-in-production")
 
-# Modo de depuración: False por defecto para evitar exponer info sensible si falta la variable
-DEBUG = config("DEBUG", default=False, cast=bool)
+# En desarrollo y Codespaces DEBUG=True por defecto; producción debe poner DEBUG=False en .env
+DEBUG = config("DEBUG", default=True, cast=bool)
 
 # Hosts permitidos — en producción se leen desde .env (dominios exactos, sin wildcards)
 ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
-# En desarrollo local, permitir ngrok y localhost
+# En desarrollo local y Codespaces, permitir ngrok, localhost y dominios de GitHub
 if DEBUG:
     ALLOWED_HOSTS += [
         '.ngrok.io',
@@ -56,6 +56,10 @@ if DEBUG:
         '.ngrok-free.dev',
         '.localhost',
         '127.0.0.1',
+        '.github.dev',           # GitHub Codespaces
+        '.app.github.dev',       # GitHub Codespaces (preview ports)
+        '.githubpreview.dev',    # GitHub Codespaces legacy
+        'codespaces-port-forwarder.githubusercontent.com',
     ]
 
 # AWS Elastic Beanstalk — solo el dominio exacto del entorno
@@ -194,8 +198,12 @@ STATIC_URL = "/static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"  # Para produccion
 STATICFILES_DIRS = [
     BASE_DIR / "static",
-    BASE_DIR / "core",  # 👈 importante, para que Django sirva también core/js/
+    BASE_DIR / "core",
 ]
+
+# Whitenoise: comprime estáticos sin requerir manifest (funciona sin collectstatic previo)
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
+WHITENOISE_USE_FINDERS = True  # Busca archivos en STATICFILES_DIRS sin necesitar collectstatic
 
 MEDIA_URL = "/media/"  # Archivos subidos por usuarios
 MEDIA_ROOT = BASE_DIR / "media"

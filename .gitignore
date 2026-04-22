@@ -105,9 +105,7 @@ cover/
 # Archivos obsoletos de plataformas anteriores
 # -----------------------------------------------
 # Proyecto migró a AWS Elastic Beanstalk — estos son de Railway (ya no se usan)
-Procfile
 railway.json
-runtime.txt
 nixpacks.toml
 railway.toml
 
@@ -146,9 +144,31 @@ ARCHIVOS_ADJUNTOS_API.md
 ARCHIVOS_ADJUNTOS_IMPLEMENTACION.md
 tmpclaude-*
 
-# Archivos temporales de Windows
+# -----------------------------------------------
+# Sistema operativo
+# -----------------------------------------------
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 nul
 sistema_actas/nul
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
 
 # -----------------------------------------------
 # Misceláneos
@@ -177,5 +197,33 @@ instance/
 .webassets-cache
 .scrapy
 
+# -----------------------------------------------
+# Archivos generados en producción (no subir)
+# -----------------------------------------------
+# staticfiles/ se genera con 'python manage.py collectstatic'
+staticfiles/manifest.json
+*.manifest.json
+
+# Archivos de sesión de Django
+django_session*
+
+# -----------------------------------------------
+# Archivos de configuración local de herramientas
+# -----------------------------------------------
 # Claude Code
 .claude/settings.local.json
+
+# Node (si se usara algún build tool frontend)
+node_modules/
+package-lock.json
+yarn.lock
+.npm
+
+# -----------------------------------------------
+# Certificados y claves privadas
+# -----------------------------------------------
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx

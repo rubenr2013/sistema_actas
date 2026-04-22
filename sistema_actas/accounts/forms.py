@@ -99,6 +99,7 @@ class CustomAuthenticationForm(AuthenticationForm):
             "class": "form-control",
             "id": "email",
             "placeholder": "usuario@sena.edu.co o usuario@gmail.com",
+            "autocomplete": "off",
         })
     )
     password = forms.CharField(
@@ -108,6 +109,7 @@ class CustomAuthenticationForm(AuthenticationForm):
             "class": "form-control",
             "id": "password",
             "placeholder": "Contraseña",
+            "autocomplete": "new-password",
         }),
     )
 
