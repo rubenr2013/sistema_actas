@@ -252,7 +252,7 @@
         </div>
     </div>
 
-    <form id="form-acta" method="post" enctype="multipart/form-data" action="{% url 'actas:crear' %}">
+    <form id="form-acta" method="post" enctype="multipart/form-data" action="{% url 'actas:crear' %}" novalidate>
         {% csrf_token %}
         
         <!-- Paso 1: Información Básica -->
@@ -365,7 +365,7 @@
                                 <div class="col-md-6 mb-3">
                                     <div class="form-floating">
                                         <input type="text" class="form-control" id="lugar_reunion"
-                                                name="lugar_reunion" placeholder="Nombre del lugar" required>
+                                                name="lugar_reunion" placeholder="Nombre del lugar">
                                         <label for="lugar_reunion">Nombre del Lugar / Sala</label>
                                     </div>
                                 </div>
