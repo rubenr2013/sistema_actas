@@ -69,38 +69,50 @@ def dashboard(request):
         }
     else:
         # ===== DASHBOARD PERSONAL (todos los roles + admin en modo personal) =====
-        stats = {
-            'total_actas': Acta.objects.filter(
-                Q(creador=user) |
-                (Q(participantes__usuario=user) & ~Q(estado='borrador'))
-            ).distinct().count(),
-            'actas_pendientes_firma': Firma.objects.filter(
-                usuario=user, firmado=False, acta__estado='en_revision'
-            ).count(),
-            'compromisos_pendientes': Compromiso.objects.filter(
-                responsable=user, estado__in=['pendiente', 'en_progreso']
-            ).count(),
-            'compromisos_vencidos': Compromiso.objects.filter(
-                responsable=user, estado='vencido'
-            ).count()
-        }
+        can_ver_actas     = user.has_perm('actas.view_acta')
+        can_firmar        = user.has_perm('actas.firmar_acta')
+        can_ver_compromisos = user.has_perm('actas.view_compromiso')
 
-        actas_recientes = Acta.objects.filter(
+        actas_qs = Acta.objects.filter(
             Q(creador=user) |
             (Q(participantes__usuario=user) & ~Q(estado='borrador'))
-        ).distinct().order_by('-fecha_creacion')[:5]
+        ).distinct()
 
-        compromisos_proximos = Compromiso.objects.filter(
-            responsable=user,
-            estado__in=['pendiente', 'en_progreso'],
-            fecha_limite__lte=timezone.now().date() + timedelta(days=7)
-        ).order_by('fecha_limite')[:5]
+        stats = {
+            'total_actas': actas_qs.count() if can_ver_actas else 0,
+            'actas_pendientes_firma': (
+                Firma.objects.filter(usuario=user, firmado=False, acta__estado='en_revision').count()
+                if can_firmar else 0
+            ),
+            'compromisos_pendientes': (
+                Compromiso.objects.filter(responsable=user, estado__in=['pendiente', 'en_progreso']).count()
+                if can_ver_compromisos else 0
+            ),
+            'compromisos_vencidos': (
+                Compromiso.objects.filter(responsable=user, estado='vencido').count()
+                if can_ver_compromisos else 0
+            ),
+        }
 
-        firmas_pendientes = Firma.objects.filter(
-            usuario=user,
-            firmado=False,
-            acta__estado='en_revision'
-        ).select_related('acta')[:5]
+        actas_recientes = (
+            actas_qs.order_by('-fecha_creacion')[:5] if can_ver_actas else []
+        )
+
+        compromisos_proximos = (
+            Compromiso.objects.filter(
+                responsable=user,
+                estado__in=['pendiente', 'en_progreso'],
+                fecha_limite__lte=timezone.now().date() + timedelta(days=7)
+            ).order_by('fecha_limite')[:5]
+            if can_ver_compromisos else []
+        )
+
+        firmas_pendientes = (
+            Firma.objects.filter(
+                usuario=user, firmado=False, acta__estado='en_revision'
+            ).select_related('acta')[:5]
+            if can_firmar else []
+        )
 
         notificaciones = Notification.objects.filter(
             usuario=user, leida=False

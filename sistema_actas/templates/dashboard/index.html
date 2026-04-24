@@ -288,6 +288,7 @@
 
     <!-- Estadísticas Rápidas -->
     <div class="row mb-4">
+        {% if perms.actas.view_acta %}
         <div class="col-xl-3 col-md-6 mb-3">
             <div class="card stats-card hover-lift fade-in-up">
                 <div class="card-body">
@@ -303,7 +304,9 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if perms.actas.firmar_acta %}
         <div class="col-xl-3 col-md-6 mb-3">
             <div class="card stats-card hover-lift fade-in-up stagger-1">
                 <div class="card-body">
@@ -319,7 +322,9 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if perms.actas.view_compromiso %}
         <div class="col-xl-3 col-md-6 mb-3">
             <div class="card stats-card hover-lift fade-in-up stagger-2">
                 <div class="card-body">
@@ -351,11 +356,13 @@
                 </div>
             </div>
         </div>
+        {% endif %}
     </div>
 
     <div class="row">
+        {% if perms.actas.view_acta %}
         <!-- Actas Recientes -->
-        <div class="col-lg-8 mb-4">
+        <div class="col-lg-{% if perms.actas.firmar_acta or perms.actas.view_compromiso %}8{% else %}12{% endif %} mb-4">
             <div class="card hover-lift fade-in-up">
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h5 class="card-title mb-0">
@@ -403,7 +410,7 @@
                         <div class="text-center py-4">
                             <i class="fas fa-file-alt text-muted" style="font-size: 3rem; opacity: 0.3;"></i>
                             <p class="text-muted mt-3">No hay actas recientes</p>
-                            {% if user.rol != "aprendiz" and user.rol != "invitado" %}
+                            {% if perms.actas.add_acta %}
                             <a href="{% url 'actas:crear' %}" class="btn btn-primary">Crear primera acta</a>
                             {% endif %}
                         </div>
@@ -411,9 +418,12 @@
                 </div>
             </div>
         </div>
+        {% endif %}
 
+        {% if perms.actas.firmar_acta or perms.actas.view_compromiso %}
         <!-- Sidebar derecho -->
-        <div class="col-lg-4">
+        <div class="col-lg-{% if perms.actas.view_acta %}4{% else %}12{% endif %}">
+            {% if perms.actas.firmar_acta %}
             <!-- Firmas Pendientes -->
             <div class="card hover-lift fade-in-up stagger-1 mb-4">
                 <div class="card-header">
@@ -446,7 +456,9 @@
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
 
+            {% if perms.actas.view_compromiso %}
             <!-- Compromisos Próximos -->
             <div class="card hover-lift fade-in-up stagger-2">
                 <div class="card-header">
@@ -487,7 +499,9 @@
                     {% endif %}
                 </div>
             </div>
+            {% endif %}
         </div>
+        {% endif %}
     </div>
 
 {% endif %}
